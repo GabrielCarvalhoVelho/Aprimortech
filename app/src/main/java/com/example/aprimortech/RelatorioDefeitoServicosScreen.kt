@@ -99,6 +99,7 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
                             unfocusedBorderColor = Color.LightGray
                         )
                     )
+                    Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = {
                             if (novoDefeito.isNotBlank()) {
@@ -106,7 +107,15 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
                                 novoDefeito = ""
                             }
                         },
-                        modifier = Modifier.align(Alignment.End)
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(6.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1A4A5C),
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
                     ) {
                         Text("Adicionar")
                     }
@@ -149,6 +158,7 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
                             unfocusedBorderColor = Color.LightGray
                         )
                     )
+                    Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = {
                             if (novoServico.isNotBlank()) {
@@ -156,7 +166,15 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
                                 novoServico = ""
                             }
                         },
-                        modifier = Modifier.align(Alignment.End)
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(6.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1A4A5C),
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
                     ) {
                         Text("Adicionar")
                     }
