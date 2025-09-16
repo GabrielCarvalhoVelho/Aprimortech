@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "620258052927",
+    "project_id": "aprimortech-30cad",
+    "storage_bucket": "aprimortech-30cad.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:620258052927:android:a40a073d1b576421e8e18a",
+        "android_client_info": {
+          "package_name": "com.example.aprimortech"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD18EhBVaTwfMeyRplU5_2xrfoNvqxnmQg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
