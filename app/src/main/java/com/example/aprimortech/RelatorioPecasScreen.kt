@@ -213,8 +213,7 @@ fun RelatorioPecasScreen(navController: NavController, modifier: Modifier = Modi
                 }
                 Button(
                     onClick = {
-                        // TODO: salvar lista de peças e ir para a próxima etapa
-                        // navController.navigate("relatorioEtapa5")
+                        navController.navigate("relatorioEtapa5")
                     },
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.height(46.dp),

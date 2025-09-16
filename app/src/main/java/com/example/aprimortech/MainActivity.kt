@@ -35,16 +35,6 @@ import androidx.navigation.compose.rememberNavController
 import com.example.aprimortech.ui.theme.AprimortechTheme
 import com.google.firebase.auth.FirebaseAuth
 
-// importa todas as telas criadas
-import com.example.aprimortech.NovoRelatorioScreen
-import com.example.aprimortech.RelatorioEquipamentoScreen
-import com.example.aprimortech.RelatorioDefeitoServicosScreen
-import com.example.aprimortech.RelatorioPecasScreen
-import com.example.aprimortech.RelatorioHorasDeslocamentoScreen
-import com.example.aprimortech.RelatorioAssinaturaScreen
-import com.example.aprimortech.RelatorioFinalizadoScreen
-import com.example.aprimortech.RelatorioUiModel
-
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -194,30 +184,28 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
                     return@Button
                 }
 
-                if (auth != null) {
-                    auth.signInWithEmailAndPassword(email.trim(), password.trim())
-                        .addOnCompleteListener { task ->
-                            if (task.isSuccessful) {
-                                Toast.makeText(
-                                    context,
-                                    "Login realizado com sucesso!",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                                navController.navigate("dashboard") {
-                                    popUpTo("login") { inclusive = true }
-                                }
-                            } else {
-                                val exception = task.exception
-                                val errorMessage =
-                                    exception?.message ?: "Erro desconhecido. Tente novamente."
-                                Toast.makeText(
-                                    context,
-                                    "Falha no login: $errorMessage",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                auth?.signInWithEmailAndPassword(email.trim(), password.trim())
+                    ?.addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            Toast.makeText(
+                                context,
+                                "Login realizado com sucesso!",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            navController.navigate("dashboard") {
+                                popUpTo("login") { inclusive = true }
                             }
+                        } else {
+                            val exception = task.exception
+                            val errorMessage =
+                                exception?.message ?: "Erro desconhecido. Tente novamente."
+                            Toast.makeText(
+                                context,
+                                "Falha no login: $errorMessage",
+                                Toast.LENGTH_LONG
+                            ).show()
                         }
-                }
+                    }
             },
             modifier = Modifier
                 .fillMaxWidth()
