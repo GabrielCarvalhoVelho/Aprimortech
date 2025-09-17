@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -26,8 +27,9 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.aprimortech.ui.theme.AprimortechTheme
 
+// Estado da assinatura: cada assinatura é composta por uma lista de linhas, cada linha é uma lista de pontos.
 data class SignatureState(
-    val paths: MutableList<MutableList<Offset>> = mutableListOf(mutableListOf())
+    val paths: SnapshotStateList<SnapshotStateList<Offset>> = mutableStateListOf()
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -107,8 +109,7 @@ fun RelatorioAssinaturaScreen(navController: NavController, modifier: Modifier =
 
                 Button(
                     onClick = {
-                        // TODO: exportar assinaturas e salvar no Firebase Storage
-                        // Depois salvar URLs no Firestore dentro do relatório
+                        navController.navigate("relatorioFinalizado")
                     },
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.height(46.dp),
@@ -140,19 +141,18 @@ fun SignaturePad(state: SignatureState, onClear: () -> Unit) {
                 .fillMaxSize()
                 .padding(4.dp)
         ) {
-            var currentPath by remember { mutableStateOf(mutableListOf<Offset>()) }
-
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()
                     .pointerInput(Unit) {
                         detectDragGestures(
                             onDragStart = { offset ->
-                                currentPath = mutableListOf(offset)
-                                state.paths.add(currentPath)
+                                // Cria um novo traço
+                                state.paths.add(mutableStateListOf(offset))
                             },
                             onDrag = { change, _ ->
-                                currentPath.add(change.position)
+                                // Adiciona novos pontos ao traço atual
+                                state.paths.lastOrNull()?.add(change.position)
                             }
                         )
                     }
