@@ -92,6 +92,10 @@ fun AppNavigation() {
                 )
             )
         }
+        // 🚀 NOVA ROTA CLIENTES
+        composable("clientes") {
+            ClientesScreen(navController = navController)
+        }
     }
 }
 

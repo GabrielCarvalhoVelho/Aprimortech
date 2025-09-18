@@ -63,6 +63,7 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
                 }
                 DrawerMenuItem(Icons.Default.People, "Clientes", false) {
                     scope.launch { drawerState.close() }
+                    navController.navigate("clientes")
                 }
                 DrawerMenuItem(Icons.Default.Build, "Máquinas", false) {
                     scope.launch { drawerState.close() }
@@ -164,7 +165,7 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
                 }
                 Spacer(Modifier.height(8.dp))
                 QuickActionButton("Gerenciar Clientes", Icons.Default.People) {
-                    /* navController.navigate("clientes") */
+                    navController.navigate("clientes")
                 }
                 Spacer(Modifier.height(8.dp))
                 QuickActionButton("Ver Máquinas", Icons.Default.Settings) {

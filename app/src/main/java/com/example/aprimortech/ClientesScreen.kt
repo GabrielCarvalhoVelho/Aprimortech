@@ -2,45 +2,19 @@ package com.example.aprimortech
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.foundation.BorderStroke
 import com.example.aprimortech.ui.theme.AprimortechTheme
 
 private val Brand = Color(0xFF1A4A5C)
@@ -58,34 +33,56 @@ data class ClienteUiModel(
     val id: Int,
     var nome: String,
     var telefone: String,
+    var celular: String,
     var email: String,
+    var contato: String,
+    var setor: String,
+    var endereco: String,
     var cidade: String,
     var estado: String
+)
+
+private val estadosBrasil = listOf(
+    "Acre (AC)", "Alagoas (AL)", "Amapá (AP)", "Amazonas (AM)", "Bahia (BA)",
+    "Ceará (CE)", "Distrito Federal (DF)", "Espírito Santo (ES)", "Goiás (GO)",
+    "Maranhão (MA)", "Mato Grosso (MT)", "Mato Grosso do Sul (MS)", "Minas Gerais (MG)",
+    "Pará (PA)", "Paraíba (PB)", "Paraná (PR)", "Pernambuco (PE)", "Piauí (PI)",
+    "Rio de Janeiro (RJ)", "Rio Grande do Norte (RN)", "Rio Grande do Sul (RS)",
+    "Rondônia (RO)", "Roraima (RR)", "Santa Catarina (SC)", "São Paulo (SP)",
+    "Sergipe (SE)", "Tocantins (TO)"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) {
-    // Estado da lista (mock local)
     var clientes by remember {
         mutableStateOf(
             listOf(
-                ClienteUiModel(1, "Indústrias TechFlow", "(11) 99999-1234", "contato@techflow.com", "São Paulo", "SP"),
-                ClienteUiModel(2, "Corporação Acme", "(21) 98888-4321", "suporte@acme.com", "Rio de Janeiro", "RJ"),
-                ClienteUiModel(3, "Metalúrgica Alfa", "(31) 97777-5678", "comercial@alfa.com", "Belo Horizonte", "MG")
+                ClienteUiModel(
+                    1, "Indústrias TechFlow", "(11) 99999-1234", "(11) 98888-0000",
+                    "contato@techflow.com", "Marina Souza", "Indústria", "Av. Paulista, 1000",
+                    "São Paulo", "São Paulo (SP)"
+                ),
+                ClienteUiModel(
+                    2, "Corporação Acme", "(21) 98888-4321", "(21) 97777-2222",
+                    "suporte@acme.com", "Carlos Lima", "Serviços", "Rua das Flores, 200",
+                    "Rio de Janeiro", "Rio de Janeiro (RJ)"
+                ),
+                ClienteUiModel(
+                    3, "Metalúrgica Alfa", "(31) 97777-5678", "(31) 96666-3333",
+                    "comercial@alfa.com", "Paula Reis", "Metalurgia", "Rua Aço, 50",
+                    "Belo Horizonte", "Minas Gerais (MG)"
+                )
             )
         )
     }
     var idCounter by remember { mutableIntStateOf(4) }
 
-    // Busca
     var query by remember { mutableStateOf("") }
     val listaFiltrada = remember(clientes, query) {
-        if (query.isBlank()) clientes
-        else clientes.filter { it.nome.contains(query, ignoreCase = true) }
+        if (query.isBlank()) clientes else clientes.filter { it.nome.contains(query, ignoreCase = true) }
     }
 
-    // Diálogos
     var showAddEdit by remember { mutableStateOf(false) }
     var editingCliente by remember { mutableStateOf<ClienteUiModel?>(null) }
 
@@ -120,15 +117,9 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
-            // Header
-            Text(
-                text = "Clientes",
-                style = MaterialTheme.typography.headlineMedium,
-                color = Brand
-            )
+            Text("Clientes", style = MaterialTheme.typography.headlineMedium, color = Brand)
             Spacer(Modifier.height(12.dp))
 
-            // Busca + Adicionar
             ClientesSectionCard {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
@@ -136,12 +127,7 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
                         onValueChange = { query = it },
                         label = { Text("Buscar por nome") },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedBorderColor = Color.LightGray,
-                            unfocusedBorderColor = Color.LightGray
-                        )
+                        colors = textFieldColors()
                     )
 
                     Button(
@@ -150,7 +136,11 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
                                 id = idCounter,
                                 nome = "",
                                 telefone = "",
+                                celular = "",
                                 email = "",
+                                contato = "",
+                                setor = "",
+                                endereco = "",
                                 cidade = "",
                                 estado = ""
                             )
@@ -160,20 +150,14 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
                             .fillMaxWidth()
                             .height(46.dp),
                         shape = RoundedCornerShape(6.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Brand,
-                            contentColor = Color.White
-                        ),
+                        colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                    ) {
-                        Text("Adicionar Cliente")
-                    }
+                    ) { Text("Adicionar Cliente") }
                 }
             }
 
             Spacer(Modifier.height(16.dp))
 
-            // Lista
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -200,15 +184,16 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
                                     Text(cli.nome, style = MaterialTheme.typography.titleMedium, color = Brand)
                                     Spacer(Modifier.height(2.dp))
                                     Text("${cli.cidade} • ${cli.estado}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(cli.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(cli.telefone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Contato: ${cli.contato} • Setor: ${cli.setor}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("E-mail: ${cli.email}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Tel: ${cli.telefone} • Cel: ${cli.celular}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("End.: ${cli.endereco}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Row {
                                     IconButton(onClick = {
                                         viewingCliente = cli
                                         showView = true
                                     }) {
-                                        // Reaproveitando o ícone de editar como "ver" seria confuso; então vamos abrir o dialog ao clicar no card também:
                                         Icon(Icons.Filled.Edit, contentDescription = "Editar", tint = Brand)
                                     }
                                     IconButton(onClick = {
@@ -220,7 +205,6 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
                                 }
                             }
 
-                            // Toque no card para visualizar
                             Spacer(Modifier.height(8.dp))
                             OutlinedButton(
                                 onClick = {
@@ -229,14 +213,9 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
                                 },
                                 modifier = Modifier.height(40.dp),
                                 shape = RoundedCornerShape(6.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = Color.White,
-                                    contentColor = Brand
-                                ),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray)
-                            ) {
-                                Text("Visualizar")
-                            }
+                                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Brand),
+                                border = BorderStroke(1.dp, Color.LightGray)
+                            ) { Text("Visualizar") }
                         }
                     }
                 }
@@ -244,7 +223,6 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
         }
     }
 
-    // Dialog: Adicionar / Editar
     if (showAddEdit && editingCliente != null) {
         AddEditClienteDialog(
             initial = editingCliente!!,
@@ -261,7 +239,6 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
         )
     }
 
-    // Dialog: Deletar
     if (showDelete && deletingCliente != null) {
         AlertDialog(
             onDismissRequest = { showDelete = false; deletingCliente = null },
@@ -279,15 +256,13 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
                 ) { Text("Excluir") }
             },
             dismissButton = {
-                OutlinedButton(
-                    onClick = { showDelete = false; deletingCliente = null },
-                    shape = RoundedCornerShape(6.dp)
-                ) { Text("Cancelar", color = Brand) }
+                OutlinedButton(onClick = { showDelete = false; deletingCliente = null }, shape = RoundedCornerShape(6.dp)) {
+                    Text("Cancelar", color = Brand)
+                }
             }
         )
     }
 
-    // Dialog: Visualizar
     if (showView && viewingCliente != null) {
         ViewClienteDialog(
             cliente = viewingCliente!!,
@@ -313,11 +288,10 @@ private fun ClientesSectionCard(content: @Composable ColumnScope.() -> Unit) {
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(8.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp), content = content)
-    }
+    ) { Column(modifier = Modifier.padding(12.dp), content = content) }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddEditClienteDialog(
     initial: ClienteUiModel,
@@ -326,67 +300,67 @@ private fun AddEditClienteDialog(
 ) {
     var nome by remember { mutableStateOf(initial.nome) }
     var telefone by remember { mutableStateOf(initial.telefone) }
+    var celular by remember { mutableStateOf(initial.celular) }
     var email by remember { mutableStateOf(initial.email) }
+    var contato by remember { mutableStateOf(initial.contato) }
+    var setor by remember { mutableStateOf(initial.setor) }
+    var endereco by remember { mutableStateOf(initial.endereco) }
     var cidade by remember { mutableStateOf(initial.cidade) }
     var estado by remember { mutableStateOf(initial.estado) }
+
+    var expanded by remember { mutableStateOf(false) }
+
+    val salvarHabilitado =
+        nome.isNotBlank() && endereco.isNotBlank() && telefone.isNotBlank() &&
+                celular.isNotBlank() && cidade.isNotBlank() && estado.isNotBlank() &&
+                contato.isNotBlank() && setor.isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial.nome.isBlank()) "Novo Cliente" else "Editar Cliente") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = nome, onValueChange = { nome = it }, label = { Text("Nome") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.LightGray,
-                        unfocusedBorderColor = Color.LightGray
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp) // limita altura para caber na tela
+                    .verticalScroll(rememberScrollState())
+            ) {
+                OutlinedTextField(value = nome, onValueChange = { nome = it }, label = { Text("Nome") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
+                OutlinedTextField(value = endereco, onValueChange = { endereco = it }, label = { Text("Endereço") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
+                OutlinedTextField(value = telefone, onValueChange = { telefone = it }, label = { Text("Telefone") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), colors = textFieldColors())
+                OutlinedTextField(value = celular, onValueChange = { celular = it }, label = { Text("Celular") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), colors = textFieldColors())
+
+                // Estado com ExposedDropdownMenuBox
+                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+                    OutlinedTextField(
+                        value = estado,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Estado") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth(),
+                        colors = textFieldColors()
                     )
-                )
-                OutlinedTextField(
-                    value = telefone, onValueChange = { telefone = it }, label = { Text("Telefone") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.LightGray,
-                        unfocusedBorderColor = Color.LightGray
-                    )
-                )
-                OutlinedTextField(
-                    value = email, onValueChange = { email = it }, label = { Text("Email") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.LightGray,
-                        unfocusedBorderColor = Color.LightGray
-                    )
-                )
-                OutlinedTextField(
-                    value = cidade, onValueChange = { cidade = it }, label = { Text("Cidade") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.LightGray,
-                        unfocusedBorderColor = Color.LightGray
-                    )
-                )
-                OutlinedTextField(
-                    value = estado, onValueChange = { estado = it }, label = { Text("Estado") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.LightGray,
-                        unfocusedBorderColor = Color.LightGray
-                    )
-                )
+                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        estadosBrasil.forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text(item) },
+                                onClick = {
+                                    estado = item
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(value = cidade, onValueChange = { cidade = it }, label = { Text("Cidade") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
+                OutlinedTextField(value = contato, onValueChange = { contato = it }, label = { Text("Contato") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
+                OutlinedTextField(value = setor, onValueChange = { setor = it }, label = { Text("Setor") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text))
+                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email (opcional)") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), colors = textFieldColors())
             }
         },
         confirmButton = {
@@ -396,13 +370,18 @@ private fun AddEditClienteDialog(
                         initial.copy(
                             nome = nome.trim(),
                             telefone = telefone.trim(),
+                            celular = celular.trim(),
                             email = email.trim(),
+                            contato = contato.trim(),
+                            setor = setor.trim(),
+                            endereco = endereco.trim(),
                             cidade = cidade.trim(),
                             estado = estado.trim()
                         )
                     )
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White),
+                enabled = salvarHabilitado,
+                colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White, disabledContainerColor = Brand.copy(alpha = 0.4f), disabledContentColor = Color.White.copy(alpha = 0.8f)),
                 shape = RoundedCornerShape(6.dp)
             ) { Text("Salvar") }
         },
@@ -413,6 +392,14 @@ private fun AddEditClienteDialog(
         }
     )
 }
+
+@Composable
+private fun textFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    focusedBorderColor = Color.LightGray,
+    unfocusedBorderColor = Color.LightGray
+)
 
 @Composable
 private fun ViewClienteDialog(
@@ -427,8 +414,12 @@ private fun ViewClienteDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Nome: ${cliente.nome}")
-                Text("Telefone: ${cliente.telefone}")
+                Text("Contato: ${cliente.contato}")
+                Text("Setor: ${cliente.setor}")
                 Text("Email: ${cliente.email}")
+                Text("Telefone: ${cliente.telefone}")
+                Text("Celular: ${cliente.celular}")
+                Text("Endereço: ${cliente.endereco}")
                 Text("Cidade: ${cliente.cidade}")
                 Text("Estado: ${cliente.estado}")
             }
@@ -449,9 +440,7 @@ private fun ViewClienteDialog(
                     onClick = onDelete,
                     shape = RoundedCornerShape(6.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Excluir")
-                }
+                ) { Text("Excluir") }
             }
         }
     )
