@@ -67,6 +67,7 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
                 }
                 DrawerMenuItem(Icons.Default.Build, "Máquinas", false) {
                     scope.launch { drawerState.close() }
+                    navController.navigate("maquinas")
                 }
                 DrawerMenuItem(Icons.Default.Inventory, "Peças", false) {
                     scope.launch { drawerState.close() }
@@ -169,11 +170,11 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
                 }
                 Spacer(Modifier.height(8.dp))
                 QuickActionButton("Ver Máquinas", Icons.Default.Settings) {
-                    /* navController.navigate("maquinas") */
+                    navController.navigate("maquinas")
                 }
                 Spacer(Modifier.height(8.dp))
-                QuickActionButton("Verificar Estoque", Icons.Default.Inventory) {
-                    /* navController.navigate("maquinas") */
+                QuickActionButton("Verificar Peças", Icons.Default.Inventory) {
+                    navController.navigate("pecas")
                 }
 
                 Spacer(Modifier.height(24.dp))

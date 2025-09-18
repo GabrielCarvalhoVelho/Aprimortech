@@ -96,6 +96,11 @@ fun AppNavigation() {
         composable("clientes") {
             ClientesScreen(navController = navController)
         }
+        // 🚀 NOVA ROTA MÁQUINAS
+        composable("maquinas") {
+            MaquinasScreen(navController = navController)
+        }
+
     }
 }
 
