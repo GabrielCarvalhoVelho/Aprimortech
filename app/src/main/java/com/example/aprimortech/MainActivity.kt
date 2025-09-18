@@ -63,7 +63,14 @@ fun AppNavigation() {
             DashboardScreen(navController = navController)
         }
         composable("novoRelatorio") {
-            NovoRelatorioScreen(navController = navController)
+            // Recupera o relatório enviado pelo SavedStateHandle (se houver)
+            val relatorioEdit =
+                navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.get<RelatorioUiModel>("relatorioEdit")
+
+            // Passa para a tela: se for nulo = novo, se vier preenchido = edição
+            NovoRelatorioScreen(navController = navController, relatorio = relatorioEdit)
         }
         composable("relatorioEtapa2") {
             RelatorioEquipamentoScreen(navController = navController)

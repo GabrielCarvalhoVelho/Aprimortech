@@ -1,5 +1,6 @@
 package com.example.aprimortech
 
+import android.os.Parcelable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -20,8 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.aprimortech.ui.theme.AprimortechTheme
+import kotlinx.parcelize.Parcelize
 
-// Modelo completo do relatório finalizado
+@Parcelize
 data class RelatorioUiModel(
     val id: Int = 0,
     val cliente: String,
@@ -35,7 +37,7 @@ data class RelatorioUiModel(
     val horasTrabalhadas: String,
     val deslocamento: String,
     val descricao: String
-)
+) : Parcelable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,9 +132,17 @@ fun RelatorioFinalizadoScreen(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(
                     onClick = {
-                        navController.navigate("editarRelatorio/${relatorio.id}")
+                        // Salva o relatório no SavedStateHandle para ser usado pela NovoRelatorioScreen
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle
+                            ?.set("relatorioEdit", relatorio)
+
+                        // Navega para a tela de edição (reaproveitando NovoRelatorioScreen)
+                        navController.navigate("novoRelatorio")
                     },
-                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
                     shape = RoundedCornerShape(6.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = Color.White,
@@ -146,7 +156,9 @@ fun RelatorioFinalizadoScreen(
 
                 OutlinedButton(
                     onClick = { showDeleteDialog = true },
-                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
                     shape = RoundedCornerShape(6.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = Color.White,
@@ -160,7 +172,9 @@ fun RelatorioFinalizadoScreen(
 
                 Button(
                     onClick = { navController.navigate("dashboard") },
-                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
                     shape = RoundedCornerShape(6.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF1A4A5C),
