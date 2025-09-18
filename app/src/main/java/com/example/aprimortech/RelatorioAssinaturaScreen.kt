@@ -27,16 +27,20 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.aprimortech.ui.theme.AprimortechTheme
 
-// Estado da assinatura: cada assinatura é composta por uma lista de linhas, cada linha é uma lista de pontos.
+// Estado da assinatura: cada assinatura é composta por uma lista de linhas (paths).
 data class SignatureState(
     val paths: SnapshotStateList<SnapshotStateList<Offset>> = mutableStateListOf()
-)
+) {
+    fun clear() {
+        paths.clear()
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RelatorioAssinaturaScreen(navController: NavController, modifier: Modifier = Modifier) {
-    var clienteSignature by remember { mutableStateOf(SignatureState()) }
-    var tecnicoSignature by remember { mutableStateOf(SignatureState()) }
+    val clienteSignature = remember { SignatureState() }
+    val tecnicoSignature = remember { SignatureState() }
 
     Scaffold(
         topBar = {
@@ -76,14 +80,14 @@ fun RelatorioAssinaturaScreen(navController: NavController, modifier: Modifier =
             Text("Assinatura do Cliente", style = MaterialTheme.typography.titleMedium)
             SignaturePad(
                 state = clienteSignature,
-                onClear = { clienteSignature = SignatureState() }
+                onClear = { clienteSignature.clear() }
             )
 
             // Assinatura do Técnico
             Text("Assinatura do Técnico", style = MaterialTheme.typography.titleMedium)
             SignaturePad(
                 state = tecnicoSignature,
-                onClear = { tecnicoSignature = SignatureState() }
+                onClear = { tecnicoSignature.clear() }
             )
 
             Spacer(Modifier.height(24.dp))
