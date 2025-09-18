@@ -71,6 +71,7 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
                 }
                 DrawerMenuItem(Icons.Default.Inventory, "Peças", false) {
                     scope.launch { drawerState.close() }
+                    navController.navigate("pecas")
                 }
 
                 Spacer(Modifier.weight(1f))

@@ -100,6 +100,10 @@ fun AppNavigation() {
         composable("maquinas") {
             MaquinasScreen(navController = navController)
         }
+        // 🚀 NOVA ROTA PEÇAS
+        composable("pecas") {
+            PecasScreen(navController = navController)
+        }
 
     }
 }
