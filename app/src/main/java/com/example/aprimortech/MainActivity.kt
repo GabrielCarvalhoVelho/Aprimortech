@@ -81,16 +81,7 @@ fun AppNavigation() {
             RelatorioAssinaturaScreen(navController = navController)
         }
         composable("relatorioFinalizado") {
-            RelatorioFinalizadoScreen(
-                navController = navController,
-                relatorio = RelatorioUiModel(
-                    cliente = "Cliente Exemplo",
-                    data = "13/09/2025",
-                    endereco = "Rua Teste, 123",
-                    tecnico = "Alan Silva",
-                    descricao = "Relatório de teste finalizado."
-                )
-            )
+            RelatorioFinalizadoScreen(navController = navController)
         }
         // 🚀 NOVA ROTA CLIENTES
         composable("clientes") {
