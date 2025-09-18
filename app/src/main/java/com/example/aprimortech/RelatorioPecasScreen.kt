@@ -10,8 +10,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +40,12 @@ data class PecaUiModel(
 fun RelatorioPecasScreen(navController: NavController, modifier: Modifier = Modifier) {
     var pecas by remember { mutableStateOf(mutableListOf<PecaUiModel>()) }
     var novaPeca by remember { mutableStateOf(PecaUiModel()) }
+    var editIndex by remember { mutableStateOf<Int?>(null) }
+
+    // Exemplo de códigos pré-cadastrados
+    val codigosExemplo = listOf("PC-1001", "PC-2002", "PC-3003", "PC-4004")
+    var expandedCodigos by remember { mutableStateOf(false) }
+    val sugestoesCodigos = codigosExemplo.filter { it.contains(novaPeca.codigo, ignoreCase = true) }
 
     val totalGeral = pecas.sumOf { it.valorTotal }
 
@@ -69,27 +76,51 @@ fun RelatorioPecasScreen(navController: NavController, modifier: Modifier = Modi
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header
             Text(
                 text = "Peças Utilizadas",
                 style = MaterialTheme.typography.headlineMedium,
                 color = Color(0xFF1A4A5C)
             )
 
-            // Formulário para adicionar peça
+            // Campo Código com autocomplete
             InputCardPeca {
-                OutlinedTextField(
-                    value = novaPeca.codigo,
-                    onValueChange = { novaPeca = novaPeca.copy(codigo = it) },
-                    label = { Text("Código") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
+                ExposedDropdownMenuBox(
+                    expanded = expandedCodigos && sugestoesCodigos.isNotEmpty(),
+                    onExpandedChange = { expandedCodigos = it }
+                ) {
+                    OutlinedTextField(
+                        value = novaPeca.codigo,
+                        onValueChange = {
+                            novaPeca = novaPeca.copy(codigo = it)
+                            expandedCodigos = true
+                        },
+                        label = { Text("Código") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedCodigos) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
+                        )
                     )
-                )
+                    ExposedDropdownMenu(
+                        expanded = expandedCodigos && sugestoesCodigos.isNotEmpty(),
+                        onDismissRequest = { expandedCodigos = false }
+                    ) {
+                        sugestoesCodigos.forEach { sugestao ->
+                            DropdownMenuItem(
+                                text = { Text(sugestao) },
+                                onClick = {
+                                    novaPeca = novaPeca.copy(codigo = sugestao)
+                                    expandedCodigos = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
 
             InputCardPeca {
@@ -146,7 +177,16 @@ fun RelatorioPecasScreen(navController: NavController, modifier: Modifier = Modi
             Button(
                 onClick = {
                     if (novaPeca.codigo.isNotBlank() && novaPeca.descricao.isNotBlank()) {
-                        pecas = (pecas + novaPeca).toMutableList()
+                        if (editIndex == null) {
+                            // adiciona
+                            pecas = (pecas + novaPeca).toMutableList()
+                        } else {
+                            // edita
+                            val lista = pecas.toMutableList()
+                            lista[editIndex!!] = novaPeca
+                            pecas = lista
+                            editIndex = null
+                        }
                         novaPeca = PecaUiModel()
                     }
                 },
@@ -160,15 +200,15 @@ fun RelatorioPecasScreen(navController: NavController, modifier: Modifier = Modi
                 ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
             ) {
-                Text("Adicionar Peça")
+                Text(if (editIndex == null) "Adicionar Peça" else "Salvar Alterações")
             }
 
-            HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+            Divider(Modifier.padding(vertical = 12.dp))
 
             // Lista de peças adicionadas
             if (pecas.isNotEmpty()) {
                 Text("Peças Adicionadas:", style = MaterialTheme.typography.titleMedium)
-                pecas.forEach { peca ->
+                pecas.forEachIndexed { index, peca ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -179,6 +219,22 @@ fun RelatorioPecasScreen(navController: NavController, modifier: Modifier = Modi
                             Text("${peca.codigo} - ${peca.descricao}")
                             Text("Qtd: ${peca.quantidade} • Unit: R$ %.2f".format(peca.valorUnit))
                             Text("Total: R$ %.2f".format(peca.valorTotal))
+                            Row(
+                                horizontalArrangement = Arrangement.End,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                IconButton(onClick = {
+                                    novaPeca = peca
+                                    editIndex = index
+                                }) {
+                                    Icon(Icons.Filled.Edit, contentDescription = "Editar", tint = Color(0xFF1A4A5C))
+                                }
+                                IconButton(onClick = {
+                                    pecas = pecas.toMutableList().also { it.removeAt(index) }
+                                }) {
+                                    Icon(Icons.Filled.Delete, contentDescription = "Excluir", tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
                         }
                     }
                 }
@@ -212,9 +268,7 @@ fun RelatorioPecasScreen(navController: NavController, modifier: Modifier = Modi
                     Text("Anterior")
                 }
                 Button(
-                    onClick = {
-                        navController.navigate("relatorioEtapa5")
-                    },
+                    onClick = { navController.navigate("relatorioEtapa5") },
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.height(46.dp),
                     colors = ButtonDefaults.buttonColors(
