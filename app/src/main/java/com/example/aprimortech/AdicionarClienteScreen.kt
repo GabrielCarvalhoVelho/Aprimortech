@@ -26,14 +26,17 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.aprimortech.ui.theme.AprimortechTheme
@@ -63,7 +66,11 @@ fun AdicionarClienteScreen(navController: NavController, modifier: Modifier = Mo
         "Rondônia (RO)", "Roraima (RR)", "Santa Catarina (SC)", "São Paulo (SP)",
         "Sergipe (SE)", "Tocantins (TO)"
     )
+
+    // Estado para o Dropdown manual
     var estadoExpanded by remember { mutableStateOf(false) }
+    var estadoFieldSize by remember { mutableStateOf(Size.Zero) }
+    val density = LocalDensity.current
 
     Scaffold(
         topBar = {
@@ -164,10 +171,9 @@ fun AdicionarClienteScreen(navController: NavController, modifier: Modifier = Mo
                 )
             }
 
-            // ======= ESTADO (antes de Cidade) – Dropdown simples =======
+            // ======= ESTADO (Dropdown manual ancorado no OutlinedTextField) =======
             FieldCard {
-                var anchorClicked by remember { mutableStateOf(false) }
-                Box(modifier = Modifier.fillMaxWidth()) {
+                Box {
                     OutlinedTextField(
                         value = estado,
                         onValueChange = {},
@@ -175,12 +181,11 @@ fun AdicionarClienteScreen(navController: NavController, modifier: Modifier = Mo
                         label = { Text("Estado") },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable {
-                                estadoExpanded = true
-                                anchorClicked = true
-                            },
+                            .onGloballyPositioned { coords ->
+                                estadoFieldSize = coords.size.toSize()
+                            }
+                            .clickable { estadoExpanded = true },
                         trailingIcon = {
-                            // simples setinha textual
                             Text(if (estadoExpanded) "▲" else "▼", color = Color.Gray)
                         },
                         colors = OutlinedTextFieldDefaults.colors(
@@ -194,8 +199,7 @@ fun AdicionarClienteScreen(navController: NavController, modifier: Modifier = Mo
                     DropdownMenu(
                         expanded = estadoExpanded,
                         onDismissRequest = { estadoExpanded = false },
-                        modifier = Modifier
-                            .fillMaxWidth()
+                        modifier = Modifier.width(with(density) { estadoFieldSize.width.toDp() })
                     ) {
                         estadosBrasil.forEach { item ->
                             DropdownMenuItem(
@@ -210,7 +214,7 @@ fun AdicionarClienteScreen(navController: NavController, modifier: Modifier = Mo
                 }
             }
 
-            // ======= CIDADE (depois do Estado) =======
+            // ======= CIDADE =======
             FieldCard {
                 OutlinedTextField(
                     value = cidade,
