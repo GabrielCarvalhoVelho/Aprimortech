@@ -24,16 +24,20 @@ import com.example.aprimortech.ui.theme.AprimortechTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modifier = Modifier) {
+    // listas base
     val defeitosComuns = listOf("Falha Elétrica", "Vazamento de Óleo", "Ruído Anormal", "Aquecimento Excessivo")
-    val defeitosSelecionados = remember { mutableStateMapOf<String, Boolean>() }
-    defeitosComuns.forEach { defeitosSelecionados.putIfAbsent(it, false) }
-    var novoDefeito by remember { mutableStateOf("") }
-
     val servicosComuns = listOf("Troca de Peça", "Lubrificação", "Ajuste de Configuração", "Limpeza Geral")
-    val servicosSelecionados = remember { mutableStateMapOf<String, Boolean>() }
-    servicosComuns.forEach { servicosSelecionados.putIfAbsent(it, false) }
-    var novoServico by remember { mutableStateOf("") }
 
+    // estado de selecionados
+    val defeitosSelecionados = remember { mutableStateListOf<String>() }
+    val servicosSelecionados = remember { mutableStateListOf<String>() }
+
+    // extras adicionados pelo usuário
+    val defeitosExtras = remember { mutableStateListOf<String>() }
+    val servicosExtras = remember { mutableStateListOf<String>() }
+
+    var novoDefeito by remember { mutableStateOf("") }
+    var novoServico by remember { mutableStateOf("") }
     var observacoes by remember { mutableStateOf("") }
 
     Scaffold(
@@ -61,143 +65,155 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
                 .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            // ====== Defeitos ======
             Text(
                 text = "Defeitos Identificados",
                 style = MaterialTheme.typography.headlineMedium,
                 color = Color(0xFF1A4A5C)
             )
-
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(8.dp)) {
-                    defeitosSelecionados.forEach { (defeito, checked) ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Checkbox(
-                                checked = checked,
-                                onCheckedChange = { defeitosSelecionados[defeito] = it }
+                Column(Modifier.padding(12.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        (defeitosComuns + defeitosExtras).forEach { defeito ->
+                            FilterChip(
+                                selected = defeitosSelecionados.contains(defeito),
+                                onClick = {
+                                    if (defeitosSelecionados.contains(defeito)) {
+                                        defeitosSelecionados.remove(defeito)
+                                    } else {
+                                        defeitosSelecionados.add(defeito)
+                                    }
+                                },
+                                label = { Text(defeito) }
                             )
-                            Text(defeito)
                         }
                     }
+                    Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = novoDefeito,
                         onValueChange = { novoDefeito = it },
                         label = { Text("Adicionar novo defeito") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedBorderColor = Color.LightGray,
-                            unfocusedBorderColor = Color.LightGray
-                        )
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = {
                             if (novoDefeito.isNotBlank()) {
-                                defeitosSelecionados[novoDefeito] = true
+                                defeitosExtras.add(novoDefeito)
+                                defeitosSelecionados.add(novoDefeito)
                                 novoDefeito = ""
                             }
                         },
-                        modifier = Modifier
-                            .align(Alignment.End)
-                            .height(46.dp),
+                        modifier = Modifier.align(Alignment.End),
                         shape = RoundedCornerShape(6.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF1A4A5C),
                             contentColor = Color.White
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+                        )
                     ) {
                         Text("Adicionar")
                     }
                 }
             }
 
+            // ====== Serviços ======
             Text(
                 text = "Serviços Realizados",
                 style = MaterialTheme.typography.headlineMedium,
                 color = Color(0xFF1A4A5C)
             )
-
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(8.dp)) {
-                    servicosSelecionados.forEach { (servico, checked) ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Checkbox(
-                                checked = checked,
-                                onCheckedChange = { servicosSelecionados[servico] = it }
+                Column(Modifier.padding(12.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        (servicosComuns + servicosExtras).forEach { servico ->
+                            FilterChip(
+                                selected = servicosSelecionados.contains(servico),
+                                onClick = {
+                                    if (servicosSelecionados.contains(servico)) {
+                                        servicosSelecionados.remove(servico)
+                                    } else {
+                                        servicosSelecionados.add(servico)
+                                    }
+                                },
+                                label = { Text(servico) }
                             )
-                            Text(servico)
                         }
                     }
+                    Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = novoServico,
                         onValueChange = { novoServico = it },
                         label = { Text("Adicionar novo serviço") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedBorderColor = Color.LightGray,
-                            unfocusedBorderColor = Color.LightGray
-                        )
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = {
                             if (novoServico.isNotBlank()) {
-                                servicosSelecionados[novoServico] = true
+                                servicosExtras.add(novoServico)
+                                servicosSelecionados.add(novoServico)
                                 novoServico = ""
                             }
                         },
-                        modifier = Modifier
-                            .align(Alignment.End)
-                            .height(46.dp),
+                        modifier = Modifier.align(Alignment.End),
                         shape = RoundedCornerShape(6.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF1A4A5C),
                             contentColor = Color.White
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+                        )
                     ) {
                         Text("Adicionar")
                     }
                 }
             }
 
-            OutlinedTextField(
-                value = observacoes,
-                onValueChange = { observacoes = it },
-                label = { Text("Observações") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedBorderColor = Color.LightGray,
-                    unfocusedBorderColor = Color.LightGray
-                )
+            // ====== Observações ======
+            Text(
+                text = "Observações",
+                style = MaterialTheme.typography.headlineMedium,
+                color = Color(0xFF1A4A5C)
             )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                OutlinedTextField(
+                    value = observacoes,
+                    onValueChange = { observacoes = it },
+                    placeholder = { Text("Digite observações adicionais...") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedBorderColor = Color.LightGray,
+                        unfocusedBorderColor = Color.LightGray
+                    )
+                )
+            }
 
+            // ====== Navegação ======
             Spacer(Modifier.height(16.dp))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -215,11 +231,8 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
                 ) {
                     Text("Anterior")
                 }
-
                 Button(
-                    onClick = {
-                        navController.navigate("relatorioEtapa4")
-                    },
+                    onClick = { navController.navigate("relatorioEtapa4") },
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.height(46.dp),
                     colors = ButtonDefaults.buttonColors(
