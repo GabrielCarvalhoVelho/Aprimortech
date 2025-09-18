@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -15,8 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -28,19 +30,35 @@ import com.example.aprimortech.ui.theme.AprimortechTheme
 fun RelatorioHorasDeslocamentoScreen(navController: NavController, modifier: Modifier = Modifier) {
     // Estados - Horas
     var valorHora by remember { mutableStateOf("") }
-    var inicio by remember { mutableStateOf("") }
-    var fim by remember { mutableStateOf("") }
-    var totalHoras by remember { mutableStateOf("") }
-    var totalHorasValor by remember { mutableStateOf("") }
+    var inicioField by remember { mutableStateOf(TextFieldValue("")) }
+    var fimField by remember { mutableStateOf(TextFieldValue("")) }
+    var totalHoras by remember { mutableStateOf("00:00") }
+    var totalHorasValor by remember { mutableStateOf(0.0) }
 
     // Estados - Deslocamento
     var valorDeslocamento by remember { mutableStateOf("") }
     var km by remember { mutableStateOf("") }
     var pedagio by remember { mutableStateOf("") }
-    var totalDeslocamento by remember { mutableStateOf("") }
+    var totalDeslocamento by remember { mutableStateOf(0.0) }
 
-    val totalServico = (totalHorasValor.toDoubleOrNull() ?: 0.0) +
-            (totalDeslocamento.toDoubleOrNull() ?: 0.0)
+    // Cálculo automático de horas
+    LaunchedEffect(inicioField.text, fimField.text, valorHora) {
+        val totalMin = calcularMinutos(inicioField.text, fimField.text)
+        totalHoras = formatMinutosAsHora(totalMin)
+        val valorH = valorHora.replace(",", ".").toDoubleOrNull() ?: 0.0
+        totalHorasValor = (totalMin / 60.0) * valorH
+    }
+
+    // Cálculo automático de deslocamento
+    LaunchedEffect(valorDeslocamento, km, pedagio) {
+        val v = valorDeslocamento.replace(",", ".").toDoubleOrNull() ?: 0.0
+        val k = km.toDoubleOrNull() ?: 0.0
+        val p = pedagio.replace(",", ".").toDoubleOrNull() ?: 0.0
+        totalDeslocamento = (v * k) + p
+    }
+
+    // Total do serviço
+    val totalServico = totalHorasValor + totalDeslocamento
 
     Scaffold(
         topBar = {
@@ -70,7 +88,7 @@ fun RelatorioHorasDeslocamentoScreen(navController: NavController, modifier: Mod
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Horas e Deslocamento",
+                "Horas e Deslocamento",
                 style = MaterialTheme.typography.headlineMedium,
                 color = Color(0xFF1A4A5C)
             )
@@ -81,78 +99,55 @@ fun RelatorioHorasDeslocamentoScreen(navController: NavController, modifier: Mod
             FormCard {
                 OutlinedTextField(
                     value = valorHora,
-                    onValueChange = { valorHora = it },
+                    onValueChange = { valorHora = it.filter { c -> c.isDigit() || c == '.' || c == ',' } },
                     label = { Text("Valor Hora Técnica (R$)") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    )
+                    colors = borderlessColors()
                 )
             }
 
             FormCard {
                 OutlinedTextField(
-                    value = inicio,
-                    onValueChange = { inicio = it },
-                    label = { Text("Início") },
+                    value = inicioField,
+                    onValueChange = { newValue -> inicioField = formatHoraValue(newValue) },
+                    label = { Text("Início (HH:mm)") },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    )
+                    singleLine = true,
+                    colors = borderlessColors()
                 )
             }
 
             FormCard {
                 OutlinedTextField(
-                    value = fim,
-                    onValueChange = { fim = it },
-                    label = { Text("Fim") },
+                    value = fimField,
+                    onValueChange = { newValue -> fimField = formatHoraValue(newValue) },
+                    label = { Text("Fim (HH:mm)") },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    )
+                    singleLine = true,
+                    colors = borderlessColors()
                 )
             }
 
             FormCard {
                 OutlinedTextField(
                     value = totalHoras,
-                    onValueChange = { totalHoras = it },
+                    onValueChange = {},
+                    readOnly = true,
                     label = { Text("Total de Horas") },
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    )
+                    colors = borderlessColors()
                 )
             }
 
             FormCard {
                 OutlinedTextField(
-                    value = totalHorasValor,
-                    onValueChange = { totalHorasValor = it },
+                    value = String.format("%.2f", totalHorasValor),
+                    onValueChange = {},
+                    readOnly = true,
                     label = { Text("Total R$ (Horas)") },
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    )
+                    colors = borderlessColors()
                 )
             }
 
@@ -164,64 +159,44 @@ fun RelatorioHorasDeslocamentoScreen(navController: NavController, modifier: Mod
             FormCard {
                 OutlinedTextField(
                     value = valorDeslocamento,
-                    onValueChange = { valorDeslocamento = it },
-                    label = { Text("Valor Deslocamento (R$)") },
+                    onValueChange = { valorDeslocamento = it.filter { c -> c.isDigit() || c == '.' || c == ',' } },
+                    label = { Text("Valor Deslocamento (R$/KM)") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    )
+                    colors = borderlessColors()
                 )
             }
 
             FormCard {
                 OutlinedTextField(
                     value = km,
-                    onValueChange = { km = it },
+                    onValueChange = { km = it.filter { c -> c.isDigit() } },
                     label = { Text("Quantidade de KM") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    )
+                    colors = borderlessColors()
                 )
             }
 
             FormCard {
                 OutlinedTextField(
                     value = pedagio,
-                    onValueChange = { pedagio = it },
+                    onValueChange = { pedagio = it.filter { c -> c.isDigit() || c == '.' || c == ',' } },
                     label = { Text("Valor Pedágios (R$)") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    )
+                    colors = borderlessColors()
                 )
             }
 
             FormCard {
                 OutlinedTextField(
-                    value = totalDeslocamento,
-                    onValueChange = { totalDeslocamento = it },
+                    value = String.format("%.2f", totalDeslocamento),
+                    onValueChange = {},
+                    readOnly = true,
                     label = { Text("Total R$ (Deslocamento)") },
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    )
+                    colors = borderlessColors()
                 )
             }
 
@@ -270,7 +245,42 @@ fun RelatorioHorasDeslocamentoScreen(navController: NavController, modifier: Mod
     }
 }
 
-/** Wrapper local para inputs com fundo branco e sombra leve (nome diferente para evitar conflitos). */
+/** Formata entrada como HH:mm */
+fun formatHoraValue(input: TextFieldValue): TextFieldValue {
+    val digits = input.text.filter { it.isDigit() }.take(4)
+    val builder = StringBuilder()
+    for (i in digits.indices) {
+        builder.append(digits[i])
+        if (i == 1 && digits.length > 2) builder.append(':')
+    }
+    val formatted = builder.toString()
+    return TextFieldValue(
+        text = formatted,
+        selection = TextRange(formatted.length)
+    )
+}
+
+/** Calcula diferença em minutos entre HH:mm */
+fun calcularMinutos(inicio: String, fim: String): Int {
+    try {
+        if (inicio.length == 5 && fim.length == 5) {
+            val (h1, m1) = inicio.split(":").map { it.toIntOrNull() ?: 0 }
+            val (h2, m2) = fim.split(":").map { it.toIntOrNull() ?: 0 }
+            val totalMinInicio = h1 * 60 + m1
+            val totalMinFim = h2 * 60 + m2
+            return (totalMinFim - totalMinInicio).coerceAtLeast(0)
+        }
+    } catch (_: Exception) { }
+    return 0
+}
+
+/** Converte minutos em HH:mm */
+fun formatMinutosAsHora(totalMin: Int): String {
+    val horas = totalMin / 60
+    val minutos = totalMin % 60
+    return String.format("%02d:%02d", horas, minutos)
+}
+
 @Composable
 private fun FormCard(content: @Composable () -> Unit) {
     Card(
@@ -283,6 +293,16 @@ private fun FormCard(content: @Composable () -> Unit) {
         }
     }
 }
+
+@Composable
+private fun borderlessColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    focusedBorderColor = Color.Transparent,
+    unfocusedBorderColor = Color.Transparent,
+    disabledBorderColor = Color.Transparent,
+    errorBorderColor = Color.Transparent
+)
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
