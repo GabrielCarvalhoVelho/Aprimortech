@@ -59,7 +59,7 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
                 }
                 DrawerMenuItem(Icons.Default.Description, "Relatórios", false) {
                     scope.launch { drawerState.close() }
-                    navController.navigate("novoRelatorio")
+                    navController.navigate("relatorios")
                 }
                 DrawerMenuItem(Icons.Default.People, "Clientes", false) {
                     scope.launch { drawerState.close() }

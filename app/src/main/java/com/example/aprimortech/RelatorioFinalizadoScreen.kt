@@ -1,6 +1,8 @@
 package com.example.aprimortech
 
+import android.content.Intent
 import android.os.Parcelable
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -15,6 +17,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -60,6 +63,7 @@ fun RelatorioFinalizadoScreen(
     modifier: Modifier = Modifier
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -132,12 +136,9 @@ fun RelatorioFinalizadoScreen(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(
                     onClick = {
-                        // Salva o relatório no SavedStateHandle para ser usado pela NovoRelatorioScreen
                         navController.currentBackStackEntry
                             ?.savedStateHandle
                             ?.set("relatorioEdit", relatorio)
-
-                        // Navega para a tela de edição (reaproveitando NovoRelatorioScreen)
                         navController.navigate("novoRelatorio")
                     },
                     modifier = Modifier
@@ -183,6 +184,34 @@ fun RelatorioFinalizadoScreen(
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
                 ) {
                     Text("Confirmar Relatório")
+                }
+
+                // Novo botão: Exportar PDF
+                Button(
+                    onClick = {
+                        runCatching {
+                            val uri = PdfExporter.exportRelatorio(context, relatorio)
+                            val share = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/pdf"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(share, "Compartilhar relatório PDF"))
+                        }.onFailure {
+                            Toast.makeText(context, "Erro ao gerar PDF: ${it.message}", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    shape = RoundedCornerShape(6.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF388E3C), // verde para diferenciar
+                        contentColor = Color.White
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+                ) {
+                    Text("Exportar PDF")
                 }
             }
         }

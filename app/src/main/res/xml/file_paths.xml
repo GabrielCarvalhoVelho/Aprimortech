@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- PDFs serão salvos em /Android/data/<seu_pacote>/files/Documents -->
+    <external-files-path
+        name="documents"
+        path="Documents/" />
+</paths>

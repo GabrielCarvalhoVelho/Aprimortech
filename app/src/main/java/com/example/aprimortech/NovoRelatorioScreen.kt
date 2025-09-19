@@ -24,15 +24,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.aprimortech.ui.theme.AprimortechTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NovoRelatorioScreen(
     navController: NavController,
-    relatorio: RelatorioUiModel? = null,
     modifier: Modifier = Modifier
 ) {
+    // Recupera relatorio passado pelo savedStateHandle (edição)
+    val relatorioEdit =
+        navController.currentBackStackEntryAsState().value
+            ?.savedStateHandle
+            ?.get<RelatorioUiModel>("relatorioEdit")
+
     // Mock de dados
     val clientesMock = remember {
         listOf(
@@ -74,12 +80,12 @@ fun NovoRelatorioScreen(
         )
     }
 
-    // Estados iniciais
-    var cliente by remember { mutableStateOf(relatorio?.cliente ?: "") }
-    var dataField by remember { mutableStateOf(TextFieldValue(relatorio?.data ?: "")) }
-    var horarioField by remember { mutableStateOf(TextFieldValue(relatorio?.horasTrabalhadas ?: "")) }
-    var contato by remember { mutableStateOf(relatorio?.contato ?: "") }
-    var setor by remember { mutableStateOf(relatorio?.setor ?: "") }
+    // Estados iniciais com fallback para edição ou novo
+    var cliente by remember { mutableStateOf(relatorioEdit?.cliente ?: "") }
+    var dataField by remember { mutableStateOf(TextFieldValue(relatorioEdit?.data ?: "")) }
+    var horarioField by remember { mutableStateOf(TextFieldValue(relatorioEdit?.horasTrabalhadas ?: "")) }
+    var contato by remember { mutableStateOf(relatorioEdit?.contato ?: "") }
+    var setor by remember { mutableStateOf(relatorioEdit?.setor ?: "") }
 
     // Estados de dropdown
     var expandedCliente by remember { mutableStateOf(false) }
@@ -130,7 +136,7 @@ fun NovoRelatorioScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = if (relatorio == null) "Novo Relatório Técnico" else "Editar Relatório Técnico",
+                text = if (relatorioEdit == null) "Novo Relatório Técnico" else "Editar Relatório Técnico",
                 style = MaterialTheme.typography.headlineMedium,
                 color = Color(0xFF1A4A5C)
             )
@@ -300,7 +306,7 @@ fun NovoRelatorioScreen(
 
                 Button(
                     onClick = {
-                        val novoOuEditado = relatorio?.copy(
+                        val novoOuEditado = relatorioEdit?.copy(
                             cliente = cliente,
                             data = dataField.text,
                             horasTrabalhadas = horarioField.text,
@@ -335,7 +341,7 @@ fun NovoRelatorioScreen(
                     ),
                     elevation = ButtonDefaults.buttonElevation(3.dp)
                 ) {
-                    Text(if (relatorio == null) "Continuar" else "Salvar Alterações")
+                    Text(if (relatorioEdit == null) "Continuar" else "Salvar Alterações")
                 }
             }
         }

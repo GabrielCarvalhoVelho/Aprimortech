@@ -62,15 +62,12 @@ fun AppNavigation() {
         composable("dashboard") {
             DashboardScreen(navController = navController)
         }
+        composable("relatorios") {
+            RelatoriosScreen(navController = navController)
+        }
         composable("novoRelatorio") {
-            // Recupera o relatório enviado pelo SavedStateHandle (se houver)
-            val relatorioEdit =
-                navController.previousBackStackEntry
-                    ?.savedStateHandle
-                    ?.get<RelatorioUiModel>("relatorioEdit")
-
-            // Passa para a tela: se for nulo = novo, se vier preenchido = edição
-            NovoRelatorioScreen(navController = navController, relatorio = relatorioEdit)
+            // Agora não precisa mais de parâmetro extra
+            NovoRelatorioScreen(navController = navController)
         }
         composable("relatorioEtapa2") {
             RelatorioEquipamentoScreen(navController = navController)
@@ -90,25 +87,21 @@ fun AppNavigation() {
         composable("relatorioFinalizado") {
             RelatorioFinalizadoScreen(navController = navController)
         }
-        // 🚀 NOVA ROTA CLIENTES
+        // 🚀 NOVAS ROTAS
         composable("clientes") {
             ClientesScreen(navController = navController)
         }
-        // 🚀 NOVA ROTA MÁQUINAS
         composable("maquinas") {
             MaquinasScreen(navController = navController)
         }
-        // 🚀 NOVA ROTA PEÇAS
         composable("pecas") {
             PecasScreen(navController = navController)
         }
-
     }
 }
 
 @Composable
 fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
-
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
@@ -125,10 +118,10 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
-            painter = painterResource(id = R.drawable.logo_aprimortech), // nome do seu arquivo em drawable
+            painter = painterResource(id = R.drawable.logo_aprimortech),
             contentDescription = "Logo Aprimortech",
             modifier = Modifier
-                .size(height = 160.dp, width = 360.dp) // ajuste conforme ficar melhor
+                .size(height = 160.dp, width = 360.dp)
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -144,9 +137,7 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
             value = email,
             onValueChange = { email = it },
             label = { Text("Email") },
-            leadingIcon = {
-                Icon(Icons.Default.Email, contentDescription = "Ícone de Email")
-            },
+            leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Ícone de Email") },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             singleLine = true
@@ -157,15 +148,9 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
             value = password,
             onValueChange = { password = it },
             label = { Text("Senha") },
-            leadingIcon = {
-                Icon(Icons.Default.Lock, contentDescription = "Ícone de Senha")
-            },
+            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Ícone de Senha") },
             trailingIcon = {
-                val image = if (passwordVisible)
-                    Icons.Filled.Visibility
-                else
-                    Icons.Filled.VisibilityOff
-
+                val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Icon(image, contentDescription = "Mostrar/Esconder Senha")
                 }
@@ -177,7 +162,7 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
         )
 
         TextButton(
-            onClick = { /* Lógica futura aqui */ },
+            onClick = { /* TODO: recuperar senha */ },
             modifier = Modifier.align(Alignment.End)
         ) {
             Text("Esqueceu a senha?")
@@ -187,43 +172,30 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
         Button(
             onClick = {
                 if (email.isBlank() || password.isBlank()) {
-                    Toast.makeText(
-                        context,
-                        "Por favor, preencha email e senha.",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(context, "Por favor, preencha email e senha.", Toast.LENGTH_SHORT).show()
                     return@Button
                 }
 
                 auth?.signInWithEmailAndPassword(email.trim(), password.trim())
                     ?.addOnCompleteListener { task ->
                         if (task.isSuccessful) {
-                            Toast.makeText(
-                                context,
-                                "Login realizado com sucesso!",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            Toast.makeText(context, "Login realizado com sucesso!", Toast.LENGTH_SHORT).show()
                             navController.navigate("dashboard") {
                                 popUpTo("login") { inclusive = true }
                             }
                         } else {
                             val exception = task.exception
-                            val errorMessage =
-                                exception?.message ?: "Erro desconhecido. Tente novamente."
-                            Toast.makeText(
-                                context,
-                                "Falha no login: $errorMessage",
-                                Toast.LENGTH_LONG
-                            ).show()
+                            val errorMessage = exception?.message ?: "Erro desconhecido. Tente novamente."
+                            Toast.makeText(context, "Falha no login: $errorMessage", Toast.LENGTH_LONG).show()
                         }
                     }
             },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
-            shape = RoundedCornerShape(8.dp), // mesma borda dos inputs
+            shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF1A4A5C), // cor principal Aprimortech
+                containerColor = Color(0xFF1A4A5C),
                 contentColor = Color.White
             )
         ) {
