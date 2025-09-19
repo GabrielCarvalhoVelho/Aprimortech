@@ -214,7 +214,7 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
                             ReportStatus.Done
                         )
                     ),
-                    onVerTodos = { /* navController.navigate("relatoriosRecentes") */ }
+                    onVerTodos = { navController.navigate("relatorios") } // ✅ agora leva para RelatoriosScreen
                 )
             }
         }
