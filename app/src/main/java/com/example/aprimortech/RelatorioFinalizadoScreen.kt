@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
@@ -63,6 +64,7 @@ fun RelatorioFinalizadoScreen(
     modifier: Modifier = Modifier
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showConfirmDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     Scaffold(
@@ -172,7 +174,7 @@ fun RelatorioFinalizadoScreen(
                 }
 
                 Button(
-                    onClick = { navController.navigate("dashboard") },
+                    onClick = { showConfirmDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(46.dp),
@@ -185,38 +187,11 @@ fun RelatorioFinalizadoScreen(
                 ) {
                     Text("Confirmar Relatório")
                 }
-
-                // Novo botão: Exportar PDF
-                Button(
-                    onClick = {
-                        runCatching {
-                            val uri = PdfExporter.exportRelatorio(context, relatorio)
-                            val share = Intent(Intent.ACTION_SEND).apply {
-                                type = "application/pdf"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(Intent.createChooser(share, "Compartilhar relatório PDF"))
-                        }.onFailure {
-                            Toast.makeText(context, "Erro ao gerar PDF: ${it.message}", Toast.LENGTH_LONG).show()
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp),
-                    shape = RoundedCornerShape(6.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF388E3C), // verde para diferenciar
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                ) {
-                    Text("Exportar PDF")
-                }
             }
         }
     }
 
+    // Dialogo de exclusão
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -236,6 +211,51 @@ fun RelatorioFinalizadoScreen(
             },
             dismissButton = {
                 OutlinedButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    // Dialogo de confirmação + compartilhamento
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = { Text("Relatório confirmado") },
+            text = { Text("O relatório foi confirmado com sucesso.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmDialog = false
+                        navController.navigate("dashboard")
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1A4A5C),
+                        contentColor = Color.White
+                    )
+                ) { Text("OK") }
+            },
+            dismissButton = {
+                // Botão discreto só com ícone PDF
+                IconButton(
+                    onClick = {
+                        runCatching {
+                            val uri = PdfExporter.exportRelatorio(context, relatorio)
+                            val share = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/pdf"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(share, "Compartilhar relatório PDF"))
+                        }.onFailure {
+                            Toast.makeText(context, "Erro ao gerar PDF", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                ) {
+                    Icon(
+                        Icons.Default.PictureAsPdf,
+                        contentDescription = "Compartilhar PDF",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         )
     }
