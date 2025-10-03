@@ -15,6 +15,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.aprimortech.data.local.entity.ClienteEntity
+import com.example.aprimortech.ui.viewmodel.ClienteViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,18 +32,8 @@ import com.example.aprimortech.ui.theme.AprimortechTheme
 
 private val Brand = Color(0xFF1A4A5C)
 
-data class ClienteUiModel(
-    val id: Int,
-    var nome: String,
-    var telefone: String,
-    var celular: String,
-    var email: String,
-    var contato: String,
-    var setor: String,
-    var endereco: String,
-    var cidade: String,
-    var estado: String
-)
+
+// ClienteUiModel removido, usaremos ClienteEntity diretamente
 
 private val estadosBrasil = listOf(
     "Acre (AC)", "Alagoas (AL)", "Amapá (AP)", "Amazonas (AM)", "Bahia (BA)",
@@ -54,43 +47,31 @@ private val estadosBrasil = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) {
-    var clientes by remember {
-        mutableStateOf(
-            listOf(
-                ClienteUiModel(
-                    1, "Indústrias TechFlow", "(11) 99999-1234", "(11) 98888-0000",
-                    "contato@techflow.com", "Marina Souza", "Indústria", "Av. Paulista, 1000",
-                    "São Paulo", "São Paulo (SP)"
-                ),
-                ClienteUiModel(
-                    2, "Corporação Acme", "(21) 98888-4321", "(21) 97777-2222",
-                    "suporte@acme.com", "Carlos Lima", "Serviços", "Rua das Flores, 200",
-                    "Rio de Janeiro", "Rio de Janeiro (RJ)"
-                ),
-                ClienteUiModel(
-                    3, "Metalúrgica Alfa", "(31) 97777-5678", "(31) 96666-3333",
-                    "comercial@alfa.com", "Paula Reis", "Metalurgia", "Rua Aço, 50",
-                    "Belo Horizonte", "Minas Gerais (MG)"
-                )
-            )
-        )
-    }
-    var idCounter by remember { mutableIntStateOf(4) }
 
+fun ClientesScreen(
+    navController: NavController,
+    modifier: Modifier = Modifier,
+    viewModel: ClienteViewModel = viewModel()
+) {
     var query by remember { mutableStateOf("") }
+    val clientes by viewModel.clientes.collectAsState()
     val listaFiltrada = remember(clientes, query) {
         if (query.isBlank()) clientes else clientes.filter { it.nome.contains(query, ignoreCase = true) }
     }
 
     var showAddEdit by remember { mutableStateOf(false) }
-    var editingCliente by remember { mutableStateOf<ClienteUiModel?>(null) }
+    var editingCliente by remember { mutableStateOf<ClienteEntity?>(null) }
 
     var showDelete by remember { mutableStateOf(false) }
-    var deletingCliente by remember { mutableStateOf<ClienteUiModel?>(null) }
+    var deletingCliente by remember { mutableStateOf<ClienteEntity?>(null) }
 
     var showView by remember { mutableStateOf(false) }
-    var viewingCliente by remember { mutableStateOf<ClienteUiModel?>(null) }
+    var viewingCliente by remember { mutableStateOf<ClienteEntity?>(null) }
+
+    // Carregar clientes ao abrir a tela
+    LaunchedEffect(Unit) {
+        viewModel.carregarClientes()
+    }
 
     Scaffold(
         topBar = {
@@ -132,17 +113,18 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
 
                     Button(
                         onClick = {
-                            editingCliente = ClienteUiModel(
-                                id = idCounter,
+                            editingCliente = ClienteEntity(
+                                id = java.util.UUID.randomUUID().toString(),
                                 nome = "",
-                                telefone = "",
-                                celular = "",
-                                email = "",
+                                cnpjCpf = "",
                                 contato = "",
-                                setor = "",
                                 endereco = "",
                                 cidade = "",
-                                estado = ""
+                                estado = "",
+                                telefone = "",
+                                celular = "",
+                                latitude = null,
+                                longitude = null
                             )
                             showAddEdit = true
                         },
@@ -184,8 +166,7 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
                                     Text(cli.nome, style = MaterialTheme.typography.titleMedium, color = Brand)
                                     Spacer(Modifier.height(2.dp))
                                     Text("${cli.cidade} • ${cli.estado}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("Contato: ${cli.contato} • Setor: ${cli.setor}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("E-mail: ${cli.email}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Contato: ${cli.contato}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text("Tel: ${cli.telefone} • Cel: ${cli.celular}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text("End.: ${cli.endereco}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
@@ -228,11 +209,7 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
             initial = editingCliente!!,
             onDismiss = { showAddEdit = false; editingCliente = null },
             onConfirm = { updated ->
-                clientes = if (clientes.any { it.id == updated.id }) {
-                    clientes.map { if (it.id == updated.id) updated else it }
-                } else {
-                    clientes + updated.also { idCounter += 1 }
-                }
+                viewModel.salvarCliente(updated)
                 showAddEdit = false
                 editingCliente = null
             }
@@ -247,7 +224,7 @@ fun ClientesScreen(navController: NavController, modifier: Modifier = Modifier) 
             confirmButton = {
                 Button(
                     onClick = {
-                        clientes = clientes.filterNot { it.id == deletingCliente!!.id }
+                        viewModel.excluirCliente(deletingCliente!!)
                         showDelete = false
                         deletingCliente = null
                     },
@@ -294,16 +271,14 @@ private fun ClientesSectionCard(content: @Composable ColumnScope.() -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddEditClienteDialog(
-    initial: ClienteUiModel,
+    initial: ClienteEntity,
     onDismiss: () -> Unit,
-    onConfirm: (ClienteUiModel) -> Unit
+    onConfirm: (ClienteEntity) -> Unit
 ) {
     var nome by remember { mutableStateOf(initial.nome) }
     var telefone by remember { mutableStateOf(initial.telefone) }
     var celular by remember { mutableStateOf(initial.celular) }
-    var email by remember { mutableStateOf(initial.email) }
     var contato by remember { mutableStateOf(initial.contato) }
-    var setor by remember { mutableStateOf(initial.setor) }
     var endereco by remember { mutableStateOf(initial.endereco) }
     var cidade by remember { mutableStateOf(initial.cidade) }
     var estado by remember { mutableStateOf(initial.estado) }
@@ -313,7 +288,7 @@ private fun AddEditClienteDialog(
     val salvarHabilitado =
         nome.isNotBlank() && endereco.isNotBlank() && telefone.isNotBlank() &&
                 celular.isNotBlank() && cidade.isNotBlank() && estado.isNotBlank() &&
-                contato.isNotBlank() && setor.isNotBlank()
+                contato.isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -323,7 +298,7 @@ private fun AddEditClienteDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 400.dp) // limita altura para caber na tela
+                    .heightIn(max = 400.dp)
                     .verticalScroll(rememberScrollState())
             ) {
                 OutlinedTextField(value = nome, onValueChange = { nome = it }, label = { Text("Nome") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
@@ -331,7 +306,6 @@ private fun AddEditClienteDialog(
                 OutlinedTextField(value = telefone, onValueChange = { telefone = it }, label = { Text("Telefone") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), colors = textFieldColors())
                 OutlinedTextField(value = celular, onValueChange = { celular = it }, label = { Text("Celular") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), colors = textFieldColors())
 
-                // Estado com ExposedDropdownMenuBox
                 ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
                     OutlinedTextField(
                         value = estado,
@@ -359,8 +333,6 @@ private fun AddEditClienteDialog(
 
                 OutlinedTextField(value = cidade, onValueChange = { cidade = it }, label = { Text("Cidade") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
                 OutlinedTextField(value = contato, onValueChange = { contato = it }, label = { Text("Contato") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
-                OutlinedTextField(value = setor, onValueChange = { setor = it }, label = { Text("Setor") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text))
-                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email (opcional)") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), colors = textFieldColors())
             }
         },
         confirmButton = {
@@ -371,9 +343,7 @@ private fun AddEditClienteDialog(
                             nome = nome.trim(),
                             telefone = telefone.trim(),
                             celular = celular.trim(),
-                            email = email.trim(),
                             contato = contato.trim(),
-                            setor = setor.trim(),
                             endereco = endereco.trim(),
                             cidade = cidade.trim(),
                             estado = estado.trim()
@@ -403,7 +373,7 @@ private fun textFieldColors() = OutlinedTextFieldDefaults.colors(
 
 @Composable
 private fun ViewClienteDialog(
-    cliente: ClienteUiModel,
+    cliente: ClienteEntity,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
@@ -415,8 +385,6 @@ private fun ViewClienteDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Nome: ${cliente.nome}")
                 Text("Contato: ${cliente.contato}")
-                Text("Setor: ${cliente.setor}")
-                Text("Email: ${cliente.email}")
                 Text("Telefone: ${cliente.telefone}")
                 Text("Celular: ${cliente.celular}")
                 Text("Endereço: ${cliente.endereco}")

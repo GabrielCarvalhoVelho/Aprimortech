@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
     id("kotlin-parcelize")
+    id("org.jetbrains.kotlin.kapt")
 }
 
 android {
@@ -66,6 +67,11 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
+
+    // Room (persistência local)
+    implementation("androidx.room:room-runtime:2.7.0-alpha02")
+    implementation("androidx.room:room-ktx:2.7.0-alpha02")
+    kapt("androidx.room:room-compiler:2.7.0-alpha02")
 
     // Firebase
     // Import the Firebase BoM
