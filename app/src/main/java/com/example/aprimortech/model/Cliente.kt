@@ -4,7 +4,7 @@ data class Cliente(
     val id: String = "",
     val nome: String = "",
     val cnpjCpf: String = "",
-    val contato: String = "",
+    val contatos: List<String> = emptyList(), // Mudando de contato para contatos (lista)
     val endereco: String = "",
     val cidade: String = "",
     val estado: String = "",
@@ -13,4 +13,3 @@ data class Cliente(
     val latitude: Double? = null,
     val longitude: Double? = null
 )
-

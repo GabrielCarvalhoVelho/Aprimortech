@@ -11,13 +11,17 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
 import com.example.aprimortech.data.local.entity.ClienteEntity
 import com.example.aprimortech.ui.viewmodel.ClienteViewModel
+import com.example.aprimortech.ui.viewmodel.ClienteViewModelFactory
+import com.example.aprimortech.ui.components.AutoCompleteEnderecoField
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,29 +36,25 @@ import com.example.aprimortech.ui.theme.AprimortechTheme
 
 private val Brand = Color(0xFF1A4A5C)
 
-
-// ClienteUiModel removido, usaremos ClienteEntity diretamente
-
-private val estadosBrasil = listOf(
-    "Acre (AC)", "Alagoas (AL)", "Amapá (AP)", "Amazonas (AM)", "Bahia (BA)",
-    "Ceará (CE)", "Distrito Federal (DF)", "Espírito Santo (ES)", "Goiás (GO)",
-    "Maranhão (MA)", "Mato Grosso (MT)", "Mato Grosso do Sul (MS)", "Minas Gerais (MG)",
-    "Pará (PA)", "Paraíba (PB)", "Paraná (PR)", "Pernambuco (PE)", "Piauí (PI)",
-    "Rio de Janeiro (RJ)", "Rio Grande do Norte (RN)", "Rio Grande do Sul (RS)",
-    "Rondônia (RO)", "Roraima (RR)", "Santa Catarina (SC)", "São Paulo (SP)",
-    "Sergipe (SE)", "Tocantins (TO)"
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-
 fun ClientesScreen(
     navController: NavController,
     modifier: Modifier = Modifier,
-    viewModel: ClienteViewModel = viewModel()
+    viewModel: ClienteViewModel = viewModel(
+        factory = ClienteViewModelFactory(
+            buscarClientesUseCase = (LocalContext.current.applicationContext as AprimortechApplication).buscarClientesUseCase,
+            salvarClienteUseCase = (LocalContext.current.applicationContext as AprimortechApplication).salvarClienteUseCase,
+            excluirClienteUseCase = (LocalContext.current.applicationContext as AprimortechApplication).excluirClienteUseCase,
+            sincronizarClientesUseCase = (LocalContext.current.applicationContext as AprimortechApplication).sincronizarClientesUseCase
+        )
+    )
 ) {
+    val context = LocalContext.current
     var query by remember { mutableStateOf("") }
     val clientes by viewModel.clientes.collectAsState()
+    val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
+
     val listaFiltrada = remember(clientes, query) {
         if (query.isBlank()) clientes else clientes.filter { it.nome.contains(query, ignoreCase = true) }
     }
@@ -67,6 +67,14 @@ fun ClientesScreen(
 
     var showView by remember { mutableStateOf(false) }
     var viewingCliente by remember { mutableStateOf<ClienteEntity?>(null) }
+
+    // Feedback de operações
+    LaunchedEffect(mensagemOperacao) {
+        mensagemOperacao?.let { mensagem ->
+            android.widget.Toast.makeText(context, mensagem, android.widget.Toast.LENGTH_LONG).show()
+            viewModel.limparMensagem()
+        }
+    }
 
     // Carregar clientes ao abrir a tela
     LaunchedEffect(Unit) {
@@ -117,7 +125,7 @@ fun ClientesScreen(
                                 id = java.util.UUID.randomUUID().toString(),
                                 nome = "",
                                 cnpjCpf = "",
-                                contato = "",
+                                contatos = emptyList(),
                                 endereco = "",
                                 cidade = "",
                                 estado = "",
@@ -132,8 +140,7 @@ fun ClientesScreen(
                             .fillMaxWidth()
                             .height(46.dp),
                         shape = RoundedCornerShape(6.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+                        colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White)
                     ) { Text("Adicionar Cliente") }
                 }
             }
@@ -166,14 +173,28 @@ fun ClientesScreen(
                                     Text(cli.nome, style = MaterialTheme.typography.titleMedium, color = Brand)
                                     Spacer(Modifier.height(2.dp))
                                     Text("${cli.cidade} • ${cli.estado}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("Contato: ${cli.contato}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("Tel: ${cli.telefone} • Cel: ${cli.celular}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                                    // Exibir contatos (múltiplos se houver)
+                                    if (cli.contatos.isNotEmpty()) {
+                                        Text("Contatos: ${cli.contatos.joinToString(", ")}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+
+                                    // Exibir telefones apenas se não estiverem vazios
+                                    val telefoneInfo = buildList {
+                                        if (cli.telefone.isNotBlank()) add("Tel: ${cli.telefone}")
+                                        if (cli.celular.isNotBlank()) add("Cel: ${cli.celular}")
+                                    }.joinToString(" • ")
+
+                                    if (telefoneInfo.isNotBlank()) {
+                                        Text(telefoneInfo, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+
                                     Text("End.: ${cli.endereco}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Row {
                                     IconButton(onClick = {
-                                        viewingCliente = cli
-                                        showView = true
+                                        editingCliente = cli
+                                        showAddEdit = true
                                     }) {
                                         Icon(Icons.Filled.Edit, contentDescription = "Editar", tint = Brand)
                                     }
@@ -278,17 +299,18 @@ private fun AddEditClienteDialog(
     var nome by remember { mutableStateOf(initial.nome) }
     var telefone by remember { mutableStateOf(initial.telefone) }
     var celular by remember { mutableStateOf(initial.celular) }
-    var contato by remember { mutableStateOf(initial.contato) }
+    var contatos by remember { mutableStateOf(initial.contatos) }
     var endereco by remember { mutableStateOf(initial.endereco) }
     var cidade by remember { mutableStateOf(initial.cidade) }
     var estado by remember { mutableStateOf(initial.estado) }
+    var latitude by remember { mutableStateOf(initial.latitude) }
+    var longitude by remember { mutableStateOf(initial.longitude) }
 
-    var expanded by remember { mutableStateOf(false) }
+    // Variável para controlar se cidade/estado foram preenchidos pelo Google Maps
+    var enderecoSelecionadoDoMaps by remember { mutableStateOf(initial.cidade.isNotBlank() && initial.estado.isNotBlank()) }
 
-    val salvarHabilitado =
-        nome.isNotBlank() && endereco.isNotBlank() && telefone.isNotBlank() &&
-                celular.isNotBlank() && cidade.isNotBlank() && estado.isNotBlank() &&
-                contato.isNotBlank()
+    // Validação atualizada - apenas nome, endereço e cidade são obrigatórios
+    val salvarHabilitado = nome.isNotBlank() && endereco.isNotBlank() && cidade.isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -298,41 +320,90 @@ private fun AddEditClienteDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 400.dp)
+                    .heightIn(max = 600.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                OutlinedTextField(value = nome, onValueChange = { nome = it }, label = { Text("Nome") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
-                OutlinedTextField(value = endereco, onValueChange = { endereco = it }, label = { Text("Endereço") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
-                OutlinedTextField(value = telefone, onValueChange = { telefone = it }, label = { Text("Telefone") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), colors = textFieldColors())
-                OutlinedTextField(value = celular, onValueChange = { celular = it }, label = { Text("Celular") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), colors = textFieldColors())
+                OutlinedTextField(
+                    value = nome,
+                    onValueChange = { nome = it },
+                    label = { Text("Nome *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
 
-                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+                // Campo de endereço com Google Maps
+                AutoCompleteEnderecoField(
+                    endereco = endereco,
+                    onEnderecoChange = { enderecoCompleto ->
+                        endereco = enderecoCompleto.endereco
+                        // Só atualizar cidade/estado se vieram preenchidos do Google Maps
+                        if (enderecoCompleto.cidade.isNotBlank() && enderecoCompleto.estado.isNotBlank()) {
+                            cidade = enderecoCompleto.cidade
+                            estado = enderecoCompleto.estado
+                            latitude = enderecoCompleto.latitude
+                            longitude = enderecoCompleto.longitude
+                            enderecoSelecionadoDoMaps = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = "Digite o endereço ou nome da empresa..."
+                )
+
+                // Cidade e estado - travados após seleção do Google Maps
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = cidade,
+                        onValueChange = { cidade = it },
+                        label = { Text("Cidade *") },
+                        modifier = Modifier.weight(1f),
+                        colors = textFieldColors(),
+                        enabled = !enderecoSelecionadoDoMaps
+                    )
                     OutlinedTextField(
                         value = estado,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Estado") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth(),
-                        colors = textFieldColors()
+                        onValueChange = { estado = it },
+                        label = { Text("Estado *") },
+                        modifier = Modifier.weight(1f),
+                        colors = textFieldColors(),
+                        enabled = !enderecoSelecionadoDoMaps
                     )
-                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        estadosBrasil.forEach { item ->
-                            DropdownMenuItem(
-                                text = { Text(item) },
-                                onClick = {
-                                    estado = item
-                                    expanded = false
-                                }
-                            )
-                        }
-                    }
                 }
 
-                OutlinedTextField(value = cidade, onValueChange = { cidade = it }, label = { Text("Cidade") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
-                OutlinedTextField(value = contato, onValueChange = { contato = it }, label = { Text("Contato") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
+                // Campos opcionais
+                OutlinedTextField(
+                    value = telefone,
+                    onValueChange = { telefone = it },
+                    label = { Text("Telefone (opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    colors = textFieldColors()
+                )
+
+                OutlinedTextField(
+                    value = celular,
+                    onValueChange = { celular = it },
+                    label = { Text("Celular (opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    colors = textFieldColors()
+                )
+
+                // Sistema simples de múltiplos contatos
+                ContatosSection(
+                    contatos = contatos,
+                    onContatosChange = { contatos = it }
+                )
+
+                // Informação sobre campos obrigatórios
+                Text(
+                    "* Campos obrigatórios",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
         },
         confirmButton = {
@@ -343,15 +414,22 @@ private fun AddEditClienteDialog(
                             nome = nome.trim(),
                             telefone = telefone.trim(),
                             celular = celular.trim(),
-                            contato = contato.trim(),
+                            contatos = contatos,
                             endereco = endereco.trim(),
                             cidade = cidade.trim(),
-                            estado = estado.trim()
+                            estado = estado.trim(),
+                            latitude = latitude,
+                            longitude = longitude
                         )
                     )
                 },
                 enabled = salvarHabilitado,
-                colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White, disabledContainerColor = Brand.copy(alpha = 0.4f), disabledContentColor = Color.White.copy(alpha = 0.8f)),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Brand,
+                    contentColor = Color.White,
+                    disabledContainerColor = Brand.copy(alpha = 0.4f),
+                    disabledContentColor = Color.White.copy(alpha = 0.8f)
+                ),
                 shape = RoundedCornerShape(6.dp)
             ) { Text("Salvar") }
         },
@@ -384,9 +462,23 @@ private fun ViewClienteDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Nome: ${cliente.nome}")
-                Text("Contato: ${cliente.contato}")
-                Text("Telefone: ${cliente.telefone}")
-                Text("Celular: ${cliente.celular}")
+
+                // Exibir contatos múltiplos
+                if (cliente.contatos.isNotEmpty()) {
+                    Text("Contatos:")
+                    cliente.contatos.forEach { contato ->
+                        Text("  • $contato", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+
+                // Exibir telefones apenas se não estiverem vazios
+                if (cliente.telefone.isNotBlank()) {
+                    Text("Telefone: ${cliente.telefone}")
+                }
+                if (cliente.celular.isNotBlank()) {
+                    Text("Celular: ${cliente.celular}")
+                }
+
                 Text("Endereço: ${cliente.endereco}")
                 Text("Cidade: ${cliente.cidade}")
                 Text("Estado: ${cliente.estado}")
@@ -412,6 +504,102 @@ private fun ViewClienteDialog(
             }
         }
     )
+}
+
+@Composable
+private fun ContatosSection(
+    contatos: List<String>,
+    onContatosChange: (List<String>) -> Unit
+) {
+    var novoContato by remember { mutableStateOf("") }
+    val contatosMutable = remember(contatos) { contatos.toMutableList() }
+
+    Column {
+        // Campo para adicionar novo contato
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = novoContato,
+                onValueChange = { novoContato = it },
+                label = { Text("Pessoa de Contato") },
+                placeholder = { Text("Ex: João Silva, Maria Santos") },
+                modifier = Modifier.weight(1f),
+                colors = textFieldColors()
+            )
+
+            IconButton(
+                onClick = {
+                    if (novoContato.isNotBlank()) {
+                        contatosMutable.add(novoContato.trim())
+                        onContatosChange(contatosMutable.toList())
+                        novoContato = ""
+                    }
+                },
+                enabled = novoContato.isNotBlank()
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "Adicionar Contato",
+                    tint = if (novoContato.isNotBlank()) Brand else Color.Gray
+                )
+            }
+        }
+
+        // Lista de contatos adicionados
+        if (contatosMutable.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Text(
+                        "Contatos adicionados:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Brand,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    contatosMutable.forEachIndexed { index, contato ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 2.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "• $contato",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f),
+                                color = Color(0xFF2C3E50)
+                            )
+
+                            IconButton(
+                                onClick = {
+                                    contatosMutable.removeAt(index)
+                                    onContatosChange(contatosMutable.toList())
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Remover Contato",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")

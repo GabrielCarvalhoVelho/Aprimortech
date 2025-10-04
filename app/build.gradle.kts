@@ -68,10 +68,14 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
 
-    // Room (persistência local)
-    implementation("androidx.room:room-runtime:2.7.0-alpha02")
-    implementation("androidx.room:room-ktx:2.7.0-alpha02")
-    kapt("androidx.room:room-compiler:2.7.0-alpha02")
+    // ViewModel
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
+
+    // Room (persistência local) - versões estáveis compatíveis
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
 
     // Firebase
     // Import the Firebase BoM
@@ -91,4 +95,6 @@ dependencies {
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("com.google.android.libraries.places:places:3.5.0")
 
+    // Gson para TypeConverter
+    implementation("com.google.code.gson:gson:2.10.1")
 }

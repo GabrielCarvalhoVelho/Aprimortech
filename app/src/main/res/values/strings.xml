@@ -3,5 +3,5 @@
     <string name="title_activity_main">Aprimortech</string>
 
     <!-- Chave do Google Maps -->
-    <string name="google_maps_key">SUA_CHAVE_AQUI</string>
+    <string name="google_maps_key">AIzaSyAszSnNMNUoDRrhV3hyDg2l96g75cB5V6s</string>
 </resources>
