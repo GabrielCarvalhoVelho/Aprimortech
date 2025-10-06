@@ -18,7 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
-import com.example.aprimortech.data.local.entity.ClienteEntity
+import com.example.aprimortech.model.Cliente
 import com.example.aprimortech.ui.viewmodel.ClienteViewModel
 import com.example.aprimortech.ui.viewmodel.ClienteViewModelFactory
 import com.example.aprimortech.ui.components.AutoCompleteEnderecoField
@@ -60,13 +60,13 @@ fun ClientesScreen(
     }
 
     var showAddEdit by remember { mutableStateOf(false) }
-    var editingCliente by remember { mutableStateOf<ClienteEntity?>(null) }
+    var editingCliente by remember { mutableStateOf<Cliente?>(null) }
 
     var showDelete by remember { mutableStateOf(false) }
-    var deletingCliente by remember { mutableStateOf<ClienteEntity?>(null) }
+    var deletingCliente by remember { mutableStateOf<Cliente?>(null) }
 
     var showView by remember { mutableStateOf(false) }
-    var viewingCliente by remember { mutableStateOf<ClienteEntity?>(null) }
+    var viewingCliente by remember { mutableStateOf<Cliente?>(null) }
 
     // Feedback de operações
     LaunchedEffect(mensagemOperacao) {
@@ -121,7 +121,7 @@ fun ClientesScreen(
 
                     Button(
                         onClick = {
-                            editingCliente = ClienteEntity(
+                            editingCliente = Cliente(
                                 id = java.util.UUID.randomUUID().toString(),
                                 nome = "",
                                 cnpjCpf = "",
@@ -245,7 +245,7 @@ fun ClientesScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.excluirCliente(deletingCliente!!)
+                        viewModel.excluirCliente(deletingCliente!!.id)
                         showDelete = false
                         deletingCliente = null
                     },
@@ -292,9 +292,9 @@ private fun ClientesSectionCard(content: @Composable ColumnScope.() -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddEditClienteDialog(
-    initial: ClienteEntity,
+    initial: Cliente,
     onDismiss: () -> Unit,
-    onConfirm: (ClienteEntity) -> Unit
+    onConfirm: (Cliente) -> Unit
 ) {
     var nome by remember { mutableStateOf(initial.nome) }
     var telefone by remember { mutableStateOf(initial.telefone) }
@@ -451,7 +451,7 @@ private fun textFieldColors() = OutlinedTextFieldDefaults.colors(
 
 @Composable
 private fun ViewClienteDialog(
-    cliente: ClienteEntity,
+    cliente: Cliente,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit

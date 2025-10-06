@@ -23,37 +23,55 @@ class PecaViewModel @Inject constructor(
     private val _mensagemOperacao = MutableStateFlow<String?>(null)
     val mensagemOperacao: StateFlow<String?> = _mensagemOperacao.asStateFlow()
 
-    val pecas: StateFlow<List<Peca>> = buscarPecasUseCase()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    private val _pecas = MutableStateFlow<List<Peca>>(emptyList())
+    val pecas: StateFlow<List<Peca>> = _pecas.asStateFlow()
 
-    val fabricantesDisponiveis: StateFlow<List<String>> = pecaRepository.buscarFabricantesDisponiveis()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    private val _fabricantesDisponiveis = MutableStateFlow<List<String>>(emptyList())
+    val fabricantesDisponiveis: StateFlow<List<String>> = _fabricantesDisponiveis.asStateFlow()
 
-    val categoriasDisponiveis: StateFlow<List<String>> = pecaRepository.buscarCategoriasDisponiveis()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    private val _categoriasDisponiveis = MutableStateFlow<List<String>>(emptyList())
+    val categoriasDisponiveis: StateFlow<List<String>> = _categoriasDisponiveis.asStateFlow()
+
+    init {
+        carregarPecas()
+        carregarDadosAuxiliares()
+    }
+
+    private fun carregarPecas() {
+        viewModelScope.launch {
+            try {
+                val pecasList = buscarPecasUseCase()
+                _pecas.value = pecasList
+            } catch (e: Exception) {
+                android.util.Log.e("PecaViewModel", "Erro ao carregar peças", e)
+                _mensagemOperacao.value = "Erro ao carregar peças: ${e.message}"
+            }
+        }
+    }
+
+    private fun carregarDadosAuxiliares() {
+        viewModelScope.launch {
+            try {
+                // Extrair fabricantes e categorias das peças existentes
+                val pecasAtuais = _pecas.value
+                _fabricantesDisponiveis.value = pecasAtuais.map { it.fabricante }.filter { it.isNotBlank() }.distinct().sorted()
+                _categoriasDisponiveis.value = pecasAtuais.map { it.categoria }.filter { it.isNotBlank() }.distinct().sorted()
+            } catch (e: Exception) {
+                android.util.Log.e("PecaViewModel", "Erro ao carregar dados auxiliares", e)
+            }
+        }
+    }
 
     fun salvarPeca(peca: Peca) {
         viewModelScope.launch {
             try {
                 android.util.Log.d("PecaViewModel", "=== USUÁRIO SOLICITOU SALVAMENTO ===")
                 android.util.Log.d("PecaViewModel", "Peça: ${peca.nome}")
-                android.util.Log.d("PecaViewModel", "Dados da peça: $peca")
 
                 salvarPecaUseCase(peca)
                 android.util.Log.d("PecaViewModel", "Use case executado com sucesso")
                 _mensagemOperacao.value = "Peça salva com sucesso!"
+                carregarPecas() // Recarrega a lista
                 android.util.Log.d("PecaViewModel", "=== SALVAMENTO CONCLUÍDO COM SUCESSO ===")
             } catch (e: Exception) {
                 android.util.Log.e("PecaViewModel", "=== ERRO NO SALVAMENTO ===", e)
@@ -62,88 +80,37 @@ class PecaViewModel @Inject constructor(
         }
     }
 
-    fun excluirPeca(peca: Peca) {
+    fun excluirPeca(id: String) {
         viewModelScope.launch {
             try {
-                android.util.Log.d("PecaViewModel", "=== USUÁRIO SOLICITOU EXCLUSÃO ===")
-                android.util.Log.d("PecaViewModel", "Peça: ${peca.nome}")
-
-                excluirPecaUseCase(peca)
-                android.util.Log.d("PecaViewModel", "Use case de exclusão executado com sucesso")
+                excluirPecaUseCase(id)
                 _mensagemOperacao.value = "Peça excluída com sucesso!"
-                android.util.Log.d("PecaViewModel", "=== EXCLUSÃO CONCLUÍDA COM SUCESSO ===")
+                carregarPecas() // Recarrega a lista
             } catch (e: Exception) {
-                android.util.Log.e("PecaViewModel", "=== ERRO NA EXCLUSÃO ===", e)
+                android.util.Log.e("PecaViewModel", "Erro ao excluir peça", e)
                 _mensagemOperacao.value = "Erro ao excluir peça: ${e.message}"
             }
         }
     }
 
-    fun sincronizarDadosExistentes() {
+    fun sincronizarPecas() {
         viewModelScope.launch {
             try {
-                android.util.Log.w("PECA_FIREBASE_TEST", "=== USUÁRIO CLICOU EM SINCRONIZAR ===")
-                android.util.Log.w("PECA_FIREBASE_TEST", "ViewModel: Iniciando sincronização...")
-
-                // Busca dados do servidor primeiro
-                android.util.Log.d("PecaViewModel", "Buscando dados do servidor...")
-                val pecasDoServidor = pecaRepository.buscarPecasDoServidor()
-                android.util.Log.d("PecaViewModel", "Dados encontrados no servidor: ${pecasDoServidor.size} peças")
-
-                if (pecasDoServidor.isNotEmpty()) {
-                    android.util.Log.d("PecaViewModel", "Usando dados do servidor")
-                    _mensagemOperacao.value = "Peças sincronizadas com sucesso! ${pecasDoServidor.size} peças encontradas."
+                val sucesso = sincronizarPecasUseCase()
+                if (sucesso) {
+                    _mensagemOperacao.value = "Peças sincronizadas com sucesso!"
+                    carregarPecas()
                 } else {
-                    android.util.Log.d("PecaViewModel", "Servidor vazio, criando dados de exemplo")
-                    // Se não há dados no servidor, cria dados de exemplo
-                    val pecasSimuladas = listOf(
-                        Peca(
-                            id = "peca-1",
-                            nome = "Filtro de Ar",
-                            codigo = "FLT001",
-                            descricao = "Filtro de ar para impressoras industriais",
-                            fabricante = "Hitachi",
-                            categoria = "Filtros",
-                            preco = 45.90
-                        ),
-                        Peca(
-                            id = "peca-2",
-                            nome = "Cabeça de Impressão",
-                            codigo = "CBI002",
-                            descricao = "Cabeça de impressão para modelos UX",
-                            fabricante = "Videojet",
-                            categoria = "Cabeças",
-                            preco = 350.00
-                        ),
-                        Peca(
-                            id = "peca-3",
-                            nome = "Tinta Preta",
-                            codigo = "TNT001",
-                            descricao = "Tinta preta para codificação",
-                            fabricante = "Domino",
-                            categoria = "Tintas",
-                            preco = 89.90
-                        )
-                    )
-                    android.util.Log.d("PecaViewModel", "Sincronizando ${pecasSimuladas.size} peças de exemplo...")
-                    sincronizarPecasUseCase(pecasSimuladas)
-                    android.util.Log.d("PecaViewModel", "Dados de exemplo sincronizados")
-                    _mensagemOperacao.value = "Dados de exemplo criados e sincronizados com sucesso!"
+                    _mensagemOperacao.value = "Falha na sincronização das peças"
                 }
-                android.util.Log.w("PECA_FIREBASE_TEST", "=== SINCRONIZAÇÃO CONCLUÍDA COM SUCESSO ===")
             } catch (e: Exception) {
-                android.util.Log.e("PECA_FIREBASE_TEST", "=== ERRO NA SINCRONIZAÇÃO DO VIEWMODEL ===", e)
-                _mensagemOperacao.value = "Erro ao sincronizar peças: ${e.message}"
+                android.util.Log.e("PecaViewModel", "Erro ao sincronizar peças", e)
+                _mensagemOperacao.value = "Erro na sincronização: ${e.message}"
             }
         }
     }
 
     fun limparMensagem() {
         _mensagemOperacao.value = null
-    }
-
-    fun carregarTodosDados() {
-        // Os dados são carregados automaticamente através dos StateFlows
-        // Esta função pode ser expandida se necessário carregar dados adicionais
     }
 }

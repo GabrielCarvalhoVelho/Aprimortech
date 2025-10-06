@@ -14,18 +14,25 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.aprimortech.ui.theme.AprimortechTheme
+import com.example.aprimortech.ui.viewmodel.RelatorioViewModel
+import com.example.aprimortech.ui.viewmodel.RelatorioViewModelFactory
+import com.example.aprimortech.model.Relatorio
+import android.widget.Toast
 
 // Estado da assinatura: cada assinatura é composta por uma lista de linhas (paths).
 data class SignatureState(
@@ -34,13 +41,52 @@ data class SignatureState(
     fun clear() {
         paths.clear()
     }
+
+    fun hasSignature(): Boolean {
+        return paths.isNotEmpty() && paths.any { it.isNotEmpty() }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RelatorioAssinaturaScreen(navController: NavController, modifier: Modifier = Modifier) {
+fun RelatorioAssinaturaScreen(
+    navController: NavController,
+    modifier: Modifier = Modifier,
+    viewModel: RelatorioViewModel = viewModel(
+        factory = RelatorioViewModelFactory(
+            buscarRelatoriosUseCase = (LocalContext.current.applicationContext as AprimortechApplication).buscarRelatoriosUseCase,
+            salvarRelatorioUseCase = (LocalContext.current.applicationContext as AprimortechApplication).salvarRelatorioUseCase,
+            excluirRelatorioUseCase = (LocalContext.current.applicationContext as AprimortechApplication).excluirRelatorioUseCase,
+            sincronizarRelatoriosUseCase = (LocalContext.current.applicationContext as AprimortechApplication).sincronizarRelatoriosUseCase,
+            buscarProximasManutencoesPreventivasUseCase = (LocalContext.current.applicationContext as AprimortechApplication).buscarProximasManutencoesPreventivasUseCase,
+            relatorioRepository = (LocalContext.current.applicationContext as AprimortechApplication).relatorioRepository
+        )
+    )
+) {
+    val context = LocalContext.current
     val clienteSignature = remember { SignatureState() }
     val tecnicoSignature = remember { SignatureState() }
+
+    // Recupera relatório em progresso
+    val relatorioFinal = navController.currentBackStackEntryAsState().value
+        ?.savedStateHandle
+        ?.get<Relatorio>("relatorioFinal")
+
+    // Estados do ViewModel
+    val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
+
+    // Feedback toast
+    LaunchedEffect(mensagemOperacao) {
+        mensagemOperacao?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            viewModel.limparMensagem()
+            if (msg.contains("sucesso")) {
+                navController.navigate("relatorioFinalizado") {
+                    popUpTo("relatorios") { inclusive = false }
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -113,7 +159,16 @@ fun RelatorioAssinaturaScreen(navController: NavController, modifier: Modifier =
 
                 Button(
                     onClick = {
-                        navController.navigate("relatorioFinalizado")
+                        // Finaliza e salva o relatório completo
+                        if (relatorioFinal != null) {
+                            val relatorioCompleto = relatorioFinal.copy(
+                                // Converter assinaturas para base64 (implementação simplificada)
+                                assinaturaCliente = if (clienteSignature.hasSignature()) "ASSINATURA_CLIENTE_BASE64" else null,
+                                assinaturaTecnico = if (tecnicoSignature.hasSignature()) "ASSINATURA_TECNICO_BASE64" else null,
+                                syncPending = false // Relatório finalizado
+                            )
+                            viewModel.salvarRelatorio(relatorioCompleto)
+                        }
                     },
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.height(46.dp),
@@ -121,9 +176,10 @@ fun RelatorioAssinaturaScreen(navController: NavController, modifier: Modifier =
                         containerColor = Color(0xFF1A4A5C),
                         contentColor = Color.White
                     ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
+                    enabled = clienteSignature.hasSignature() && tecnicoSignature.hasSignature()
                 ) {
-                    Text("Finalizar")
+                    Text("Finalizar Relatório")
                 }
             }
         }

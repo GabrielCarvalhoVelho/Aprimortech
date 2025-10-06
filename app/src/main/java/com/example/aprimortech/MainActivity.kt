@@ -29,9 +29,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.aprimortech.ui.theme.AprimortechTheme
 import com.google.firebase.auth.FirebaseAuth
 
@@ -69,17 +71,91 @@ fun AppNavigation() {
             // Agora não precisa mais de parâmetro extra
             NovoRelatorioScreen(navController = navController)
         }
+        composable(
+            "dadosEquipamento/{clienteId}/{contatoId}/{setorId}",
+            arguments = listOf(
+                navArgument("clienteId") { type = NavType.StringType },
+                navArgument("contatoId") { type = NavType.StringType },
+                navArgument("setorId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val clienteId = backStackEntry.arguments?.getString("clienteId") ?: ""
+            val contatoId = backStackEntry.arguments?.getString("contatoId") ?: ""
+            val setorId = backStackEntry.arguments?.getString("setorId") ?: ""
+            DadosEquipamentoScreen(
+                navController = navController,
+                clienteId = clienteId,
+                contatoId = contatoId,
+                setorId = setorId
+            )
+        }
         composable("relatorioEtapa2") {
             RelatorioEquipamentoScreen(navController = navController)
         }
         composable("relatorioEtapa3") {
             RelatorioDefeitoServicosScreen(navController = navController)
         }
-        composable("relatorioEtapa4") {
-            RelatorioPecasScreen(navController = navController)
+        composable(
+            "relatorioEtapa4?defeitos={defeitos}&servicos={servicos}&observacoes={observacoes}",
+            arguments = listOf(
+                navArgument("defeitos") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+                navArgument("servicos") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+                navArgument("observacoes") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            val defeitos = backStackEntry.arguments?.getString("defeitos") ?: ""
+            val servicos = backStackEntry.arguments?.getString("servicos") ?: ""
+            val observacoes = backStackEntry.arguments?.getString("observacoes") ?: ""
+
+            RelatorioPecasScreen(
+                navController = navController,
+                defeitos = defeitos,
+                servicos = servicos,
+                observacoes = observacoes
+            )
         }
-        composable("relatorioEtapa5") {
-            RelatorioHorasDeslocamentoScreen(navController = navController)
+        composable(
+            "relatorioEtapa5?defeitos={defeitos}&servicos={servicos}&observacoes={observacoes}&pecas={pecas}",
+            arguments = listOf(
+                navArgument("defeitos") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+                navArgument("servicos") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+                navArgument("observacoes") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+                navArgument("pecas") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            val defeitos = backStackEntry.arguments?.getString("defeitos") ?: ""
+            val servicos = backStackEntry.arguments?.getString("servicos") ?: ""
+            val observacoes = backStackEntry.arguments?.getString("observacoes") ?: ""
+            val pecas = backStackEntry.arguments?.getString("pecas") ?: ""
+
+            RelatorioHorasDeslocamentoScreen(
+                navController = navController,
+                defeitos = defeitos,
+                servicos = servicos,
+                observacoes = observacoes,
+                pecas = pecas
+            )
         }
         composable("relatorioEtapa6") {
             RelatorioAssinaturaScreen(navController = navController)
@@ -96,6 +172,12 @@ fun AppNavigation() {
         }
         composable("pecas") {
             PecasScreen(navController = navController)
+        }
+        composable("defeitos") {
+            DefeitosScreen(navController = navController)
+        }
+        composable("servicos") {
+            ServicosScreen(navController = navController)
         }
     }
 }

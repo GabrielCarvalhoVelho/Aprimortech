@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/firestore.rules">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/firestore.rules" />
+              <option name="originalContent" value="&#10;&#10;" />
+              <option name="updatedContent" value="rules_version = '2';&#10;service cloud.firestore {&#10;  match /databases/{database}/documents {&#10;    match /clientes/{clienteId} {&#10;      allow read, write: if request.auth != null;&#10;    }&#10;    match /contatos/{contatoId} {&#10;      allow read, write: if request.auth != null;&#10;    }&#10;    match /setores/{setorId} {&#10;      allow read, write: if request.auth != null;&#10;    }&#10;    match /maquinas/{maquinaId} {&#10;      allow read, write: if request.auth != null;&#10;    }&#10;    match /pecas/{pecaId} {&#10;      allow read, write: if request.auth != null;&#10;    }&#10;    match /relatorios/{relatorioId} {&#10;      allow read, write: if request.auth != null;&#10;    }&#10;    match /defeitos/{defeitoId} {&#10;      allow read, write: if request.auth != null;&#10;    }&#10;    match /servicos/{servicoId} {&#10;      allow read, write: if request.auth != null;&#10;    }&#10;  }&#10;}" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

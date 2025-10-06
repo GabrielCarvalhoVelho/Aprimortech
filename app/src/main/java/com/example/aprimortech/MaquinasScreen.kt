@@ -31,7 +31,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.BorderStroke
 import com.example.aprimortech.data.local.entity.MaquinaEntity
-import com.example.aprimortech.data.local.entity.ClienteEntity
+import com.example.aprimortech.model.Cliente
 import com.example.aprimortech.ui.theme.AprimortechTheme
 import com.example.aprimortech.ui.viewmodel.MaquinaViewModel
 import com.example.aprimortech.ui.viewmodel.MaquinaViewModelFactory
@@ -305,7 +305,7 @@ private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 private fun AddEditMaquinaDialog(
     initial: MaquinaEntity,
-    clientes: List<ClienteEntity>,
+    clientes: List<Cliente>,
     fabricantesDisponiveis: List<String>,
     modelosDisponiveis: List<String>,
     codigosTintaDisponiveis: List<String>,

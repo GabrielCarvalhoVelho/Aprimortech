@@ -17,13 +17,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.aprimortech.ui.theme.AprimortechTheme
+import com.example.aprimortech.ui.viewmodel.PecaViewModel
+import com.example.aprimortech.ui.viewmodel.PecaViewModelFactory
+import com.example.aprimortech.model.Peca
+import kotlinx.coroutines.delay
+import android.widget.Toast
 
 data class PecaUiModel(
     var codigo: String = "",
@@ -37,15 +44,84 @@ data class PecaUiModel(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RelatorioPecasScreen(navController: NavController, modifier: Modifier = Modifier) {
+fun RelatorioPecasScreen(
+    navController: NavController,
+    modifier: Modifier = Modifier,
+    defeitos: String = "",
+    servicos: String = "",
+    observacoes: String = ""
+) {
+    val context = LocalContext.current
+
+    // Usar repositório da Application
+    val application = context.applicationContext as AprimortechApplication
+    val pecaViewModel: PecaViewModel = viewModel(
+        factory = PecaViewModelFactory(
+            buscarPecasUseCase = application.buscarPecasUseCase,
+            salvarPecaUseCase = application.salvarPecaUseCase,
+            excluirPecaUseCase = application.excluirPecaUseCase,
+            sincronizarPecasUseCase = application.sincronizarPecasUseCase,
+            pecaRepository = application.pecaRepository
+        )
+    )
+
+    // Estados dos ViewModels
+    val pecasDisponiveis by pecaViewModel.pecas.collectAsState()
+    val mensagemOperacao by pecaViewModel.mensagemOperacao.collectAsState()
+
+    // Estados locais para UI
     var pecas by remember { mutableStateOf(mutableListOf<PecaUiModel>()) }
     var novaPeca by remember { mutableStateOf(PecaUiModel()) }
     var editIndex by remember { mutableStateOf<Int?>(null) }
 
-    // Exemplo de códigos pré-cadastrados
-    val codigosExemplo = listOf("PC-1001", "PC-2002", "PC-3003", "PC-4004")
+    // Estados para busca e autocomplete
+    var codigoBusca by remember { mutableStateOf("") }
+    var debouncedCodigoBusca by remember { mutableStateOf("") }
     var expandedCodigos by remember { mutableStateOf(false) }
-    val sugestoesCodigos = codigosExemplo.filter { it.contains(novaPeca.codigo, ignoreCase = true) }
+    var pecaSelecionada by remember { mutableStateOf<Peca?>(null) }
+
+    // Decodificar as observações que vêm da tela anterior
+    val observacoesDecodificadas = remember {
+        try {
+            java.net.URLDecoder.decode(observacoes, "UTF-8")
+        } catch (e: Exception) {
+            observacoes
+        }
+    }
+
+    // Debounce para busca de código
+    LaunchedEffect(codigoBusca) {
+        delay(300)
+        debouncedCodigoBusca = codigoBusca
+    }
+
+    // Filtrar peças por código ou nome
+    val sugestoesCodigos = remember(debouncedCodigoBusca, pecasDisponiveis) {
+        if (debouncedCodigoBusca.isBlank()) emptyList()
+        else pecasDisponiveis.filter {
+            it.codigo.contains(debouncedCodigoBusca, ignoreCase = true) ||
+            it.nome.contains(debouncedCodigoBusca, ignoreCase = true)
+        }.take(5)
+    }
+
+    // Mostrar mensagens via Toast
+    LaunchedEffect(mensagemOperacao) {
+        mensagemOperacao?.let { mensagem ->
+            Toast.makeText(context, mensagem, Toast.LENGTH_SHORT).show()
+            pecaViewModel.limparMensagem()
+        }
+    }
+
+    // Atualizar campos quando uma peça é selecionada
+    LaunchedEffect(pecaSelecionada) {
+        pecaSelecionada?.let { peca ->
+            novaPeca = novaPeca.copy(
+                codigo = peca.codigo,
+                descricao = peca.descricao.ifBlank { peca.nome },
+                valorUnit = peca.preco
+            )
+        }
+    }
 
     val totalGeral = pecas.sumOf { it.valorTotal }
 
@@ -83,100 +159,136 @@ fun RelatorioPecasScreen(navController: NavController, modifier: Modifier = Modi
             )
 
             // Campo Código com autocomplete
-            InputCardPeca {
-                ExposedDropdownMenuBox(
-                    expanded = expandedCodigos && sugestoesCodigos.isNotEmpty(),
-                    onExpandedChange = { expandedCodigos = it }
-                ) {
-                    OutlinedTextField(
-                        value = novaPeca.codigo,
-                        onValueChange = {
-                            novaPeca = novaPeca.copy(codigo = it)
-                            expandedCodigos = true
-                        },
-                        label = { Text("Código") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedCodigos) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent
-                        )
+            ExposedDropdownMenuBox(
+                expanded = expandedCodigos && sugestoesCodigos.isNotEmpty(),
+                onExpandedChange = { expandedCodigos = it }
+            ) {
+                OutlinedTextField(
+                    value = pecaSelecionada?.codigo ?: codigoBusca,
+                    onValueChange = { newValue ->
+                        if (pecaSelecionada == null) {
+                            codigoBusca = newValue
+                            novaPeca = novaPeca.copy(codigo = newValue)
+                            expandedCodigos = newValue.isNotEmpty()
+                        } else {
+                            // Limpar seleção e começar nova busca
+                            pecaSelecionada = null
+                            novaPeca = PecaUiModel(codigo = newValue)
+                            codigoBusca = newValue
+                            expandedCodigos = newValue.isNotEmpty()
+                        }
+                    },
+                    label = { Text("Código") },
+                    placeholder = { Text("Digite o código da peça") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedCodigos) },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedBorderColor = Color.LightGray,
+                        unfocusedBorderColor = Color.LightGray
                     )
-                    ExposedDropdownMenu(
-                        expanded = expandedCodigos && sugestoesCodigos.isNotEmpty(),
-                        onDismissRequest = { expandedCodigos = false }
-                    ) {
-                        sugestoesCodigos.forEach { sugestao ->
-                            DropdownMenuItem(
-                                text = { Text(sugestao) },
-                                onClick = {
-                                    novaPeca = novaPeca.copy(codigo = sugestao)
-                                    expandedCodigos = false
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedCodigos && sugestoesCodigos.isNotEmpty(),
+                    onDismissRequest = { expandedCodigos = false }
+                ) {
+                    sugestoesCodigos.forEach { peca ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(text = peca.codigo)
+                                    Text(text = peca.nome, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                                 }
-                            )
+                            },
+                            onClick = {
+                                pecaSelecionada = peca
+                                codigoBusca = ""
+                                expandedCodigos = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Mostrar peça selecionada
+            if (pecaSelecionada != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("✓ Peça Selecionada", style = MaterialTheme.typography.labelMedium, color = Color(0xFF2E7D32))
+                        Text("${pecaSelecionada!!.codigo} - ${pecaSelecionada!!.nome}", style = MaterialTheme.typography.bodyMedium)
+                        if (pecaSelecionada!!.preco > 0) {
+                            Text("Preço cadastrado: R$ %.2f".format(pecaSelecionada!!.preco), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
             }
 
-            InputCardPeca {
-                OutlinedTextField(
-                    value = novaPeca.descricao,
-                    onValueChange = { novaPeca = novaPeca.copy(descricao = it) },
-                    label = { Text("Descrição") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    )
+            OutlinedTextField(
+                value = novaPeca.descricao,
+                onValueChange = { novaPeca = novaPeca.copy(descricao = it) },
+                label = { Text("Descrição") },
+                placeholder = { Text("Descrição da peça") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = Color.LightGray,
+                    unfocusedBorderColor = Color.LightGray
                 )
-            }
+            )
 
-            InputCardPeca {
-                OutlinedTextField(
-                    value = if (novaPeca.quantidade == 0) "" else novaPeca.quantidade.toString(),
-                    onValueChange = { qtd ->
-                        novaPeca = novaPeca.copy(quantidade = qtd.toIntOrNull() ?: 0)
-                    },
-                    label = { Text("Quantidade") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    )
+            OutlinedTextField(
+                value = if (novaPeca.quantidade == 0) "" else novaPeca.quantidade.toString(),
+                onValueChange = { qtd ->
+                    novaPeca = novaPeca.copy(quantidade = qtd.toIntOrNull() ?: 0)
+                },
+                label = { Text("Quantidade") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = Color.LightGray,
+                    unfocusedBorderColor = Color.LightGray
                 )
-            }
+            )
 
-            InputCardPeca {
-                OutlinedTextField(
-                    value = if (novaPeca.valorUnit == 0.0) "" else novaPeca.valorUnit.toString(),
-                    onValueChange = { valor ->
-                        novaPeca = novaPeca.copy(valorUnit = valor.toDoubleOrNull() ?: 0.0)
-                    },
-                    label = { Text("Valor Unitário (R$)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    )
+            OutlinedTextField(
+                value = if (novaPeca.valorUnit == 0.0) "" else "%.2f".format(novaPeca.valorUnit),
+                onValueChange = { valor ->
+                    novaPeca = novaPeca.copy(valorUnit = valor.replace(",", ".").toDoubleOrNull() ?: 0.0)
+                },
+                label = { Text("Valor Unitário (R$)") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = Color.LightGray,
+                    unfocusedBorderColor = Color.LightGray
                 )
-            }
+            )
 
             Button(
                 onClick = {
                     if (novaPeca.codigo.isNotBlank() && novaPeca.descricao.isNotBlank()) {
+                        // Se não existe uma peça selecionada (nova peça), salvar no Firebase
+                        if (pecaSelecionada == null && novaPeca.codigo.isNotBlank()) {
+                            val novaPecaFirebase = Peca(
+                                codigo = novaPeca.codigo,
+                                nome = novaPeca.descricao,
+                                descricao = novaPeca.descricao,
+                                preco = novaPeca.valorUnit
+                            )
+                            pecaViewModel.salvarPeca(novaPecaFirebase)
+                        }
+
                         if (editIndex == null) {
                             // adiciona
                             pecas = (pecas + novaPeca).toMutableList()
@@ -187,7 +299,11 @@ fun RelatorioPecasScreen(navController: NavController, modifier: Modifier = Modi
                             pecas = lista
                             editIndex = null
                         }
+
+                        // Limpar campos
                         novaPeca = PecaUiModel()
+                        pecaSelecionada = null
+                        codigoBusca = ""
                     }
                 },
                 modifier = Modifier
@@ -226,6 +342,8 @@ fun RelatorioPecasScreen(navController: NavController, modifier: Modifier = Modi
                                 IconButton(onClick = {
                                     novaPeca = peca
                                     editIndex = index
+                                    pecaSelecionada = null
+                                    codigoBusca = ""
                                 }) {
                                     Icon(Icons.Filled.Edit, contentDescription = "Editar", tint = Color(0xFF1A4A5C))
                                 }
@@ -268,7 +386,15 @@ fun RelatorioPecasScreen(navController: NavController, modifier: Modifier = Modi
                     Text("Anterior")
                 }
                 Button(
-                    onClick = { navController.navigate("relatorioEtapa5") },
+                    onClick = {
+                        // Passar dados para próxima etapa incluindo as peças
+                        val defeitosString = defeitos
+                        val servicosString = servicos
+                        val observacoesEncoded = java.net.URLEncoder.encode(observacoesDecodificadas, "UTF-8")
+                        val pecasJson = pecas.joinToString("|") { "${it.codigo};${it.descricao};${it.quantidade};${it.valorUnit}" }
+
+                        navController.navigate("relatorioEtapa5?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&pecas=$pecasJson")
+                    },
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.height(46.dp),
                     colors = ButtonDefaults.buttonColors(

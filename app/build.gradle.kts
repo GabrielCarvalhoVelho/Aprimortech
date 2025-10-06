@@ -97,4 +97,7 @@ dependencies {
 
     // Gson para TypeConverter
     implementation("com.google.code.gson:gson:2.10.1")
+
+    // WorkManager para notificações de manutenção preventiva
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 }

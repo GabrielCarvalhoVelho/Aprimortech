@@ -1,111 +1,109 @@
 package com.example.aprimortech
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.runtime.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.aprimortech.ui.theme.AprimortechTheme
+import com.example.aprimortech.ui.viewmodel.NovoRelatorioViewModel
+import com.example.aprimortech.ui.viewmodel.NovoRelatorioViewModelFactory
+import com.example.aprimortech.model.Cliente
+import com.example.aprimortech.model.Contato
+import com.example.aprimortech.model.Setor
+import kotlinx.coroutines.delay
+import java.util.UUID
+import android.widget.Toast
+
+private val Brand = Color(0xFF1A4A5C)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NovoRelatorioScreen(
     navController: NavController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: NovoRelatorioViewModel = viewModel(
+        factory = NovoRelatorioViewModelFactory(
+            clienteRepository = (LocalContext.current.applicationContext as AprimortechApplication).clienteRepository,
+            contatoRepository = (LocalContext.current.applicationContext as AprimortechApplication).contatoRepository,
+            setorRepository = (LocalContext.current.applicationContext as AprimortechApplication).setorRepository
+        )
+    )
 ) {
-    // Recupera relatorio passado pelo savedStateHandle (edição)
-    val relatorioEdit =
-        navController.currentBackStackEntryAsState().value
-            ?.savedStateHandle
-            ?.get<RelatorioUiModel>("relatorioEdit")
+    val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
-    // Mock de dados
-    val clientesMock = remember {
-        listOf(
-            "AprimorTech S.A.",
-            "TechFlow Indústrias",
-            "Metalúrgica Orion",
-            "Grupo Valente",
-            "Fábrica Nova Era",
-            "AutoLine Sistemas",
-            "Omega Processos"
-        )
-    }
-    val contatosPorCliente = remember {
-        mapOf(
-            "AprimorTech S.A." to listOf("Marina Souza", "Carlos Lima", "Renata Alves"),
-            "TechFlow Indústrias" to listOf("João Pedro", "Luana Silva"),
-            "Metalúrgica Orion" to listOf("Ana Clara", "Roberto Teixeira"),
-            "Grupo Valente" to listOf("Paula Rocha"),
-            "Fábrica Nova Era" to listOf("Tiago Martins", "Beatriz Prado"),
-            "AutoLine Sistemas" to listOf("Gustavo Nunes"),
-            "Omega Processos" to listOf("Cecília Ramos", "Pedro Henrique")
-        )
-    }
-    val setoresPorContato = remember {
-        mapOf(
-            "Marina Souza" to listOf("Financeiro", "Compras", "Produção"),
-            "Carlos Lima" to listOf("Manutenção", "Logística"),
-            "Renata Alves" to listOf("TI", "Qualidade"),
-            "João Pedro" to listOf("Manutenção"),
-            "Luana Silva" to listOf("Operações"),
-            "Ana Clara" to listOf("Produção"),
-            "Roberto Teixeira" to listOf("Suprimentos"),
-            "Paula Rocha" to listOf("Financeiro"),
-            "Tiago Martins" to listOf("Produção"),
-            "Beatriz Prado" to listOf("RH"),
-            "Gustavo Nunes" to listOf("Logística"),
-            "Cecília Ramos" to listOf("Engenharia"),
-            "Pedro Henrique" to listOf("Comercial")
-        )
+    // Estados do formulário - Página 1: Cliente, Contatos e Setor
+    var clienteSelecionado by remember { mutableStateOf<Cliente?>(null) }
+    var contatoSelecionado by remember { mutableStateOf<Contato?>(null) }
+    var setorSelecionado by remember { mutableStateOf<Setor?>(null) }
+
+    // Estados para busca e autocomplete
+    var clienteBusca by remember { mutableStateOf("") }
+    var debouncedClienteBusca by remember { mutableStateOf("") }
+
+    // Estados para dialogs
+    var showNovoContatoDialog by remember { mutableStateOf(false) }
+    var showNovoSetorDialog by remember { mutableStateOf(false) }
+
+    // Estados do ViewModel - dados reais do Firebase
+    val clientes by viewModel.clientes.collectAsState()
+    val contatos by viewModel.contatos.collectAsState()
+    val setores by viewModel.setores.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
+
+    // Feedback toast
+    LaunchedEffect(mensagemOperacao) {
+        mensagemOperacao?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            viewModel.limparMensagem()
+        }
     }
 
-    // Estados iniciais com fallback para edição ou novo
-    var cliente by remember { mutableStateOf(relatorioEdit?.cliente ?: "") }
-    var dataField by remember { mutableStateOf(TextFieldValue(relatorioEdit?.data ?: "")) }
-    var horarioField by remember { mutableStateOf(TextFieldValue(relatorioEdit?.horasTrabalhadas ?: "")) }
-    var contato by remember { mutableStateOf(relatorioEdit?.contato ?: "") }
-    var setor by remember { mutableStateOf(relatorioEdit?.setor ?: "") }
-
-    // Estados de dropdown
-    var expandedCliente by remember { mutableStateOf(false) }
-    var expandedContato by remember { mutableStateOf(false) }
-    var expandedSetor by remember { mutableStateOf(false) }
-
-    // Sugestões dinâmicas
-    val sugestoesCliente = remember(cliente) {
-        if (cliente.isBlank()) emptyList()
-        else clientesMock.filter { it.contains(cliente, ignoreCase = true) }
+    // Debounce para busca de cliente
+    LaunchedEffect(clienteBusca) {
+        delay(300)
+        debouncedClienteBusca = clienteBusca
     }
-    val baseContatos = contatosPorCliente[cliente] ?: emptyList()
-    val sugestoesContato = remember(contato, cliente) {
-        if (contato.isBlank()) baseContatos
-        else baseContatos.filter { it.contains(contato, ignoreCase = true) }
+
+    // Filtrar clientes baseado na busca - agora usando dados reais do Firebase
+    val clientesFiltrados = remember(debouncedClienteBusca, clientes) {
+        if (debouncedClienteBusca.isBlank()) clientes.take(5)
+        else clientes.filter {
+            it.nome.contains(debouncedClienteBusca, ignoreCase = true) ||
+            it.cnpjCpf.contains(debouncedClienteBusca, ignoreCase = true)
+        }.take(5)
     }
-    val baseSetores = setoresPorContato[contato] ?: emptyList()
-    val sugestoesSetor = remember(setor, contato) {
-        if (setor.isBlank()) baseSetores
-        else baseSetores.filter { it.contains(setor, ignoreCase = true) }
+
+    // Carregar contatos e setores quando cliente muda
+    LaunchedEffect(clienteSelecionado) {
+        if (clienteSelecionado != null) {
+            viewModel.carregarContatosPorCliente(clienteSelecionado!!.id)
+            viewModel.carregarSetoresPorCliente(clienteSelecionado!!.id)
+        }
+        contatoSelecionado = null
+        setorSelecionado = null
     }
 
     Scaffold(
@@ -120,7 +118,7 @@ fun NovoRelatorioScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = Brand)
                     }
                 }
             )
@@ -130,269 +128,482 @@ fun NovoRelatorioScreen(
             modifier = modifier
                 .fillMaxSize()
                 .background(Color(0xFFF5F5F5))
-                .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(16.dp)
         ) {
-            Text(
-                text = if (relatorioEdit == null) "Novo Relatório Técnico" else "Editar Relatório Técnico",
-                style = MaterialTheme.typography.headlineMedium,
-                color = Color(0xFF1A4A5C)
-            )
+            Text("Novo Relatório", style = MaterialTheme.typography.headlineMedium, color = Brand)
+            Spacer(Modifier.height(12.dp))
 
-            // CLIENTE
-            InputCard {
-                ExposedDropdownMenuBox(
-                    expanded = expandedCliente && sugestoesCliente.isNotEmpty(),
-                    onExpandedChange = { expandedCliente = it }
-                ) {
-                    OutlinedTextField(
-                        value = cliente,
-                        onValueChange = {
-                            cliente = it.trimStart()
-                            expandedCliente = it.isNotBlank()
-                            contato = ""
-                            setor = ""
-                            expandedContato = false
-                            expandedSetor = false
-                        },
-                        label = { Text("Cliente") },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        singleLine = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCliente) },
-                        colors = outlinedNoBorder()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedCliente && sugestoesCliente.isNotEmpty(),
-                        onDismissRequest = { expandedCliente = false }
-                    ) {
-                        sugestoesCliente.forEach { opc ->
-                            DropdownMenuItem(
-                                text = { Text(opc) },
-                                onClick = {
-                                    cliente = opc
-                                    expandedCliente = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // DATA
-            InputCard {
-                OutlinedTextField(
-                    value = dataField,
-                    onValueChange = { dataField = formatDateValueNovoRelatorio(it) },
-                    label = { Text("Data") },
+            if (isLoading) {
+                Box(
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = outlinedNoBorder()
-                )
-            }
-
-            // HORÁRIO
-            InputCard {
-                OutlinedTextField(
-                    value = horarioField,
-                    onValueChange = { horarioField = formatHoraValueNovoRelatorio(it) },
-                    label = { Text("Horário") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = outlinedNoBorder()
-                )
-            }
-
-            // CONTATO
-            InputCard {
-                ExposedDropdownMenuBox(
-                    expanded = expandedContato && sugestoesContato.isNotEmpty(),
-                    onExpandedChange = { if (cliente.isNotBlank()) expandedContato = it }
+                    contentAlignment = Alignment.Center
                 ) {
-                    OutlinedTextField(
-                        value = contato,
-                        onValueChange = {
-                            contato = it.trimStart()
-                            expandedContato = cliente.isNotBlank() && it.isNotEmpty()
-                            setor = ""
-                            expandedSetor = false
-                        },
-                        label = { Text("Contato") },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        enabled = cliente.isNotBlank(),
-                        singleLine = true,
-                        trailingIcon = {
-                            if (cliente.isNotBlank())
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedContato)
-                        },
-                        colors = outlinedNoBorder()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedContato && sugestoesContato.isNotEmpty(),
-                        onDismissRequest = { expandedContato = false }
-                    ) {
-                        sugestoesContato.forEach { c ->
-                            DropdownMenuItem(
-                                text = { Text(c) },
-                                onClick = {
-                                    contato = c
-                                    expandedContato = false
-                                }
-                            )
-                        }
-                    }
+                    CircularProgressIndicator(color = Brand)
                 }
+                Spacer(Modifier.height(16.dp))
             }
 
-            // SETOR
-            InputCard {
-                ExposedDropdownMenuBox(
-                    expanded = expandedSetor && sugestoesSetor.isNotEmpty(),
-                    onExpandedChange = { if (contato.isNotBlank()) expandedSetor = it }
-                ) {
-                    OutlinedTextField(
-                        value = setor,
-                        onValueChange = {
-                            setor = it.trimStart()
-                            expandedSetor = contato.isNotBlank() && it.isNotEmpty()
-                        },
-                        label = { Text("Setor") },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        enabled = contato.isNotBlank(),
-                        singleLine = true,
-                        trailingIcon = {
-                            if (contato.isNotBlank())
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedSetor)
-                        },
-                        colors = outlinedNoBorder()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedSetor && sugestoesSetor.isNotEmpty(),
-                        onDismissRequest = { expandedSetor = false }
-                    ) {
-                        sugestoesSetor.forEach { s ->
-                            DropdownMenuItem(
-                                text = { Text(s) },
-                                onClick = {
-                                    setor = s
-                                    expandedSetor = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                OutlinedButton(
-                    onClick = { navController.popBackStack() },
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.height(46.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White,
-                        contentColor = Color(0xFF1A4A5C)
-                    ),
-                    border = BorderStroke(0.dp, Color.Transparent),
-                    elevation = ButtonDefaults.buttonElevation(3.dp)
-                ) { Text("Cancelar") }
 
-                Button(
-                    onClick = {
-                        val novoOuEditado = relatorioEdit?.copy(
-                            cliente = cliente,
-                            data = dataField.text,
-                            horasTrabalhadas = horarioField.text,
-                            contato = contato,
-                            setor = setor
-                        ) ?: RelatorioUiModel(
-                            id = 999,
-                            cliente = cliente,
-                            data = dataField.text,
-                            endereco = "Endereço Exemplo",
-                            tecnico = "Técnico Exemplo",
-                            setor = setor,
-                            contato = contato,
-                            equipamento = "Equipamento Exemplo",
-                            pecasUtilizadas = "Nenhuma",
-                            horasTrabalhadas = horarioField.text,
-                            deslocamento = "0km • R$ 0,00",
-                            descricao = "Descrição do serviço"
+                // SEÇÃO CLIENTE
+                SectionCard {
+                    Text("Cliente", style = MaterialTheme.typography.titleMedium, color = Brand)
+                    Spacer(Modifier.height(8.dp))
+
+                    var clienteExpanded by remember { mutableStateOf(false) }
+
+                    ExposedDropdownMenuBox(
+                        expanded = clienteExpanded && clientesFiltrados.isNotEmpty(),
+                        onExpandedChange = { expanded ->
+                            clienteExpanded = expanded && clientesFiltrados.isNotEmpty()
+                        }
+                    ) {
+                        OutlinedTextField(
+                            value = clienteSelecionado?.nome ?: clienteBusca,
+                            onValueChange = { newValue ->
+                                if (clienteSelecionado == null) {
+                                    clienteBusca = newValue
+                                    clienteExpanded = newValue.isNotEmpty()
+                                } else {
+                                    clienteSelecionado = null
+                                    clienteBusca = newValue
+                                    clienteExpanded = newValue.isNotEmpty()
+                                }
+                            },
+                            label = { Text("Buscar Cliente *") },
+                            placeholder = { Text("Digite o nome ou CNPJ do cliente") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            colors = textFieldColors(),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(
+                                onNext = { clienteExpanded = false }
+                            ),
+                            singleLine = true
                         )
 
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle
-                            ?.set("relatorioAtual", novoOuEditado)
+                        if (clientesFiltrados.isNotEmpty() && clienteExpanded) {
+                            ExposedDropdownMenu(
+                                expanded = true,
+                                onDismissRequest = { clienteExpanded = false }
+                            ) {
+                                clientesFiltrados.forEach { cliente ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text(cliente.nome, style = MaterialTheme.typography.bodyMedium)
+                                                Text("${cliente.cnpjCpf} - ${cliente.cidade}/${cliente.estado}",
+                                                     style = MaterialTheme.typography.bodySmall,
+                                                     color = Color.Gray)
+                                            }
+                                        },
+                                        onClick = {
+                                            clienteSelecionado = cliente
+                                            clienteBusca = ""
+                                            clienteExpanded = false
+                                            keyboardController?.hide()
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
 
-                        navController.navigate("relatorioEtapa2")
-                    },
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.height(46.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1A4A5C),
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(3.dp)
-                ) {
-                    Text(if (relatorioEdit == null) "Continuar" else "Salvar Alterações")
+                    if (clienteSelecionado != null) {
+                        Spacer(Modifier.height(8.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8))
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("✓ Cliente Selecionado", style = MaterialTheme.typography.labelMedium, color = Color(0xFF2E7D32))
+                                Text(clienteSelecionado!!.nome, style = MaterialTheme.typography.bodyMedium)
+                                Text("${clienteSelecionado!!.cnpjCpf} - ${clienteSelecionado!!.cidade}/${clienteSelecionado!!.estado}",
+                                     style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                            }
+                        }
+                    }
                 }
+
+                // SEÇÃO CONTATOS
+                SectionCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Contato", style = MaterialTheme.typography.titleMedium, color = Brand)
+                        if (clienteSelecionado != null) {
+                            IconButton(onClick = { showNovoContatoDialog = true }) {
+                                Icon(Icons.Default.Add, contentDescription = "Novo Contato", tint = Brand)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+
+                    if (clienteSelecionado == null) {
+                        Text("Selecione um cliente primeiro", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                    } else {
+                        if (contatos.isEmpty()) {
+                            Text("Nenhum contato cadastrado para este cliente", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                        } else {
+                            var contatoExpanded by remember { mutableStateOf(false) }
+
+                            ExposedDropdownMenuBox(
+                                expanded = contatoExpanded,
+                                onExpandedChange = { contatoExpanded = it }
+                            ) {
+                                OutlinedTextField(
+                                    value = contatoSelecionado?.nome ?: "",
+                                    onValueChange = { },
+                                    label = { Text("Selecionar Contato") },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .menuAnchor(),
+                                    colors = textFieldColors(),
+                                    readOnly = true,
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = contatoExpanded) }
+                                )
+
+                                ExposedDropdownMenu(
+                                    expanded = contatoExpanded,
+                                    onDismissRequest = { contatoExpanded = false }
+                                ) {
+                                    contatos.forEach { contato ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Column {
+                                                    Text(contato.nome, style = MaterialTheme.typography.bodyMedium)
+                                                    Text("${contato.cargo} - ${contato.telefone}",
+                                                         style = MaterialTheme.typography.bodySmall,
+                                                         color = Color.Gray)
+                                                }
+                                            },
+                                            onClick = {
+                                                contatoSelecionado = contato
+                                                contatoExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (contatoSelecionado != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text("✓ Contato Selecionado", style = MaterialTheme.typography.labelMedium, color = Color(0xFF2E7D32))
+                                    Text(contatoSelecionado!!.nome, style = MaterialTheme.typography.bodyMedium)
+                                    Text("${contatoSelecionado!!.cargo} - ${contatoSelecionado!!.telefone}",
+                                         style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // SEÇÃO SETOR
+                SectionCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Setor", style = MaterialTheme.typography.titleMedium, color = Brand)
+                        if (clienteSelecionado != null) {
+                            IconButton(onClick = { showNovoSetorDialog = true }) {
+                                Icon(Icons.Default.Add, contentDescription = "Novo Setor", tint = Brand)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+
+                    if (clienteSelecionado == null) {
+                        Text("Selecione um cliente primeiro", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                    } else {
+                        if (setores.isEmpty()) {
+                            Text("Nenhum setor cadastrado para este cliente", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                        } else {
+                            var setorExpanded by remember { mutableStateOf(false) }
+
+                            ExposedDropdownMenuBox(
+                                expanded = setorExpanded,
+                                onExpandedChange = { setorExpanded = it }
+                            ) {
+                                OutlinedTextField(
+                                    value = setorSelecionado?.nome ?: "",
+                                    onValueChange = { },
+                                    label = { Text("Selecionar Setor") },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .menuAnchor(),
+                                    colors = textFieldColors(),
+                                    readOnly = true,
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = setorExpanded) }
+                                )
+
+                                ExposedDropdownMenu(
+                                    expanded = setorExpanded,
+                                    onDismissRequest = { setorExpanded = false }
+                                ) {
+                                    setores.forEach { setor ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Column {
+                                                    Text(setor.nome, style = MaterialTheme.typography.bodyMedium)
+                                                    Text(setor.descricao,
+                                                         style = MaterialTheme.typography.bodySmall,
+                                                         color = Color.Gray)
+                                                }
+                                            },
+                                            onClick = {
+                                                setorSelecionado = setor
+                                                setorExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (setorSelecionado != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text("✓ Setor Selecionado", style = MaterialTheme.typography.labelMedium, color = Color(0xFF2E7D32))
+                                    Text(setorSelecionado!!.nome, style = MaterialTheme.typography.bodyMedium)
+                                    Text(setorSelecionado!!.descricao,
+                                         style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // BOTÃO CONTINUAR
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        // Navegar para a página de Dados do Equipamento
+                        navController.navigate("dadosEquipamento/${clienteSelecionado!!.id}/${contatoSelecionado!!.id}/${setorSelecionado!!.id}")
+                    },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    enabled = clienteSelecionado != null && contatoSelecionado != null && setorSelecionado != null,
+                    colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Continuar", style = MaterialTheme.typography.titleMedium)
+                }
+
+                Spacer(Modifier.height(16.dp))
             }
         }
     }
-}
 
-// Funções utilitárias de formatação
-fun formatDateValueNovoRelatorio(input: TextFieldValue): TextFieldValue {
-    val digits = input.text.filter { it.isDigit() }.take(8)
-    val sb = StringBuilder()
-    for (i in digits.indices) {
-        sb.append(digits[i])
-        if ((i == 1 && digits.length > 2) || (i == 3 && digits.length > 4)) sb.append('/')
+    // Dialog para novo contato
+    if (showNovoContatoDialog && clienteSelecionado != null) {
+        NovoContatoDialog(
+            clienteId = clienteSelecionado!!.id,
+            onDismiss = { showNovoContatoDialog = false },
+            onConfirm = { novoContato ->
+                viewModel.salvarContato(novoContato)
+                contatoSelecionado = novoContato
+                showNovoContatoDialog = false
+            }
+        )
     }
-    val formatted = sb.toString()
-    return TextFieldValue(formatted, TextRange(formatted.length))
-}
 
-fun formatHoraValueNovoRelatorio(input: TextFieldValue): TextFieldValue {
-    val digits = input.text.filter { it.isDigit() }.take(4)
-    val sb = StringBuilder()
-    for (i in digits.indices) {
-        sb.append(digits[i])
-        if (i == 1 && digits.length > 2) sb.append(':')
+    // Dialog para novo setor
+    if (showNovoSetorDialog && clienteSelecionado != null) {
+        NovoSetorDialog(
+            clienteId = clienteSelecionado!!.id,
+            onDismiss = { showNovoSetorDialog = false },
+            onConfirm = { novoSetor ->
+                viewModel.salvarSetor(novoSetor)
+                setorSelecionado = novoSetor
+                showNovoSetorDialog = false
+            }
+        )
     }
-    val formatted = sb.toString()
-    return TextFieldValue(formatted, TextRange(formatted.length))
 }
 
-// Helpers visuais
 @Composable
-fun InputCard(content: @Composable () -> Unit) {
+private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) { Box(Modifier.padding(2.dp)) { content() } }
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(8.dp)
+    ) { Column(modifier = Modifier.padding(16.dp), content = content) }
 }
 
 @Composable
-fun outlinedNoBorder() = OutlinedTextFieldDefaults.colors(
+private fun textFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedContainerColor = Color.White,
     unfocusedContainerColor = Color.White,
-    focusedBorderColor = Color.Transparent,
-    unfocusedBorderColor = Color.Transparent,
-    disabledBorderColor = Color.Transparent,
-    errorBorderColor = Color.Transparent
+    focusedBorderColor = Color.LightGray,
+    unfocusedBorderColor = Color.LightGray
 )
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NovoContatoDialog(
+    clienteId: String,
+    onDismiss: () -> Unit,
+    onConfirm: (Contato) -> Unit
+) {
+    var nome by remember { mutableStateOf("") }
+    var telefone by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var cargo by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Novo Contato") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = nome,
+                    onValueChange = { nome = it },
+                    label = { Text("Nome *") },
+                    placeholder = { Text("Nome do contato") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
+                OutlinedTextField(
+                    value = telefone,
+                    onValueChange = { telefone = it },
+                    label = { Text("Telefone") },
+                    placeholder = { Text("(11) 99999-9999") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("E-mail") },
+                    placeholder = { Text("contato@empresa.com") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
+                OutlinedTextField(
+                    value = cargo,
+                    onValueChange = { cargo = it },
+                    label = { Text("Cargo") },
+                    placeholder = { Text("Gerente, Técnico, Supervisor...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
+
+                // Informação sobre campos obrigatórios
+                Text(
+                    "* Apenas o nome é obrigatório",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(
+                        Contato(
+                            id = UUID.randomUUID().toString(),
+                            clienteId = clienteId,
+                            nome = nome.trim(),
+                            telefone = telefone.trim(),
+                            email = email.trim(),
+                            cargo = cargo.trim()
+                        )
+                    )
+                },
+                enabled = nome.isNotBlank(), // Apenas nome é obrigatório
+                colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White)
+            ) { Text("Criar") }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Cancelar", color = Brand)
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NovoSetorDialog(
+    clienteId: String,
+    onDismiss: () -> Unit,
+    onConfirm: (Setor) -> Unit
+) {
+    var nome by remember { mutableStateOf("") }
+    var descricao by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Novo Setor") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = nome,
+                    onValueChange = { nome = it },
+                    label = { Text("Nome do Setor *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
+                OutlinedTextField(
+                    value = descricao,
+                    onValueChange = { descricao = it },
+                    label = { Text("Descrição") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors(),
+                    maxLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(
+                        Setor(
+                            id = UUID.randomUUID().toString(),
+                            clienteId = clienteId,
+                            nome = nome,
+                            descricao = descricao
+                        )
+                    )
+                },
+                enabled = nome.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White)
+            ) { Text("Criar") }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Cancelar", color = Brand)
+            }
+        }
+    )
+}
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
 fun NovoRelatorioScreenPreview() {
-    AprimortechTheme { NovoRelatorioScreen(navController = rememberNavController()) }
+    AprimortechTheme {
+        NovoRelatorioScreen(navController = rememberNavController())
+    }
 }

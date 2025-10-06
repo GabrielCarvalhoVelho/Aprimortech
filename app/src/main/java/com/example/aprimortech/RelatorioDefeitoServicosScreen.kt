@@ -14,31 +14,66 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.aprimortech.ui.theme.AprimortechTheme
+import com.example.aprimortech.ui.viewmodel.DefeitoViewModel
+import com.example.aprimortech.ui.viewmodel.DefeitoViewModelFactory
+import com.example.aprimortech.ui.viewmodel.ServicoViewModel
+import com.example.aprimortech.ui.viewmodel.ServicoViewModelFactory
+import com.google.firebase.firestore.FirebaseFirestore
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modifier = Modifier) {
-    // listas base
-    val defeitosComuns = listOf("Falha Elétrica", "Vazamento de Óleo", "Ruído Anormal", "Aquecimento Excessivo")
-    val servicosComuns = listOf("Troca de Peça", "Lubrificação", "Ajuste de Configuração", "Limpeza Geral")
+    val context = LocalContext.current
 
-    // estado de selecionados
+    // Usar repositórios da Application em vez de criar novas instâncias
+    val application = context.applicationContext as AprimortechApplication
+
+    val defeitoViewModel: DefeitoViewModel = viewModel(
+        factory = DefeitoViewModelFactory(application.defeitoRepository)
+    )
+    val servicoViewModel: ServicoViewModel = viewModel(
+        factory = ServicoViewModelFactory(application.servicoRepository)
+    )
+
+    // Estados dos ViewModels
+    val defeitos by defeitoViewModel.defeitos.collectAsState()
+    val servicos by servicoViewModel.servicos.collectAsState()
+    val isLoadingDefeitos by defeitoViewModel.isLoading.collectAsState()
+    val isLoadingServicos by servicoViewModel.isLoading.collectAsState()
+    val errorMessageDefeitos by defeitoViewModel.errorMessage.collectAsState()
+    val errorMessageServicos by servicoViewModel.errorMessage.collectAsState()
+
+    // Estados locais para seleção
     val defeitosSelecionados = remember { mutableStateListOf<String>() }
     val servicosSelecionados = remember { mutableStateListOf<String>() }
-
-    // extras adicionados pelo usuário
-    val defeitosExtras = remember { mutableStateListOf<String>() }
-    val servicosExtras = remember { mutableStateListOf<String>() }
 
     var novoDefeito by remember { mutableStateOf("") }
     var novoServico by remember { mutableStateOf("") }
     var observacoes by remember { mutableStateOf("") }
+
+    // Mostrar erros via Toast
+    LaunchedEffect(errorMessageDefeitos) {
+        errorMessageDefeitos?.let { error ->
+            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+            defeitoViewModel.limparErro()
+        }
+    }
+
+    LaunchedEffect(errorMessageServicos) {
+        errorMessageServicos?.let { error ->
+            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+            servicoViewModel.limparErro()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -79,39 +114,59 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(Modifier.padding(12.dp)) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        (defeitosComuns + defeitosExtras).forEach { defeito ->
-                            FilterChip(
-                                selected = defeitosSelecionados.contains(defeito),
-                                onClick = {
-                                    if (defeitosSelecionados.contains(defeito)) {
-                                        defeitosSelecionados.remove(defeito)
-                                    } else {
-                                        defeitosSelecionados.add(defeito)
-                                    }
-                                },
-                                label = { Text(defeito) }
-                            )
+                    if (isLoadingDefeitos) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Color(0xFF1A4A5C))
+                        }
+                    } else {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            defeitos.forEach { defeito ->
+                                FilterChip(
+                                    selected = defeitosSelecionados.contains(defeito.nome),
+                                    onClick = {
+                                        if (defeitosSelecionados.contains(defeito.nome)) {
+                                            defeitosSelecionados.remove(defeito.nome)
+                                        } else {
+                                            defeitosSelecionados.add(defeito.nome)
+                                            // Incrementar uso no banco de dados
+                                            defeitoViewModel.salvarDefeito(defeito.nome)
+                                        }
+                                    },
+                                    label = { Text(defeito.nome) }
+                                )
+                            }
                         }
                     }
+
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = novoDefeito,
                         onValueChange = { novoDefeito = it },
                         label = { Text("Adicionar novo defeito") },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = Color.LightGray,
+                            unfocusedBorderColor = Color.LightGray
+                        )
                     )
                     Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = {
                             if (novoDefeito.isNotBlank()) {
-                                defeitosExtras.add(novoDefeito)
-                                defeitosSelecionados.add(novoDefeito)
-                                novoDefeito = ""
+                                defeitoViewModel.salvarDefeito(novoDefeito) { defeitoId ->
+                                    defeitosSelecionados.add(novoDefeito)
+                                    novoDefeito = ""
+                                    Toast.makeText(context, "Defeito adicionado com sucesso!", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         },
                         modifier = Modifier.align(Alignment.End),
@@ -119,9 +174,17 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF1A4A5C),
                             contentColor = Color.White
-                        )
+                        ),
+                        enabled = novoDefeito.isNotBlank() && !isLoadingDefeitos
                     ) {
-                        Text("Adicionar")
+                        if (isLoadingDefeitos) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White
+                            )
+                        } else {
+                            Text("Adicionar")
+                        }
                     }
                 }
             }
@@ -138,39 +201,59 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(Modifier.padding(12.dp)) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        (servicosComuns + servicosExtras).forEach { servico ->
-                            FilterChip(
-                                selected = servicosSelecionados.contains(servico),
-                                onClick = {
-                                    if (servicosSelecionados.contains(servico)) {
-                                        servicosSelecionados.remove(servico)
-                                    } else {
-                                        servicosSelecionados.add(servico)
-                                    }
-                                },
-                                label = { Text(servico) }
-                            )
+                    if (isLoadingServicos) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Color(0xFF1A4A5C))
+                        }
+                    } else {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            servicos.forEach { servico ->
+                                FilterChip(
+                                    selected = servicosSelecionados.contains(servico.nome),
+                                    onClick = {
+                                        if (servicosSelecionados.contains(servico.nome)) {
+                                            servicosSelecionados.remove(servico.nome)
+                                        } else {
+                                            servicosSelecionados.add(servico.nome)
+                                            // Incrementar uso no banco de dados
+                                            servicoViewModel.salvarServico(servico.nome)
+                                        }
+                                    },
+                                    label = { Text(servico.nome) }
+                                )
+                            }
                         }
                     }
+
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = novoServico,
                         onValueChange = { novoServico = it },
                         label = { Text("Adicionar novo serviço") },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = Color.LightGray,
+                            unfocusedBorderColor = Color.LightGray
+                        )
                     )
                     Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = {
                             if (novoServico.isNotBlank()) {
-                                servicosExtras.add(novoServico)
-                                servicosSelecionados.add(novoServico)
-                                novoServico = ""
+                                servicoViewModel.salvarServico(novoServico) { servicoId ->
+                                    servicosSelecionados.add(novoServico)
+                                    novoServico = ""
+                                    Toast.makeText(context, "Serviço adicionado com sucesso!", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         },
                         modifier = Modifier.align(Alignment.End),
@@ -178,9 +261,17 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF1A4A5C),
                             contentColor = Color.White
-                        )
+                        ),
+                        enabled = novoServico.isNotBlank() && !isLoadingServicos
                     ) {
-                        Text("Adicionar")
+                        if (isLoadingServicos) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White
+                            )
+                        } else {
+                            Text("Adicionar")
+                        }
                     }
                 }
             }
@@ -202,7 +293,8 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
                     placeholder = { Text("Digite observações adicionais...") },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp),
+                        .height(120.dp)
+                        .padding(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = Color.White,
                         unfocusedContainerColor = Color.White,
@@ -232,7 +324,14 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
                     Text("Anterior")
                 }
                 Button(
-                    onClick = { navController.navigate("relatorioEtapa4") },
+                    onClick = {
+                        // Passar dados para a próxima etapa
+                        val defeitosString = defeitosSelecionados.joinToString(",")
+                        val servicosString = servicosSelecionados.joinToString(",")
+                        val observacoesEncoded = java.net.URLEncoder.encode(observacoes, "UTF-8")
+
+                        navController.navigate("relatorioEtapa4?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded")
+                    },
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.height(46.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -250,7 +349,7 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
-fun RelatorioDefeitoServicosPreview() {
+fun RelatorioDefeitoServicosScreenPreview() {
     AprimortechTheme {
         RelatorioDefeitoServicosScreen(navController = rememberNavController())
     }

@@ -4,7 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aprimortech.data.local.entity.MaquinaEntity
-import com.example.aprimortech.data.local.entity.ClienteEntity
+import com.example.aprimortech.model.Cliente
 import com.example.aprimortech.domain.usecase.BuscarMaquinasUseCase
 import com.example.aprimortech.domain.usecase.ExcluirMaquinaUseCase
 import com.example.aprimortech.domain.usecase.SalvarMaquinaUseCase
@@ -28,8 +28,8 @@ class MaquinaViewModel(
     private val _maquinas = MutableStateFlow<List<MaquinaEntity>>(emptyList())
     val maquinas: StateFlow<List<MaquinaEntity>> = _maquinas.asStateFlow()
 
-    private val _clientes = MutableStateFlow<List<ClienteEntity>>(emptyList())
-    val clientes: StateFlow<List<ClienteEntity>> = _clientes.asStateFlow()
+    private val _clientes = MutableStateFlow<List<Cliente>>(emptyList())
+    val clientes: StateFlow<List<Cliente>> = _clientes.asStateFlow()
 
     private val _fabricantesDisponiveis = MutableStateFlow<List<String>>(emptyList())
     val fabricantesDisponiveis: StateFlow<List<String>> = _fabricantesDisponiveis.asStateFlow()
@@ -132,11 +132,11 @@ class MaquinaViewModel(
         viewModelScope.launch {
             try {
                 _operacaoEmAndamento.value = true
-                val qtd = sincronizarMaquinasUseCase()
-                _mensagemOperacao.value = if (qtd > 0) {
-                    "Sincronização concluída! $qtd máquina(s) enviada(s)."
+                val sucesso = sincronizarMaquinasUseCase()
+                _mensagemOperacao.value = if (sucesso) {
+                    "Sincronização concluída com sucesso!"
                 } else {
-                    "Todas as máquinas já estão sincronizadas."
+                    "Erro na sincronização das máquinas."
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Erro durante sincronização", e)

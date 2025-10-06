@@ -73,6 +73,14 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
                     scope.launch { drawerState.close() }
                     navController.navigate("pecas")
                 }
+                DrawerMenuItem(Icons.Default.Warning, "Defeitos", false) {
+                    scope.launch { drawerState.close() }
+                    navController.navigate("defeitos")
+                }
+                DrawerMenuItem(Icons.Default.Settings, "Serviços", false) {
+                    scope.launch { drawerState.close() }
+                    navController.navigate("servicos")
+                }
 
                 Spacer(Modifier.weight(1f))
                 Divider()
