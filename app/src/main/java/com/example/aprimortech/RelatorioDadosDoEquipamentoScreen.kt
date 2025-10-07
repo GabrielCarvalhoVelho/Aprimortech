@@ -24,7 +24,11 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RelatorioEquipamentoScreen(navController: NavController, modifier: Modifier = Modifier) {
+fun RelatorioEquipamentoScreen(
+    navController: NavController,
+    modifier: Modifier = Modifier,
+    clienteId: String = ""
+) {
     var fabricante by remember { mutableStateOf("") }
     var codigoConfiguracao by remember { mutableStateOf("") }
     var numeroSerie by remember { mutableStateOf("") }
@@ -200,7 +204,7 @@ fun RelatorioEquipamentoScreen(navController: NavController, modifier: Modifier 
                 }
 
                 Button(
-                    onClick = { navController.navigate("relatorioEtapa3") },
+                    onClick = { navController.navigate("relatorioEtapa3?clienteId=$clienteId") },
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.height(46.dp),
                     colors = ButtonDefaults.buttonColors(

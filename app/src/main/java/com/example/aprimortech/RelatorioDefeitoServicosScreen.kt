@@ -31,7 +31,11 @@ import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modifier = Modifier) {
+fun RelatorioDefeitoServicosScreen(
+    navController: NavController,
+    modifier: Modifier = Modifier,
+    clienteId: String = ""
+) {
     val context = LocalContext.current
 
     // Usar repositórios da Application em vez de criar novas instâncias
@@ -330,7 +334,7 @@ fun RelatorioDefeitoServicosScreen(navController: NavController, modifier: Modif
                         val servicosString = servicosSelecionados.joinToString(",")
                         val observacoesEncoded = java.net.URLEncoder.encode(observacoes, "UTF-8")
 
-                        navController.navigate("relatorioEtapa4?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded")
+                        navController.navigate("relatorioEtapa4?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&clienteId=$clienteId")
                     },
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.height(46.dp),

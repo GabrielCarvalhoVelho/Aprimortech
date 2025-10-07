@@ -89,14 +89,38 @@ fun AppNavigation() {
                 setorId = setorId
             )
         }
-        composable("relatorioEtapa2") {
-            RelatorioEquipamentoScreen(navController = navController)
-        }
-        composable("relatorioEtapa3") {
-            RelatorioDefeitoServicosScreen(navController = navController)
+        composable(
+            "relatorioEtapa2?clienteId={clienteId}",
+            arguments = listOf(
+                navArgument("clienteId") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            val clienteId = backStackEntry.arguments?.getString("clienteId") ?: ""
+            RelatorioEquipamentoScreen(
+                navController = navController,
+                clienteId = clienteId
+            )
         }
         composable(
-            "relatorioEtapa4?defeitos={defeitos}&servicos={servicos}&observacoes={observacoes}",
+            "relatorioEtapa3?clienteId={clienteId}",
+            arguments = listOf(
+                navArgument("clienteId") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            val clienteId = backStackEntry.arguments?.getString("clienteId") ?: ""
+            RelatorioDefeitoServicosScreen(
+                navController = navController,
+                clienteId = clienteId
+            )
+        }
+        composable(
+            "relatorioEtapa4?defeitos={defeitos}&servicos={servicos}&observacoes={observacoes}&clienteId={clienteId}",
             arguments = listOf(
                 navArgument("defeitos") {
                     type = NavType.StringType
@@ -109,22 +133,28 @@ fun AppNavigation() {
                 navArgument("observacoes") {
                     type = NavType.StringType
                     defaultValue = ""
+                },
+                navArgument("clienteId") {
+                    type = NavType.StringType
+                    defaultValue = ""
                 }
             )
         ) { backStackEntry ->
             val defeitos = backStackEntry.arguments?.getString("defeitos") ?: ""
             val servicos = backStackEntry.arguments?.getString("servicos") ?: ""
             val observacoes = backStackEntry.arguments?.getString("observacoes") ?: ""
+            val clienteId = backStackEntry.arguments?.getString("clienteId") ?: ""
 
             RelatorioPecasScreen(
                 navController = navController,
                 defeitos = defeitos,
                 servicos = servicos,
-                observacoes = observacoes
+                observacoes = observacoes,
+                clienteId = clienteId
             )
         }
         composable(
-            "relatorioEtapa5?defeitos={defeitos}&servicos={servicos}&observacoes={observacoes}&pecas={pecas}",
+            "relatorioEtapa5?defeitos={defeitos}&servicos={servicos}&observacoes={observacoes}&pecas={pecas}&clienteId={clienteId}",
             arguments = listOf(
                 navArgument("defeitos") {
                     type = NavType.StringType
@@ -141,6 +171,10 @@ fun AppNavigation() {
                 navArgument("pecas") {
                     type = NavType.StringType
                     defaultValue = ""
+                },
+                navArgument("clienteId") {
+                    type = NavType.StringType
+                    defaultValue = ""
                 }
             )
         ) { backStackEntry ->
@@ -148,13 +182,15 @@ fun AppNavigation() {
             val servicos = backStackEntry.arguments?.getString("servicos") ?: ""
             val observacoes = backStackEntry.arguments?.getString("observacoes") ?: ""
             val pecas = backStackEntry.arguments?.getString("pecas") ?: ""
+            val clienteId = backStackEntry.arguments?.getString("clienteId") ?: ""
 
             RelatorioHorasDeslocamentoScreen(
                 navController = navController,
                 defeitos = defeitos,
                 servicos = servicos,
                 observacoes = observacoes,
-                pecas = pecas
+                pecas = pecas,
+                clienteId = clienteId
             )
         }
         composable("relatorioEtapa6") {

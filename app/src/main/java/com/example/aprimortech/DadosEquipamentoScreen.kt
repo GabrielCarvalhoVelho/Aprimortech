@@ -596,7 +596,7 @@ fun DadosEquipamentoScreen(
                 Button(
                     onClick = {
                         // Navegar para próxima página do relatório - Defeitos e Serviços Realizados
-                        navController.navigate("relatorioEtapa3")
+                        navController.navigate("relatorioEtapa3?clienteId=$clienteId")
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     enabled = fabricanteSelecionado.isNotEmpty() && numeroSerie.isNotEmpty(),

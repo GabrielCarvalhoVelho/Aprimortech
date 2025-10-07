@@ -49,7 +49,8 @@ fun RelatorioPecasScreen(
     modifier: Modifier = Modifier,
     defeitos: String = "",
     servicos: String = "",
-    observacoes: String = ""
+    observacoes: String = "",
+    clienteId: String = ""
 ) {
     val context = LocalContext.current
 
@@ -393,7 +394,7 @@ fun RelatorioPecasScreen(
                         val observacoesEncoded = java.net.URLEncoder.encode(observacoesDecodificadas, "UTF-8")
                         val pecasJson = pecas.joinToString("|") { "${it.codigo};${it.descricao};${it.quantidade};${it.valorUnit}" }
 
-                        navController.navigate("relatorioEtapa5?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&pecas=$pecasJson")
+                        navController.navigate("relatorioEtapa5?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&pecas=$pecasJson&clienteId=$clienteId")
                     },
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.height(46.dp),
