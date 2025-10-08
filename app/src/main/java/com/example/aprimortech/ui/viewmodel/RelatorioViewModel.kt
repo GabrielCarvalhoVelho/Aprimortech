@@ -79,6 +79,76 @@ class RelatorioViewModel @Inject constructor(
         }
     }
 
+    fun salvarRelatorioComAssinaturas(
+        relatorio: Relatorio,
+        assinaturaCliente: android.graphics.Bitmap?,
+        assinaturaTecnico: android.graphics.Bitmap?
+    ) {
+        android.util.Log.d("RelatorioViewModel", "=== MÉTODO salvarRelatorioComAssinaturas CHAMADO ===")
+        android.util.Log.d("RelatorioViewModel", "Iniciando viewModelScope.launch...")
+
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("RelatorioViewModel", "=== DENTRO DO VIEWMODEL SCOPE ===")
+                android.util.Log.d("RelatorioViewModel", "Cliente ID: ${relatorio.clienteId}")
+                android.util.Log.d("RelatorioViewModel", "Máquina ID: ${relatorio.maquinaId}")
+                android.util.Log.d("RelatorioViewModel", "Relatório ID: ${relatorio.id}")
+                android.util.Log.d("RelatorioViewModel", "Tem assinatura cliente: ${assinaturaCliente != null}")
+                android.util.Log.d("RelatorioViewModel", "Tem assinatura técnico: ${assinaturaTecnico != null}")
+
+                android.util.Log.d("RelatorioViewModel", "Iniciando conversão para Base64...")
+
+                // Converte bitmaps para Base64
+                val assinaturaClienteBase64 = assinaturaCliente?.let { bitmap ->
+                    android.util.Log.d("RelatorioViewModel", "Convertendo bitmap cliente para Base64...")
+                    val byteArrayOutputStream = java.io.ByteArrayOutputStream()
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
+                    val byteArray = byteArrayOutputStream.toByteArray()
+                    val base64String = android.util.Base64.encodeToString(byteArray, android.util.Base64.DEFAULT)
+                    android.util.Log.d("RelatorioViewModel", "Base64 cliente criado, tamanho: ${base64String.length}")
+                    base64String
+                }
+
+                val assinaturaTecnicoBase64 = assinaturaTecnico?.let { bitmap ->
+                    android.util.Log.d("RelatorioViewModel", "Convertendo bitmap técnico para Base64...")
+                    val byteArrayOutputStream = java.io.ByteArrayOutputStream()
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
+                    val byteArray = byteArrayOutputStream.toByteArray()
+                    val base64String = android.util.Base64.encodeToString(byteArray, android.util.Base64.DEFAULT)
+                    android.util.Log.d("RelatorioViewModel", "Base64 técnico criado, tamanho: ${base64String.length}")
+                    base64String
+                }
+
+                android.util.Log.d("RelatorioViewModel", "Criando relatório completo...")
+                // Atualiza o relatório com as assinaturas em Base64
+                val relatorioCompleto = relatorio.copy(
+                    assinaturaCliente = assinaturaClienteBase64,
+                    assinaturaTecnico = assinaturaTecnicoBase64
+                )
+
+                android.util.Log.d("RelatorioViewModel", "Relatório completo criado, chamando salvarRelatorioUseCase...")
+                android.util.Log.d("RelatorioViewModel", "Use case disponível: ${salvarRelatorioUseCase != null}")
+
+                salvarRelatorioUseCase(relatorioCompleto)
+                android.util.Log.d("RelatorioViewModel", "Use case executado com sucesso!")
+
+                android.util.Log.d("RelatorioViewModel", "Definindo mensagem de sucesso...")
+                _mensagemOperacao.value = "Relatório finalizado com sucesso!"
+                android.util.Log.d("RelatorioViewModel", "Mensagem definida: ${_mensagemOperacao.value}")
+
+                android.util.Log.d("RelatorioViewModel", "Recarregando lista de relatórios...")
+                carregarRelatorios() // Recarrega a lista
+                android.util.Log.d("RelatorioViewModel", "=== SALVAMENTO COM ASSINATURAS CONCLUÍDO ===")
+            } catch (e: Exception) {
+                android.util.Log.e("RelatorioViewModel", "=== ERRO NO SALVAMENTO COM ASSINATURAS ===", e)
+                android.util.Log.e("RelatorioViewModel", "Stack trace completo:", e)
+                _mensagemOperacao.value = "Erro ao finalizar relatório: ${e.message}"
+                android.util.Log.d("RelatorioViewModel", "Mensagem de erro definida: ${_mensagemOperacao.value}")
+            }
+        }
+        android.util.Log.d("RelatorioViewModel", "=== FIM DO MÉTODO salvarRelatorioComAssinaturas ===")
+    }
+
     fun excluirRelatorio(id: String) {
         viewModelScope.launch {
             try {

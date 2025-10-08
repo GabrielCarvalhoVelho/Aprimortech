@@ -35,6 +35,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.aprimortech.ui.theme.AprimortechTheme
+import com.example.aprimortech.model.Relatorio
 import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : ComponentActivity() {
@@ -193,8 +194,56 @@ fun AppNavigation() {
                 clienteId = clienteId
             )
         }
-        composable("relatorioEtapa6") {
-            RelatorioAssinaturaScreen(navController = navController)
+        composable(
+            "relatorioEtapa6?defeitos={defeitos}&servicos={servicos}&observacoes={observacoes}&pecas={pecas}&horas={horas}&clienteId={clienteId}",
+            arguments = listOf(
+                navArgument("defeitos") { type = NavType.StringType },
+                navArgument("servicos") { type = NavType.StringType },
+                navArgument("observacoes") { type = NavType.StringType },
+                navArgument("pecas") { type = NavType.StringType },
+                navArgument("horas") { type = NavType.StringType },
+                navArgument("clienteId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val defeitos = backStackEntry.arguments?.getString("defeitos") ?: ""
+            val servicos = backStackEntry.arguments?.getString("servicos") ?: ""
+            val observacoes = backStackEntry.arguments?.getString("observacoes") ?: ""
+            val pecas = backStackEntry.arguments?.getString("pecas") ?: ""
+            val horasData = backStackEntry.arguments?.getString("horas") ?: ""
+            val clienteId = backStackEntry.arguments?.getString("clienteId") ?: ""
+
+            // Parse dos dados de horas
+            val horasParts = horasData.split(";")
+            val horarioEntrada = if (horasParts.size > 0) horasParts[0] else null
+            val horarioSaida = if (horasParts.size > 1) horasParts[1] else null
+            val distanciaKm = if (horasParts.size > 2) horasParts[2].toDoubleOrNull() else null
+            val valorPorKm = if (horasParts.size > 3) horasParts[3].toDoubleOrNull() else null
+            val valorPedagios = if (horasParts.size > 4) horasParts[4].toDoubleOrNull() else null
+            val valorDeslocamentoTotal = if (horasParts.size > 5) horasParts[5].toDoubleOrNull() else null
+
+            // Reconstrói o relatório com todos os dados
+            val relatorioFinal = Relatorio(
+                id = "", // Será gerado quando salvar
+                clienteId = clienteId,
+                maquinaId = "", // Por enquanto vazio, será necessário adicionar nas etapas anteriores
+                pecaIds = pecas.split(",").filter { it.isNotEmpty() },
+                descricaoServico = servicos,
+                recomendacoes = observacoes,
+                horarioEntrada = horarioEntrada,
+                horarioSaida = horarioSaida,
+                distanciaKm = distanciaKm,
+                valorDeslocamentoPorKm = valorPorKm,
+                valorDeslocamentoTotal = valorDeslocamentoTotal,
+                valorPedagios = valorPedagios,
+                observacoes = observacoes,
+                syncPending = true
+            )
+
+            // Passa o relatório para a tela de assinaturas
+            RelatorioAssinaturaScreen(
+                navController = navController,
+                relatorioInicial = relatorioFinal
+            )
         }
         composable("relatorioFinalizado") {
             RelatorioFinalizadoScreen(navController = navController)

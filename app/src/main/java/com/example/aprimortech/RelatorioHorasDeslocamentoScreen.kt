@@ -578,7 +578,7 @@ fun RelatorioHorasDeslocamentoScreen(
                         val pecasString = pecas
                         val horasData = "${horarioEntrada};${horarioSaida};${distanciaKm};${valorPorKm};${valorPedagios};${valorDeslocamentoTotal}"
 
-                        navController.navigate("relatorioEtapa6?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&pecas=$pecasString&horas=$horasData")
+                        navController.navigate("relatorioEtapa6?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&pecas=$pecasString&horas=$horasData&clienteId=$clienteId")
                     },
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.height(46.dp),

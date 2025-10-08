@@ -323,6 +323,7 @@ private fun AddEditMaquinaDialog(
     var codigoTinta by remember { mutableStateOf(initial.codigoTinta) }
     var codigoSolvente by remember { mutableStateOf(initial.codigoSolvente) }
     var dataProximaPreventiva by remember { mutableStateOf(initial.dataProximaPreventiva) }
+    var codigoConfiguracao by remember { mutableStateOf(initial.codigoConfiguracao) }
 
     val salvarHabilitado = clienteId.isNotBlank() && nomeMaquina.isNotBlank() && fabricante.isNotBlank() &&
             numeroSerie.isNotBlank() && modelo.isNotBlank() && codigoTinta.isNotBlank() &&
@@ -497,6 +498,15 @@ private fun AddEditMaquinaDialog(
                     label = { Text("Ano de Fabricação *") },
                     placeholder = { Text("Ex: 2020") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
+
+                OutlinedTextField(
+                    value = codigoConfiguracao,
+                    onValueChange = { codigoConfiguracao = it.uppercase() },
+                    label = { Text("Código de Configuração") },
+                    placeholder = { Text("Ex: CFG001, CONFIG-A") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = textFieldColors()
                 )
@@ -691,7 +701,8 @@ private fun AddEditMaquinaDialog(
                             anoFabricacao = anoFabricacao.trim(),
                             identificacao = identificacao.trim(),
                             codigoSolvente = codigoSolvente.trim(),
-                            dataProximaPreventiva = dataProximaPreventiva.trim()
+                            dataProximaPreventiva = dataProximaPreventiva.trim(),
+                            codigoConfiguracao = codigoConfiguracao.trim()
                         )
                     )
                 },
@@ -734,9 +745,12 @@ private fun ViewMaquinaDialog(
                 Text("Fabricante: ${maquina.fabricante}")
                 Text("Número de Série: ${maquina.numeroSerie}")
                 Text("Modelo: ${maquina.modelo}")
-                Text("Código da Tinta: ${maquina.codigoTinta}")
-                Text("Ano Fabricação: ${maquina.anoFabricacao}")
                 Text("Identificação: ${maquina.identificacao}")
+                Text("Ano Fabricação: ${maquina.anoFabricacao}")
+                if (maquina.codigoConfiguracao.isNotEmpty()) {
+                    Text("Código de Configuração: ${maquina.codigoConfiguracao}")
+                }
+                Text("Código da Tinta: ${maquina.codigoTinta}")
                 Text("Código do Solvente: ${maquina.codigoSolvente}")
                 Text("Próx. Preventiva: ${maquina.dataProximaPreventiva}")
             }

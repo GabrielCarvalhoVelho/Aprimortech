@@ -12,5 +12,5 @@ data class Maquina(
     val codigoTinta: String = "",
     val codigoSolvente: String = "",
     val dataProximaPreventiva: String = "",
-    val codigoConfiguracao: String = "" // Deprecated
+    val codigoConfiguracao: String = ""
 )

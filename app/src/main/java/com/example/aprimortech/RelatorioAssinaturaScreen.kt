@@ -32,6 +32,7 @@ import com.example.aprimortech.ui.theme.AprimortechTheme
 import com.example.aprimortech.ui.viewmodel.RelatorioViewModel
 import com.example.aprimortech.ui.viewmodel.RelatorioViewModelFactory
 import com.example.aprimortech.model.Relatorio
+import com.example.aprimortech.util.SignatureUtils
 import android.widget.Toast
 
 // Estado da assinatura: cada assinatura é composta por uma lista de linhas (paths).
@@ -52,6 +53,7 @@ data class SignatureState(
 fun RelatorioAssinaturaScreen(
     navController: NavController,
     modifier: Modifier = Modifier,
+    relatorioInicial: Relatorio? = null,
     viewModel: RelatorioViewModel = viewModel(
         factory = RelatorioViewModelFactory(
             buscarRelatoriosUseCase = (LocalContext.current.applicationContext as AprimortechApplication).buscarRelatoriosUseCase,
@@ -66,11 +68,17 @@ fun RelatorioAssinaturaScreen(
     val context = LocalContext.current
     val clienteSignature = remember { SignatureState() }
     val tecnicoSignature = remember { SignatureState() }
+    var isLoading by remember { mutableStateOf(false) }
 
-    // Recupera relatório em progresso
-    val relatorioFinal = navController.currentBackStackEntryAsState().value
+    // Usa o relatório passado como parâmetro ou tenta recuperar do savedStateHandle
+    val relatorioFinal = relatorioInicial ?: navController.currentBackStackEntryAsState().value
         ?.savedStateHandle
         ?.get<Relatorio>("relatorioFinal")
+
+    android.util.Log.d("RelatorioAssinatura", "=== INICIALIZAÇÃO DA TELA ===")
+    android.util.Log.d("RelatorioAssinatura", "relatorioInicial: $relatorioInicial")
+    android.util.Log.d("RelatorioAssinatura", "relatorioFinal: $relatorioFinal")
+    android.util.Log.d("RelatorioAssinatura", "relatorioFinal é null? ${relatorioFinal == null}")
 
     // Estados do ViewModel
     val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
@@ -78,6 +86,7 @@ fun RelatorioAssinaturaScreen(
     // Feedback toast
     LaunchedEffect(mensagemOperacao) {
         mensagemOperacao?.let { msg ->
+            isLoading = false
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             viewModel.limparMensagem()
             if (msg.contains("sucesso")) {
@@ -152,22 +161,62 @@ fun RelatorioAssinaturaScreen(
                         contentColor = Color(0xFF1A4A5C)
                     ),
                     border = BorderStroke(0.dp, Color.Transparent),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
+                    enabled = !isLoading
                 ) {
                     Text("Anterior")
                 }
 
                 Button(
                     onClick = {
-                        // Finaliza e salva o relatório completo
+                        android.util.Log.d("RelatorioAssinatura", "=== BOTÃO FINALIZAR CLICADO ===")
+                        android.util.Log.d("RelatorioAssinatura", "relatorioFinal é null? ${relatorioFinal == null}")
+                        android.util.Log.d("RelatorioAssinatura", "Cliente tem assinatura? ${clienteSignature.hasSignature()}")
+                        android.util.Log.d("RelatorioAssinatura", "Técnico tem assinatura? ${tecnicoSignature.hasSignature()}")
+                        android.util.Log.d("RelatorioAssinatura", "isLoading atual: $isLoading")
+
                         if (relatorioFinal != null) {
-                            val relatorioCompleto = relatorioFinal.copy(
-                                // Converter assinaturas para base64 (implementação simplificada)
-                                assinaturaCliente = if (clienteSignature.hasSignature()) "ASSINATURA_CLIENTE_BASE64" else null,
-                                assinaturaTecnico = if (tecnicoSignature.hasSignature()) "ASSINATURA_TECNICO_BASE64" else null,
-                                syncPending = false // Relatório finalizado
+                            android.util.Log.d("RelatorioAssinatura", "RelatorioFinal encontrado, iniciando processamento...")
+                            android.util.Log.d("RelatorioAssinatura", "Relatório ID: ${relatorioFinal.id}")
+                            android.util.Log.d("RelatorioAssinatura", "Cliente ID: ${relatorioFinal.clienteId}")
+                            android.util.Log.d("RelatorioAssinatura", "Máquina ID: ${relatorioFinal.maquinaId}")
+
+                            isLoading = true
+                            android.util.Log.d("RelatorioAssinatura", "Loading definido como true")
+
+                            // Converte assinaturas para Bitmap usando SignatureUtils
+                            android.util.Log.d("RelatorioAssinatura", "Convertendo assinatura do cliente...")
+                            val bitmapAssinaturaCliente = if (clienteSignature.hasSignature()) {
+                                android.util.Log.d("RelatorioAssinatura", "Cliente tem assinatura, convertendo para bitmap...")
+                                val bitmap = SignatureUtils.signatureToBitmap(clienteSignature.paths)
+                                android.util.Log.d("RelatorioAssinatura", "Bitmap cliente criado: ${bitmap != null}")
+                                bitmap
+                            } else {
+                                android.util.Log.d("RelatorioAssinatura", "Cliente não tem assinatura")
+                                null
+                            }
+
+                            android.util.Log.d("RelatorioAssinatura", "Convertendo assinatura do técnico...")
+                            val bitmapAssinaturaTecnico = if (tecnicoSignature.hasSignature()) {
+                                android.util.Log.d("RelatorioAssinatura", "Técnico tem assinatura, convertendo para bitmap...")
+                                val bitmap = SignatureUtils.signatureToBitmap(tecnicoSignature.paths)
+                                android.util.Log.d("RelatorioAssinatura", "Bitmap técnico criado: ${bitmap != null}")
+                                bitmap
+                            } else {
+                                android.util.Log.d("RelatorioAssinatura", "Técnico não tem assinatura")
+                                null
+                            }
+
+                            android.util.Log.d("RelatorioAssinatura", "Chamando viewModel.salvarRelatorioComAssinaturas...")
+                            // Usa o método simplificado que converte para Base64
+                            viewModel.salvarRelatorioComAssinaturas(
+                                relatorio = relatorioFinal.copy(syncPending = false),
+                                assinaturaCliente = bitmapAssinaturaCliente,
+                                assinaturaTecnico = bitmapAssinaturaTecnico
                             )
-                            viewModel.salvarRelatorio(relatorioCompleto)
+                            android.util.Log.d("RelatorioAssinatura", "Método do ViewModel chamado com sucesso")
+                        } else {
+                            android.util.Log.e("RelatorioAssinatura", "RelatorioFinal é NULL! Não é possível salvar.")
                         }
                     },
                     shape = RoundedCornerShape(6.dp),
@@ -177,9 +226,22 @@ fun RelatorioAssinaturaScreen(
                         contentColor = Color.White
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
-                    enabled = clienteSignature.hasSignature() && tecnicoSignature.hasSignature()
+                    enabled = clienteSignature.hasSignature() && tecnicoSignature.hasSignature() && !isLoading
                 ) {
-                    Text("Finalizar Relatório")
+                    if (isLoading) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White
+                            )
+                            Text("Salvando...")
+                        }
+                    } else {
+                        Text("Finalizar Relatório")
+                    }
                 }
             }
         }

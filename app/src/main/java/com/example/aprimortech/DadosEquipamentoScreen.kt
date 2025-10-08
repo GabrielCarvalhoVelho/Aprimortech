@@ -73,7 +73,6 @@ fun DadosEquipamentoScreen(
 
     var dataProximaManutencao by remember { mutableStateOf("") }
     var horasProximaManutencao by remember { mutableStateOf("") }
-    var usarData by remember { mutableStateOf(true) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     // Estados do ViewModel
@@ -147,12 +146,16 @@ fun DadosEquipamentoScreen(
                 codigoConfiguracao = maquina.codigoConfiguracao
                 modelo = maquina.modelo
                 identificacao = maquina.nomeMaquina
+                codigoTinta = maquina.codigoTinta
+                codigoSolvente = maquina.codigoSolvente
             } else {
                 // Limpar campos se não encontrar máquina
                 anoFabricacao = ""
                 codigoConfiguracao = ""
                 modelo = ""
                 identificacao = ""
+                codigoTinta = ""
+                codigoSolvente = ""
             }
         }
     }
@@ -539,56 +542,35 @@ fun DadosEquipamentoScreen(
                     Text("Próxima Manutenção Preventiva", style = MaterialTheme.typography.titleMedium, color = Brand)
                     Spacer(Modifier.height(8.dp))
 
-                    Row(
+                    // Campo Data da Próxima Manutenção
+                    OutlinedTextField(
+                        value = dataProximaManutencao,
+                        onValueChange = { dataProximaManutencao = it },
+                        label = { Text("Data da Próxima Manutenção") },
+                        placeholder = { Text("DD/MM/AAAA") },
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(
-                                selected = usarData,
-                                onClick = { usarData = true }
-                            )
-                            Text("Data")
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(
-                                selected = !usarData,
-                                onClick = { usarData = false }
-                            )
-                            Text("Horas")
-                        }
-                    }
+                        colors = textFieldColors(),
+                        trailingIcon = {
+                            IconButton(onClick = { showDatePicker = true }) {
+                                Icon(Icons.Default.DateRange, contentDescription = "Selecionar data")
+                            }
+                        },
+                        singleLine = true
+                    )
 
                     Spacer(Modifier.height(12.dp))
 
-                    if (usarData) {
-                        OutlinedTextField(
-                            value = dataProximaManutencao,
-                            onValueChange = { dataProximaManutencao = it },
-                            label = { Text("Data da Próxima Manutenção") },
-                            placeholder = { Text("DD/MM/AAAA") },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = textFieldColors(),
-                            trailingIcon = {
-                                IconButton(onClick = { showDatePicker = true }) {
-                                    Icon(Icons.Default.DateRange, contentDescription = "Selecionar data")
-                                }
-                            },
-                            singleLine = true
-                        )
-                    } else {
-                        OutlinedTextField(
-                            value = horasProximaManutencao,
-                            onValueChange = { horasProximaManutencao = it },
-                            label = { Text("Horas para Próxima Manutenção") },
-                            placeholder = { Text("Ex: 1000") },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = textFieldColors(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true
-                        )
-                    }
+                    // Campo Horas para Próxima Manutenção
+                    OutlinedTextField(
+                        value = horasProximaManutencao,
+                        onValueChange = { horasProximaManutencao = it },
+                        label = { Text("Horas para Próxima Manutenção") },
+                        placeholder = { Text("Ex: 1000") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = textFieldColors(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
                 }
 
                 // BOTÃO CONTINUAR
