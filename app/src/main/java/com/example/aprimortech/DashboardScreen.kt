@@ -7,9 +7,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,17 +21,35 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.aprimortech.ui.theme.AprimortechTheme
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val app = context.applicationContext as? AprimortechApplication
+    val offlineAuth = app?.offlineAuthManager
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                offlineAuth?.refreshSessionTimestamp()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -83,7 +104,7 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
                 }
 
                 Spacer(Modifier.weight(1f))
-                Divider()
+                HorizontalDivider()
 
                 // USUÁRIO
                 Row(
@@ -113,16 +134,15 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
 
                     IconButton(
                         onClick = {
-                            // Faz logout do Firebase
                             FirebaseAuth.getInstance().signOut()
-                            // Redireciona para tela de login
+                            offlineAuth?.clearCredentials()
                             navController.navigate("login") {
                                 popUpTo("dashboard") { inclusive = true }
                             }
                         }
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Logout,
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
                             contentDescription = "Sair",
                             tint = Color(0xFF1A4A5C)
                         )
@@ -196,7 +216,7 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
                 Spacer(Modifier.height(16.dp))
 
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MetricCard("Total de Relatórios", "3", Icons.Default.List)
+                    MetricCard("Total de Relatórios", "3", Icons.AutoMirrored.Filled.List)
                     MetricCard("Clientes Ativos", "3", Icons.Default.Person)
                     MetricCard("Máquinas", "3", Icons.Default.Build)
                     MetricCard("Peças em Estoque", "98", Icons.Default.Inventory)

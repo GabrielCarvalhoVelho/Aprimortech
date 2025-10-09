@@ -103,4 +103,6 @@ dependencies {
 
     // WorkManager para notificações de manutenção preventiva
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+
+    implementation(libs.androidx.security.crypto)
 }

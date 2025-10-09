@@ -1,10 +1,16 @@
 package com.example.aprimortech.model
 
+data class ContatoCliente(
+    val nome: String,
+    val setor: String? = null,
+    val celular: String? = null
+)
+
 data class Cliente(
     val id: String = "",
     val nome: String = "",
     val cnpjCpf: String = "",
-    val contatos: List<String> = emptyList(), // Mudando de contato para contatos (lista)
+    val contatos: List<ContatoCliente> = emptyList(), // Agora lista de objetos
     val endereco: String = "",
     val cidade: String = "",
     val estado: String = "",

@@ -39,6 +39,7 @@ import java.util.UUID
 import java.text.NumberFormat
 import java.util.Locale
 import kotlinx.coroutines.delay
+import androidx.compose.material3.MenuAnchorType
 
 private val Brand = Color(0xFF1A4A5C)
 
@@ -446,7 +447,7 @@ private fun AddEditPecaDialog(
                         placeholder = { Text("Ex: Hitachi, Videojet, Domino") },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor(),
+                            .menuAnchor(MenuAnchorType.PrimaryEditable),
                         colors = textFieldColors(),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         keyboardActions = KeyboardActions(
@@ -501,7 +502,7 @@ private fun AddEditPecaDialog(
                         placeholder = { Text("Ex: Filtros, Cabeças, Tintas") },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor(),
+                            .menuAnchor(MenuAnchorType.PrimaryEditable),
                         colors = textFieldColors(),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         keyboardActions = KeyboardActions(

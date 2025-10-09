@@ -1,5 +1,7 @@
 package com.example.aprimortech
 
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -57,11 +59,23 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavigation() {
+    val context = LocalContext.current
+    val app = context.applicationContext as AprimortechApplication
+    val offlineAuth = app.offlineAuthManager
+    val initialRoute by remember {
+        mutableStateOf(
+            if (offlineAuth.hasOfflineUser() && offlineAuth.isSessionValid()) "dashboard" else "login"
+        )
+    }
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "login") {
-        composable("login") {
-            LoginScreen(navController = navController)
+    LaunchedEffect(initialRoute) {
+        if (initialRoute == "dashboard") {
+            // Renovar a sessão no auto-skip
+            offlineAuth.refreshSessionTimestamp()
         }
+    }
+    NavHost(navController = navController, startDestination = initialRoute) {
+        composable("login") { LoginScreen(navController = navController) }
         composable("dashboard") {
             DashboardScreen(navController = navController)
         }
@@ -269,13 +283,32 @@ fun AppNavigation() {
 
 @Composable
 fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
-    var email by rememberSaveable { mutableStateOf("") }
+    val context = LocalContext.current
+    val app = context.applicationContext as? AprimortechApplication
+    val offlineAuth = app?.offlineAuthManager
+
+    var email by rememberSaveable { mutableStateOf(offlineAuth?.getStoredEmail() ?: "") }
     var password by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
-    val context = LocalContext.current
-    val isInPreview = LocalInspectionMode.current
+    var isProcessing by remember { mutableStateOf(false) }
+    var sessionExpired by remember { mutableStateOf(false) }
 
+    val isInPreview = LocalInspectionMode.current
     val auth = if (!isInPreview) FirebaseAuth.getInstance() else null
+
+    fun isOnline(): Boolean {
+        val cm = context.getSystemService(ConnectivityManager::class.java) ?: return false
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    // Checa expiração quando a tela é aberta
+    LaunchedEffect(Unit) {
+        if (offlineAuth != null && offlineAuth.hasOfflineUser() && !offlineAuth.isSessionValid()) {
+            sessionExpired = true
+        }
+    }
 
     Column(
         modifier = modifier
@@ -307,7 +340,8 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
             leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Ícone de Email") },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            singleLine = true
+            singleLine = true,
+            enabled = !isProcessing
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -325,7 +359,8 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            enabled = !isProcessing
         )
 
         TextButton(
@@ -336,26 +371,70 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
         }
         Spacer(modifier = Modifier.height(24.dp))
 
+        if (sessionExpired) {
+            Text(
+                text = "Sessão expirada. Conecte-se à internet para renovar o login.",
+                color = Color.Red,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+        }
+
         Button(
             onClick = {
-                if (email.isBlank() || password.isBlank()) {
+                if (isProcessing) return@Button
+                val emailTrim = email.trim()
+                val passTrim = password.trim()
+                if (emailTrim.isBlank() || passTrim.isBlank()) {
                     Toast.makeText(context, "Por favor, preencha email e senha.", Toast.LENGTH_SHORT).show()
                     return@Button
                 }
-
-                auth?.signInWithEmailAndPassword(email.trim(), password.trim())
-                    ?.addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            Toast.makeText(context, "Login realizado com sucesso!", Toast.LENGTH_SHORT).show()
-                            navController.navigate("dashboard") {
-                                popUpTo("login") { inclusive = true }
+                isProcessing = true
+                val online = isOnline()
+                if (online) {
+                    auth?.signInWithEmailAndPassword(emailTrim, passTrim)
+                        ?.addOnCompleteListener { task ->
+                            isProcessing = false
+                            if (task.isSuccessful) {
+                                offlineAuth?.saveCredentials(emailTrim, passTrim)
+                                Toast.makeText(context, "Login realizado com sucesso!", Toast.LENGTH_SHORT).show()
+                                navController.navigate("dashboard") {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            } else {
+                                val errorMessage = task.exception?.message ?: "Erro desconhecido. Tente novamente."
+                                Toast.makeText(context, "Falha no login: $errorMessage", Toast.LENGTH_LONG).show()
                             }
-                        } else {
-                            val exception = task.exception
-                            val errorMessage = exception?.message ?: "Erro desconhecido. Tente novamente."
-                            Toast.makeText(context, "Falha no login: $errorMessage", Toast.LENGTH_LONG).show()
-                        }
+                        } ?: run {
+                        isProcessing = false
+                        Toast.makeText(context, "FirebaseAuth indisponível.", Toast.LENGTH_SHORT).show()
                     }
+                } else {
+                    if (sessionExpired) {
+                        isProcessing = false
+                        Toast.makeText(
+                            context,
+                            "Sessão expirada. Faça login online para renovar.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return@Button
+                    }
+                    val valid = offlineAuth?.validateCredentials(emailTrim, passTrim) ?: false
+                    isProcessing = false
+                    if (valid) {
+                        offlineAuth?.refreshSessionTimestamp()
+                        Toast.makeText(context, "Login offline bem-sucedido.", Toast.LENGTH_SHORT).show()
+                        navController.navigate("dashboard") {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    } else {
+                        Toast.makeText(
+                            context,
+                            "Credenciais inválidas offline.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -364,9 +443,14 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF1A4A5C),
                 contentColor = Color.White
-            )
+            ),
+            enabled = !isProcessing
         ) {
-            Text("ENTRAR")
+            if (isProcessing) {
+                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
+            } else {
+                Text("ENTRAR")
+            }
         }
     }
 }

@@ -25,12 +25,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.aprimortech.model.Peca
 import com.example.aprimortech.ui.theme.AprimortechTheme
 import com.example.aprimortech.ui.viewmodel.PecaViewModel
 import com.example.aprimortech.ui.viewmodel.PecaViewModelFactory
-import com.example.aprimortech.model.Peca
 import kotlinx.coroutines.delay
 import android.widget.Toast
+import androidx.compose.material3.MenuAnchorType
 
 data class PecaUiModel(
     var codigo: String = "",
@@ -183,7 +184,7 @@ fun RelatorioPecasScreen(
                     placeholder = { Text("Digite o código da peça") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedCodigos) },
                     modifier = Modifier
-                        .menuAnchor()
+                        .menuAnchor(MenuAnchorType.PrimaryEditable)
                         .fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = Color.White,
@@ -320,7 +321,7 @@ fun RelatorioPecasScreen(
                 Text(if (editIndex == null) "Adicionar Peça" else "Salvar Alterações")
             }
 
-            Divider(Modifier.padding(vertical = 12.dp))
+            HorizontalDivider(Modifier.padding(vertical = 12.dp))
 
             // Lista de peças adicionadas
             if (pecas.isNotEmpty()) {

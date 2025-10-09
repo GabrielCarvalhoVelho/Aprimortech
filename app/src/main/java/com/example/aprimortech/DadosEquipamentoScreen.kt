@@ -34,6 +34,7 @@ import kotlinx.coroutines.delay
 import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.material3.MenuAnchorType
 
 private val Brand = Color(0xFF1A4A5C)
 
@@ -234,7 +235,7 @@ fun DadosEquipamentoScreen(
                             placeholder = { Text("Digite o nome do fabricante") },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .menuAnchor(),
+                                .menuAnchor(MenuAnchorType.PrimaryEditable),
                             colors = textFieldColors(),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(
@@ -342,7 +343,7 @@ fun DadosEquipamentoScreen(
                                 placeholder = { Text("Digite ou selecione o número de série") },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .menuAnchor(),
+                                    .menuAnchor(MenuAnchorType.PrimaryEditable),
                                 colors = textFieldColors(),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                                 keyboardActions = KeyboardActions(
@@ -465,7 +466,7 @@ fun DadosEquipamentoScreen(
                             placeholder = { Text("Digite ou selecione o código da tinta") },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .menuAnchor(),
+                                .menuAnchor(MenuAnchorType.PrimaryEditable),
                             colors = textFieldColors(),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             singleLine = true
@@ -511,7 +512,7 @@ fun DadosEquipamentoScreen(
                             placeholder = { Text("Digite ou selecione o código do solvente") },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .menuAnchor(),
+                                .menuAnchor(MenuAnchorType.PrimaryEditable),
                             colors = textFieldColors(),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             singleLine = true

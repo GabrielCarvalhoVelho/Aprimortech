@@ -34,6 +34,7 @@ import com.example.aprimortech.model.Setor
 import kotlinx.coroutines.delay
 import java.util.UUID
 import android.widget.Toast
+import androidx.compose.material3.MenuAnchorType
 
 private val Brand = Color(0xFF1A4A5C)
 
@@ -180,7 +181,7 @@ fun NovoRelatorioScreen(
                             placeholder = { Text("Digite o nome ou CNPJ do cliente") },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .menuAnchor(),
+                                .menuAnchor(MenuAnchorType.PrimaryEditable),
                             colors = textFieldColors(),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(
@@ -266,7 +267,7 @@ fun NovoRelatorioScreen(
                                     label = { Text("Selecionar Contato") },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .menuAnchor(),
+                                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                                     colors = textFieldColors(),
                                     readOnly = true,
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = contatoExpanded) }
@@ -347,7 +348,7 @@ fun NovoRelatorioScreen(
                                     label = { Text("Selecionar Setor") },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .menuAnchor(),
+                                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                                     colors = textFieldColors(),
                                     readOnly = true,
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = setorExpanded) }

@@ -19,8 +19,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.aprimortech.ui.theme.AprimortechTheme
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import androidx.compose.material3.MenuAnchorType
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,10 +40,11 @@ fun RelatorioEquipamentoScreen(
     var identificacao by remember { mutableStateOf("") }
     var codigoSolvente by remember { mutableStateOf("") }
 
-    // Data próxima manutenção = hoje + 12 meses
-    val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    // Data próxima manutenção = hoje + 12 meses (compatível com minSdk 24)
     val proximaManutencao = remember {
-        LocalDate.now().plusMonths(12).format(formatter)
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.MONTH, 12)
+        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(cal.time)
     }
 
     // Banco fictício de fabricantes e dados
@@ -246,7 +249,7 @@ fun DropdownInputCard(
                 label = { Text(label) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
                 modifier = Modifier
-                    .menuAnchor()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                     .fillMaxWidth()
                     .padding(4.dp),
                 colors = OutlinedTextFieldDefaults.colors(

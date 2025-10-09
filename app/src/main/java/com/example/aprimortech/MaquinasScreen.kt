@@ -36,6 +36,7 @@ import com.example.aprimortech.ui.theme.AprimortechTheme
 import com.example.aprimortech.ui.viewmodel.MaquinaViewModel
 import com.example.aprimortech.ui.viewmodel.MaquinaViewModelFactory
 import java.util.UUID
+import androidx.compose.material3.MenuAnchorType
 
 private val Brand = Color(0xFF1A4A5C)
 
@@ -358,7 +359,7 @@ private fun AddEditMaquinaDialog(
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor(),
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                         colors = textFieldColors()
                     )
                     ExposedDropdownMenu(
@@ -407,7 +408,7 @@ private fun AddEditMaquinaDialog(
                         placeholder = { Text("Ex: Hitachi, Videojet, Domino") },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor(),
+                            .menuAnchor(MenuAnchorType.PrimaryEditable),
                         colors = textFieldColors()
                     )
                     if (fabricantesFiltrados.isNotEmpty()) {
@@ -458,7 +459,7 @@ private fun AddEditMaquinaDialog(
                         placeholder = { Text("Ex: UX-D160W, 1550") },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor(),
+                            .menuAnchor(MenuAnchorType.PrimaryEditable),
                         colors = textFieldColors()
                     )
                     if (modelosFiltrados.isNotEmpty()) {
@@ -532,7 +533,7 @@ private fun AddEditMaquinaDialog(
                         placeholder = { Text("Ex: T123, INK-001") },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor(),
+                            .menuAnchor(MenuAnchorType.PrimaryEditable),
                         colors = textFieldColors()
                     )
                     if (codigosTintaFiltrados.isNotEmpty()) {
@@ -574,7 +575,7 @@ private fun AddEditMaquinaDialog(
                         placeholder = { Text("Ex: S001, SOL-456") },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor(),
+                            .menuAnchor(MenuAnchorType.PrimaryEditable),
                         colors = textFieldColors()
                     )
                     if (codigosSolventeFiltrados.isNotEmpty()) {

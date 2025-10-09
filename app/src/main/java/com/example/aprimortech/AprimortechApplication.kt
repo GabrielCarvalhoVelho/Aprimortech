@@ -1,6 +1,8 @@
 package com.example.aprimortech
 
 import android.app.Application
+import androidx.room.Room
+import com.example.aprimortech.data.local.AppDatabase
 import com.example.aprimortech.data.repository.MaquinaRepository
 import com.example.aprimortech.data.repository.RelatorioRepository
 import com.example.aprimortech.data.repository.ClienteRepository
@@ -12,11 +14,20 @@ import com.example.aprimortech.data.repository.ServicoRepository
 import com.example.aprimortech.domain.usecase.*
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
+import com.example.aprimortech.OfflineAuthManager
 
 class AprimortechApplication : Application() {
 
     // Inicialização lazy das dependências
     private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
+
+    private val database: AppDatabase by lazy {
+        Room.databaseBuilder(
+            this,
+            AppDatabase::class.java,
+            "aprimortech.db"
+        ).fallbackToDestructiveMigration().build()
+    }
 
     // Repositories
     val maquinaRepository: MaquinaRepository by lazy {
@@ -28,7 +39,7 @@ class AprimortechApplication : Application() {
     }
 
     val clienteRepository: ClienteRepository by lazy {
-        ClienteRepository(firestore)
+        ClienteRepository(firestore, database.clienteDao())
     }
 
     val pecaRepository: PecaRepository by lazy {
@@ -122,6 +133,8 @@ class AprimortechApplication : Application() {
     val buscarProximasManutencoesPreventivasUseCase: BuscarProximasManutencoesPreventivasUseCase by lazy {
         BuscarProximasManutencoesPreventivasUseCase(maquinaRepository)
     }
+
+    val offlineAuthManager: OfflineAuthManager by lazy { OfflineAuthManager(this) }
 
     override fun onCreate() {
         super.onCreate()

@@ -11,14 +11,15 @@ import com.example.aprimortech.data.local.entity.ClienteEntity
 import com.example.aprimortech.data.local.entity.MaquinaEntity
 import com.example.aprimortech.data.local.entity.PecaEntity
 import com.example.aprimortech.data.local.entity.RelatorioEntity
+import com.example.aprimortech.data.local.converters.ContatoClienteListConverter
 import com.example.aprimortech.data.local.converters.StringListConverter
 
 @Database(
     entities = [ClienteEntity::class, MaquinaEntity::class, PecaEntity::class, RelatorioEntity::class],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
-@TypeConverters(StringListConverter::class)
+@TypeConverters(StringListConverter::class, ContatoClienteListConverter::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun clienteDao(): ClienteDao
     abstract fun maquinaDao(): MaquinaDao
