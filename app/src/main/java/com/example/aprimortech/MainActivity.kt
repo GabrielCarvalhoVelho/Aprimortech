@@ -87,21 +87,17 @@ fun AppNavigation() {
             NovoRelatorioScreen(navController = navController)
         }
         composable(
-            "dadosEquipamento/{clienteId}/{contatoId}/{setorId}",
+            "dadosEquipamento/{clienteId}/{contatoNome}",
             arguments = listOf(
                 navArgument("clienteId") { type = NavType.StringType },
-                navArgument("contatoId") { type = NavType.StringType },
-                navArgument("setorId") { type = NavType.StringType }
+                navArgument("contatoNome") { type = NavType.StringType }
             )
         ) { backStackEntry ->
             val clienteId = backStackEntry.arguments?.getString("clienteId") ?: ""
-            val contatoId = backStackEntry.arguments?.getString("contatoId") ?: ""
-            val setorId = backStackEntry.arguments?.getString("setorId") ?: ""
-            DadosEquipamentoScreen(
+            val contatoNome = backStackEntry.arguments?.getString("contatoNome") ?: ""
+            RelatorioEquipamentoScreen(
                 navController = navController,
-                clienteId = clienteId,
-                contatoId = contatoId,
-                setorId = setorId
+                clienteId = clienteId
             )
         }
         composable(

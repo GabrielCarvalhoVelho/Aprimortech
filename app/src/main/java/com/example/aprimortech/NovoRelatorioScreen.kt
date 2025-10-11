@@ -34,8 +34,6 @@ import com.example.aprimortech.ui.viewmodel.NovoRelatorioViewModelFactory
 import com.example.aprimortech.ui.viewmodel.ClienteViewModel
 import com.example.aprimortech.ui.viewmodel.ClienteViewModelFactory
 import com.example.aprimortech.model.Cliente
-import com.example.aprimortech.model.Contato
-import com.example.aprimortech.model.Setor
 import com.example.aprimortech.model.ContatoCliente
 import com.example.aprimortech.ui.components.AutoCompleteEnderecoField
 import kotlinx.coroutines.delay
@@ -71,8 +69,7 @@ fun NovoRelatorioScreen(
 
     // Estados do formulário - Página 1: Cliente, Contatos e Setor
     var clienteSelecionado by remember { mutableStateOf<Cliente?>(null) }
-    var contatoSelecionado by remember { mutableStateOf<Contato?>(null) }
-    var setorSelecionado by remember { mutableStateOf<Setor?>(null) }
+    var contatoSelecionado by remember { mutableStateOf<ContatoCliente?>(null) }
 
     // Estados para busca e autocomplete
     var clienteBusca by remember { mutableStateOf("") }
@@ -81,14 +78,16 @@ fun NovoRelatorioScreen(
     // Estados para dialogs
     var showNovoClienteDialog by remember { mutableStateOf(false) }
     var showNovoContatoDialog by remember { mutableStateOf(false) }
-    var showNovoSetorDialog by remember { mutableStateOf(false) }
 
     // Estados do ViewModel - dados reais do Firebase
     val clientes by viewModel.clientes.collectAsState()
-    val contatos by viewModel.contatos.collectAsState()
-    val setores by viewModel.setores.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
+
+    // Obter contatos do cliente selecionado
+    val contatosDoCliente = remember(clienteSelecionado) {
+        clienteSelecionado?.contatos ?: emptyList()
+    }
 
     // Observar mensagem do ClienteViewModel para feedback de criação de cliente
     val mensagemCliente by clienteViewModel.mensagemOperacao.collectAsState()
@@ -124,14 +123,13 @@ fun NovoRelatorioScreen(
         }.take(5)
     }
 
-    // Carregar contatos e setores quando cliente muda
+    // Carregar contatos quando cliente muda
     LaunchedEffect(clienteSelecionado) {
         if (clienteSelecionado != null) {
-            viewModel.carregarContatosPorCliente(clienteSelecionado!!.id)
-            viewModel.carregarSetoresPorCliente(clienteSelecionado!!.id)
+            //viewModel.carregarSetoresPorCliente(clienteSelecionado!!.id)
         }
         contatoSelecionado = null
-        setorSelecionado = null
+        //setorSelecionado = null
     }
 
     Scaffold(
@@ -288,7 +286,7 @@ fun NovoRelatorioScreen(
                     if (clienteSelecionado == null) {
                         Text("Selecione um cliente primeiro", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
                     } else {
-                        if (contatos.isEmpty()) {
+                        if (contatosDoCliente.isEmpty()) {
                             Text("Nenhum contato cadastrado para este cliente", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
                         } else {
                             var contatoExpanded by remember { mutableStateOf(false) }
@@ -313,14 +311,22 @@ fun NovoRelatorioScreen(
                                     expanded = contatoExpanded,
                                     onDismissRequest = { contatoExpanded = false }
                                 ) {
-                                    contatos.forEach { contato ->
+                                    contatosDoCliente.forEach { contato ->
                                         DropdownMenuItem(
                                             text = {
                                                 Column {
                                                     Text(contato.nome, style = MaterialTheme.typography.bodyMedium)
-                                                    Text("${contato.cargo} - ${contato.telefone}",
-                                                         style = MaterialTheme.typography.bodySmall,
-                                                         color = Color.Gray)
+                                                    val detalhes = listOfNotNull(
+                                                        contato.setor,
+                                                        contato.celular
+                                                    ).joinToString(" - ")
+                                                    if (detalhes.isNotBlank()) {
+                                                        Text(
+                                                            detalhes,
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = Color.Gray
+                                                        )
+                                                    }
                                                 }
                                             },
                                             onClick = {
@@ -342,89 +348,17 @@ fun NovoRelatorioScreen(
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text("✓ Contato Selecionado", style = MaterialTheme.typography.labelMedium, color = Color(0xFF2E7D32))
                                     Text(contatoSelecionado!!.nome, style = MaterialTheme.typography.bodyMedium)
-                                    Text("${contatoSelecionado!!.cargo} - ${contatoSelecionado!!.telefone}",
-                                         style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // SEÇÃO SETOR
-                SectionCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Setor", style = MaterialTheme.typography.titleMedium, color = Brand)
-                        if (clienteSelecionado != null) {
-                            IconButton(onClick = { showNovoSetorDialog = true }) {
-                                Icon(Icons.Default.Add, contentDescription = "Novo Setor", tint = Brand)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-
-                    if (clienteSelecionado == null) {
-                        Text("Selecione um cliente primeiro", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-                    } else {
-                        if (setores.isEmpty()) {
-                            Text("Nenhum setor cadastrado para este cliente", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-                        } else {
-                            var setorExpanded by remember { mutableStateOf(false) }
-
-                            ExposedDropdownMenuBox(
-                                expanded = setorExpanded,
-                                onExpandedChange = { setorExpanded = it }
-                            ) {
-                                OutlinedTextField(
-                                    value = setorSelecionado?.nome ?: "",
-                                    onValueChange = { },
-                                    label = { Text("Selecionar Setor") },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                                    colors = textFieldColors(),
-                                    readOnly = true,
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = setorExpanded) }
-                                )
-
-                                ExposedDropdownMenu(
-                                    expanded = setorExpanded,
-                                    onDismissRequest = { setorExpanded = false }
-                                ) {
-                                    setores.forEach { setor ->
-                                        DropdownMenuItem(
-                                            text = {
-                                                Column {
-                                                    Text(setor.nome, style = MaterialTheme.typography.bodyMedium)
-                                                    Text(setor.descricao,
-                                                         style = MaterialTheme.typography.bodySmall,
-                                                         color = Color.Gray)
-                                                }
-                                            },
-                                            onClick = {
-                                                setorSelecionado = setor
-                                                setorExpanded = false
-                                            }
+                                    val detalhes = listOfNotNull(
+                                        contatoSelecionado!!.setor,
+                                        contatoSelecionado!!.celular
+                                    ).joinToString(" - ")
+                                    if (detalhes.isNotBlank()) {
+                                        Text(
+                                            detalhes,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color.Gray
                                         )
                                     }
-                                }
-                            }
-                        }
-
-                        if (setorSelecionado != null) {
-                            Spacer(Modifier.height(8.dp))
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8))
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text("✓ Setor Selecionado", style = MaterialTheme.typography.labelMedium, color = Color(0xFF2E7D32))
-                                    Text(setorSelecionado!!.nome, style = MaterialTheme.typography.bodyMedium)
-                                    Text(setorSelecionado!!.descricao,
-                                         style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                                 }
                             }
                         }
@@ -436,10 +370,10 @@ fun NovoRelatorioScreen(
                 Button(
                     onClick = {
                         // Navegar para a página de Dados do Equipamento
-                        navController.navigate("dadosEquipamento/${clienteSelecionado!!.id}/${contatoSelecionado!!.id}/${setorSelecionado!!.id}")
+                        navController.navigate("dadosEquipamento/${clienteSelecionado!!.id}/${contatoSelecionado!!.nome}")
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
-                    enabled = clienteSelecionado != null && contatoSelecionado != null && setorSelecionado != null,
+                    enabled = clienteSelecionado != null && contatoSelecionado != null,
                     colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -478,26 +412,17 @@ fun NovoRelatorioScreen(
 
     // Dialog para novo contato
     if (showNovoContatoDialog && clienteSelecionado != null) {
-        NovoContatoDialog(
-            clienteId = clienteSelecionado!!.id,
+        NovoContatoClienteDialog(
             onDismiss = { showNovoContatoDialog = false },
-            onConfirm = { novoContato: Contato ->
-                viewModel.salvarContato(novoContato)
+            onConfirm = { novoContato: ContatoCliente ->
+                // Atualizar o cliente com o novo contato
+                val clienteAtualizado = clienteSelecionado!!.copy(
+                    contatos = clienteSelecionado!!.contatos + novoContato
+                )
+                clienteViewModel.salvarCliente(clienteAtualizado)
+                clienteSelecionado = clienteAtualizado
                 contatoSelecionado = novoContato
                 showNovoContatoDialog = false
-            }
-        )
-    }
-
-    // Dialog para novo setor
-    if (showNovoSetorDialog && clienteSelecionado != null) {
-        NovoSetorDialog(
-            clienteId = clienteSelecionado!!.id,
-            onDismiss = { showNovoSetorDialog = false },
-            onConfirm = { novoSetor: Setor ->
-                viewModel.salvarSetor(novoSetor)
-                setorSelecionado = novoSetor
-                showNovoSetorDialog = false
             }
         )
     }
@@ -523,15 +448,13 @@ private fun textFieldColors() = OutlinedTextFieldDefaults.colors(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NovoContatoDialog(
-    clienteId: String,
+private fun NovoContatoClienteDialog(
     onDismiss: () -> Unit,
-    onConfirm: (Contato) -> Unit
+    onConfirm: (ContatoCliente) -> Unit
 ) {
     var nome by remember { mutableStateOf("") }
-    var telefone by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var cargo by remember { mutableStateOf("") }
+    var setor by remember { mutableStateOf("") }
+    var celular by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -547,26 +470,18 @@ private fun NovoContatoDialog(
                     colors = textFieldColors()
                 )
                 OutlinedTextField(
-                    value = telefone,
-                    onValueChange = { telefone = it },
-                    label = { Text("Telefone") },
-                    placeholder = { Text("(11) 99999-9999") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors()
-                )
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("E-mail") },
-                    placeholder = { Text("contato@empresa.com") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors()
-                )
-                OutlinedTextField(
-                    value = cargo,
-                    onValueChange = { cargo = it },
-                    label = { Text("Cargo") },
+                    value = setor,
+                    onValueChange = { setor = it },
+                    label = { Text("Setor") },
                     placeholder = { Text("Gerente, Técnico, Supervisor...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
+                OutlinedTextField(
+                    value = celular,
+                    onValueChange = { celular = it },
+                    label = { Text("Celular") },
+                    placeholder = { Text("(11) 99999-9999") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = textFieldColors()
                 )
@@ -583,69 +498,10 @@ private fun NovoContatoDialog(
             Button(
                 onClick = {
                     onConfirm(
-                        Contato(
-                            id = UUID.randomUUID().toString(),
-                            clienteId = clienteId,
+                        ContatoCliente(
                             nome = nome.trim(),
-                            telefone = telefone.trim(),
-                            email = email.trim(),
-                            cargo = cargo.trim()
-                        )
-                    )
-                },
-                enabled = nome.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White)
-            ) { Text("Criar") }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Cancelar", color = Brand)
-            }
-        }
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun NovoSetorDialog(
-    clienteId: String,
-    onDismiss: () -> Unit,
-    onConfirm: (Setor) -> Unit
-) {
-    var nome by remember { mutableStateOf("") }
-    var descricao by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Novo Setor") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = nome,
-                    onValueChange = { nome = it },
-                    label = { Text("Nome do Setor *") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors()
-                )
-                OutlinedTextField(
-                    value = descricao,
-                    onValueChange = { descricao = it },
-                    label = { Text("Descrição") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors(),
-                    maxLines = 3
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onConfirm(
-                        Setor(
-                            id = UUID.randomUUID().toString(),
-                            clienteId = clienteId,
-                            nome = nome,
-                            descricao = descricao
+                            setor = setor.trim().ifBlank { null },
+                            celular = celular.trim().ifBlank { null }
                         )
                     )
                 },
