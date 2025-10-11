@@ -2,6 +2,7 @@ package com.example.aprimortech
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,6 +26,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.BorderStroke
@@ -661,25 +663,50 @@ private fun ManutencaoPreventivaSection(
     onDataChange: (String) -> Unit,
     onHorasChange: (String) -> Unit
 ) {
+    val context = LocalContext.current
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Campo de Data simples
+        // Campo de Data com DatePicker nativo - estilo padronizado
         OutlinedTextField(
             value = dataProximaPreventiva,
-            onValueChange = { newValue ->
-                // Formatar como DD/MM/YYYY
-                val filtered = newValue.filter { it.isDigit() || it == '/' }.take(10)
-                onDataChange(filtered)
-            },
+            onValueChange = { },
             label = { Text("Data da Próxima Preventiva *") },
             placeholder = { Text("DD/MM/AAAA") },
-            modifier = Modifier.fillMaxWidth(),
-            colors = textFieldColors()
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    mostrarDatePicker(context, dataProximaPreventiva) { novaData ->
+                        onDataChange(novaData)
+                    }
+                },
+            readOnly = true,
+            enabled = false,
+            colors = OutlinedTextFieldDefaults.colors(
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledBorderColor = Color.LightGray,
+                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledContainerColor = Color.White
+            ),
+            trailingIcon = {
+                IconButton(onClick = {
+                    mostrarDatePicker(context, dataProximaPreventiva) { novaData ->
+                        onDataChange(novaData)
+                    }
+                }) {
+                    Icon(
+                        painter = painterResource(id = android.R.drawable.ic_menu_my_calendar),
+                        contentDescription = "Selecionar data",
+                        tint = Brand
+                    )
+                }
+            }
         )
 
-        // Campo de Horas simples
+        // Campo de Horas com botões elegantes integrados
         OutlinedTextField(
             value = horasProximaPreventiva,
             onValueChange = { newValue ->
@@ -690,9 +717,92 @@ private fun ManutencaoPreventivaSection(
             placeholder = { Text("Ex: 1000") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
-            colors = textFieldColors()
+            colors = textFieldColors(),
+            trailingIcon = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(end = 4.dp)
+                ) {
+                    // Botão +100 moderno e compacto
+                    FilledTonalIconButton(
+                        onClick = {
+                            val atual = horasProximaPreventiva.toIntOrNull() ?: 0
+                            onHorasChange((atual + 100).toString())
+                        },
+                        modifier = Modifier.size(32.dp),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = Brand.copy(alpha = 0.1f),
+                            contentColor = Brand
+                        )
+                    ) {
+                        Text(
+                            text = "+100",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 9.sp
+                        )
+                    }
+
+                    // Botão +500 moderno e compacto
+                    FilledTonalIconButton(
+                        onClick = {
+                            val atual = horasProximaPreventiva.toIntOrNull() ?: 0
+                            onHorasChange((atual + 500).toString())
+                        },
+                        modifier = Modifier.size(32.dp),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = Brand.copy(alpha = 0.15f),
+                            contentColor = Brand
+                        )
+                    ) {
+                        Text(
+                            text = "+500",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 9.sp
+                        )
+                    }
+                }
+            }
         )
     }
+}
+
+// Função auxiliar para mostrar DatePicker nativo do Android
+private fun mostrarDatePicker(
+    context: android.content.Context,
+    dataAtual: String,
+    onDataSelecionada: (String) -> Unit
+) {
+    val calendario = java.util.Calendar.getInstance()
+
+    // Tenta parsear a data atual se existir
+    if (dataAtual.isNotBlank()) {
+        try {
+            val partes = dataAtual.split("/")
+            if (partes.size == 3) {
+                calendario.set(partes[2].toInt(), partes[1].toInt() - 1, partes[0].toInt())
+            }
+        } catch (_: Exception) {
+            // Mantém data atual do calendário
+        }
+    }
+
+    val datePickerDialog = android.app.DatePickerDialog(
+        context,
+        { _, ano, mes, dia ->
+            // Formata como DD/MM/YYYY
+            val dataFormatada = String.format(java.util.Locale.getDefault(), "%02d/%02d/%04d", dia, mes + 1, ano)
+            onDataSelecionada(dataFormatada)
+        },
+        calendario.get(java.util.Calendar.YEAR),
+        calendario.get(java.util.Calendar.MONTH),
+        calendario.get(java.util.Calendar.DAY_OF_MONTH)
+    )
+
+    // Define data mínima como hoje (não permitir datas passadas)
+    datePickerDialog.datePicker.minDate = System.currentTimeMillis() - 1000
+
+    datePickerDialog.show()
 }
 
 @Composable
@@ -707,10 +817,7 @@ private fun ViewMaquinaDialog(
         onDismissRequest = onDismiss,
         title = { Text("Detalhes da Máquina") },
         text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.verticalScroll(rememberScrollState())
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Cliente: ${cliente?.nome ?: "Não encontrado"}")
                 Text("Fabricante: ${maquina.fabricante}")
                 Text("Modelo: ${maquina.modelo}")
@@ -725,16 +832,23 @@ private fun ViewMaquinaDialog(
             }
         },
         confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onEdit) { Text("Editar") }
-                Button(
-                    onClick = onDelete,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Excluir") }
-            }
+            Button(
+                onClick = onEdit,
+                colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White),
+                shape = RoundedCornerShape(6.dp)
+            ) { Text("Editar") }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Fechar") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onDismiss, shape = RoundedCornerShape(6.dp)) {
+                    Text("Fechar", color = Brand)
+                }
+                OutlinedButton(
+                    onClick = onDelete,
+                    shape = RoundedCornerShape(6.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Excluir") }
+            }
         }
     )
 }

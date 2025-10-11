@@ -142,7 +142,7 @@ class DadosEquipamentoViewModel(
             codigoSolvente = this.codigoSolvente ?: "",
             dataProximaPreventiva = this.dataProximaPreventiva ?: "",
             codigoConfiguracao = this.codigoConfiguracao,
-            horasProximaPreventiva = ""
+            horasProximaPreventiva = this.horasProximaPreventiva
         )
     }
 

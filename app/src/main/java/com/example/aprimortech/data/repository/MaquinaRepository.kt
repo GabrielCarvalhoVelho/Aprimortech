@@ -101,7 +101,7 @@ class MaquinaRepository @Inject constructor(
             codigoSolvente = codigoSolvente,
             dataProximaPreventiva = dataProximaPreventiva,
             codigoConfiguracao = codigoConfiguracao,
-            horasProximaPreventiva = ""
+            horasProximaPreventiva = horasProximaPreventiva
         )
     }
 
@@ -117,7 +117,8 @@ class MaquinaRepository @Inject constructor(
             codigoTinta = codigoTinta,
             codigoSolvente = codigoSolvente,
             dataProximaPreventiva = dataProximaPreventiva,
-            codigoConfiguracao = codigoConfiguracao
+            codigoConfiguracao = codigoConfiguracao,
+            horasProximaPreventiva = horasProximaPreventiva
         )
     }
 }

@@ -82,7 +82,9 @@ class MaquinaRemoteDataSource {
                 "anoFabricacao" to maquina.anoFabricacao,
                 "codigoTinta" to maquina.codigoTinta,
                 "codigoSolvente" to maquina.codigoSolvente,
-                "dataProximaPreventiva" to maquina.dataProximaPreventiva
+                "dataProximaPreventiva" to maquina.dataProximaPreventiva,
+                "codigoConfiguracao" to maquina.codigoConfiguracao,
+                "horasProximaPreventiva" to maquina.horasProximaPreventiva
             )
             Log.d(TAG, "Tentando atualizar máquina (id=${maquina.id}) no Firestore...")
             collection.document(maquina.id).set(data).await()
