@@ -308,7 +308,6 @@ private fun AddEditClienteDialog(
     var nome by remember { mutableStateOf(initial.nome) }
     var telefone by remember { mutableStateOf(initial.telefone) }
     var celular by remember { mutableStateOf(initial.celular) }
-    // agora contatos já é List<ContatoCliente>
     var contatos by remember { mutableStateOf(initial.contatos) }
     var endereco by remember { mutableStateOf(initial.endereco) }
     var cidade by remember { mutableStateOf(initial.cidade) }
@@ -317,6 +316,9 @@ private fun AddEditClienteDialog(
     var longitude by remember { mutableStateOf(initial.longitude) }
 
     var enderecoPreenchido by remember { mutableStateOf(false) }
+    var showAddContactDialog by remember { mutableStateOf(false) }
+    var editingContactIndex by remember { mutableStateOf<Int?>(null) }
+
     val salvarHabilitado = nome.isNotBlank() && endereco.isNotBlank() && cidade.isNotBlank() && estado.isNotBlank()
 
     AlertDialog(
@@ -341,10 +343,20 @@ private fun AddEditClienteDialog(
                     endereco = endereco,
                     onEnderecoChange = { enderecoCompleto ->
                         endereco = enderecoCompleto.endereco
-                        cidade = enderecoCompleto.cidade
-                        estado = enderecoCompleto.estado
-                        latitude = enderecoCompleto.latitude
-                        longitude = enderecoCompleto.longitude
+                        // Somente atualizar cidade e estado se vieram preenchidos do Google Places
+                        if (enderecoCompleto.cidade.isNotBlank()) {
+                            cidade = enderecoCompleto.cidade
+                        }
+                        if (enderecoCompleto.estado.isNotBlank()) {
+                            estado = enderecoCompleto.estado
+                        }
+                        if (enderecoCompleto.latitude != null) {
+                            latitude = enderecoCompleto.latitude
+                        }
+                        if (enderecoCompleto.longitude != null) {
+                            longitude = enderecoCompleto.longitude
+                        }
+                        // Marcar que o endereço foi preenchido pelo Google Places
                         enderecoPreenchido = enderecoCompleto.cidade.isNotBlank() && enderecoCompleto.estado.isNotBlank()
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -387,11 +399,23 @@ private fun AddEditClienteDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     colors = textFieldColors()
                 )
-                // Nova seção de contatos
-                ContatosSectionCompleta(
+
+                // Nova seção de contatos simplificada
+                ContatosSectionSimplificada(
                     contatos = contatos,
-                    onContatosChange = { contatos = it }
+                    onAddClick = {
+                        editingContactIndex = null
+                        showAddContactDialog = true
+                    },
+                    onEditContact = { index ->
+                        editingContactIndex = index
+                        showAddContactDialog = true
+                    },
+                    onRemoveContact = { index ->
+                        contatos = contatos.toMutableList().apply { removeAt(index) }
+                    }
                 )
+
                 Text(
                     "* Campos obrigatórios",
                     style = MaterialTheme.typography.bodySmall,
@@ -433,98 +457,231 @@ private fun AddEditClienteDialog(
             }
         }
     )
+
+    // Modal para adicionar ou editar contato
+    if (showAddContactDialog) {
+        val contatoParaEditar = editingContactIndex?.let { contatos.getOrNull(it) }
+        AddEditContatoDialog(
+            contatoInicial = contatoParaEditar,
+            onDismiss = {
+                showAddContactDialog = false
+                editingContactIndex = null
+            },
+            onConfirm = { novoContato ->
+                contatos = if (editingContactIndex != null) {
+                    // Editando contato existente
+                    contatos.toMutableList().apply {
+                        set(editingContactIndex!!, novoContato)
+                    }
+                } else {
+                    // Adicionando novo contato
+                    contatos + novoContato
+                }
+                showAddContactDialog = false
+                editingContactIndex = null
+            }
+        )
+    }
 }
 
-// Nova seção de contatos completa
+// Nova seção de contatos simplificada
 @Composable
-private fun ContatosSectionCompleta(
+private fun ContatosSectionSimplificada(
     contatos: List<ContatoCliente>,
-    onContatosChange: (List<ContatoCliente>) -> Unit
+    onAddClick: () -> Unit,
+    onEditContact: (Int) -> Unit,
+    onRemoveContact: (Int) -> Unit
 ) {
-    var nome by remember { mutableStateOf("") }
-    var setor by remember { mutableStateOf("") }
-    var celular by remember { mutableStateOf("") }
-    val contatosMutable = remember(contatos) { contatos.toMutableList() }
-    Column {
-        Text("Contatos do cliente", style = MaterialTheme.typography.titleSmall, color = Brand)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            OutlinedTextField(
-                value = nome,
-                onValueChange = { nome = it },
-                label = { Text("Nome do contato *") },
-                modifier = Modifier.weight(1f),
-                colors = textFieldColors()
-            )
-            OutlinedTextField(
-                value = setor,
-                onValueChange = { setor = it },
-                label = { Text("Setor (opcional)") },
-                modifier = Modifier.weight(1f),
-                colors = textFieldColors()
-            )
-            OutlinedTextField(
-                value = celular,
-                onValueChange = { celular = it },
-                label = { Text("Celular (opcional)") },
-                modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                colors = textFieldColors()
+            Text(
+                "Contatos do cliente",
+                style = MaterialTheme.typography.titleSmall,
+                color = Brand
             )
             IconButton(
-                onClick = {
-                    if (nome.isNotBlank()) {
-                        contatosMutable.add(ContatoCliente(nome.trim(), setor.ifBlank { null }, celular.ifBlank { null }))
-                        onContatosChange(contatosMutable.toList())
-                        nome = ""
-                        setor = ""
-                        celular = ""
-                    }
-                },
-                enabled = nome.isNotBlank()
+                onClick = onAddClick,
+                modifier = Modifier.size(36.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Adicionar Contato", tint = if (nome.isNotBlank()) Brand else Color.Gray)
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "Adicionar Contato",
+                    tint = Brand,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
-        if (contatosMutable.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
+
+        if (contatos.isNotEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 shape = RoundedCornerShape(6.dp)
             ) {
-                Column(modifier = Modifier.padding(8.dp)) {
-                    Text("Contatos adicionados:", style = MaterialTheme.typography.bodySmall, color = Brand, modifier = Modifier.padding(bottom = 4.dp))
-                    contatosMutable.forEachIndexed { index, contato ->
+                Column(modifier = Modifier.padding(12.dp)) {
+                    contatos.forEachIndexed { index, contato ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("• ${contato.nome}", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF2C3E50))
-                                if (!contato.setor.isNullOrBlank()) Text("Setor: ${contato.setor}", style = MaterialTheme.typography.bodySmall)
-                                if (!contato.celular.isNullOrBlank()) Text("Celular: ${contato.celular}", style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    contato.nome,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF2C3E50)
+                                )
+                                if (!contato.setor.isNullOrBlank()) {
+                                    Text(
+                                        "Setor: ${contato.setor}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray
+                                    )
+                                }
+                                if (!contato.celular.isNullOrBlank()) {
+                                    Text(
+                                        "Celular: ${contato.celular}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray
+                                    )
+                                }
                             }
-                            IconButton(
-                                onClick = {
-                                    contatosMutable.removeAt(index)
-                                    onContatosChange(contatosMutable.toList())
-                                },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = "Remover Contato", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                            Row {
+                                IconButton(
+                                    onClick = { onEditContact(index) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Edit,
+                                        contentDescription = "Editar Contato",
+                                        tint = Brand,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { onRemoveContact(index) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "Remover Contato",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
+                        }
+                        if (index < contatos.size - 1) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                color = Color.LightGray.copy(alpha = 0.5f)
+                            )
                         }
                     }
                 }
             }
+        } else {
+            Text(
+                "Nenhum contato adicionado",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
         }
     }
+}
+
+// Novo modal dedicado para adicionar/editar contatos
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddEditContatoDialog(
+    contatoInicial: ContatoCliente?,
+    onDismiss: () -> Unit,
+    onConfirm: (ContatoCliente) -> Unit
+) {
+    var nome by remember { mutableStateOf(contatoInicial?.nome ?: "") }
+    var setor by remember { mutableStateOf(contatoInicial?.setor ?: "") }
+    var celular by remember { mutableStateOf(contatoInicial?.celular ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (contatoInicial == null) "Novo Contato" else "Editar Contato") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = nome,
+                    onValueChange = { nome = it },
+                    label = { Text("Nome do contato *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = setor,
+                    onValueChange = { setor = it },
+                    label = { Text("Setor (opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = celular,
+                    onValueChange = { celular = it },
+                    label = { Text("Celular (opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    colors = textFieldColors(),
+                    singleLine = true
+                )
+                Text(
+                    "* Campos obrigatórios",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (nome.isNotBlank()) {
+                        onConfirm(
+                            ContatoCliente(
+                                nome = nome.trim(),
+                                setor = setor.trim().ifBlank { null },
+                                celular = celular.trim().ifBlank { null }
+                            )
+                        )
+                    }
+                },
+                enabled = nome.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Brand,
+                    contentColor = Color.White,
+                    disabledContainerColor = Brand.copy(alpha = 0.4f),
+                    disabledContentColor = Color.White.copy(alpha = 0.8f)
+                ),
+                shape = RoundedCornerShape(6.dp)
+            ) { Text("Salvar") }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text("Cancelar", color = Brand)
+            }
+        }
+    )
 }
 
 @Composable
