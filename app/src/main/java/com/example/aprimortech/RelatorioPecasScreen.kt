@@ -7,19 +7,23 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -32,6 +36,9 @@ import com.example.aprimortech.ui.viewmodel.PecaViewModelFactory
 import kotlinx.coroutines.delay
 import android.widget.Toast
 import androidx.compose.material3.MenuAnchorType
+import java.util.UUID
+import java.text.NumberFormat
+import java.util.Locale
 
 data class PecaUiModel(
     var codigo: String = "",
@@ -82,6 +89,12 @@ fun RelatorioPecasScreen(
     var expandedCodigos by remember { mutableStateOf(false) }
     var pecaSelecionada by remember { mutableStateOf<Peca?>(null) }
 
+    // Estados para modais de gerenciamento de peças no catálogo
+    var showAddEditCatalogo by remember { mutableStateOf(false) }
+    var editingPecaCatalogo by remember { mutableStateOf<Peca?>(null) }
+    var showDeleteCatalogo by remember { mutableStateOf(false) }
+    var deletingPecaCatalogo by remember { mutableStateOf<Peca?>(null) }
+
     // Decodificar as observações que vêm da tela anterior
     val observacoesDecodificadas = remember {
         try {
@@ -103,7 +116,7 @@ fun RelatorioPecasScreen(
         else pecasDisponiveis.filter {
             it.codigo.contains(debouncedCodigoBusca, ignoreCase = true) ||
             it.descricao.contains(debouncedCodigoBusca, ignoreCase = true)
-        }.take(5)
+        }
     }
 
     // Mostrar mensagens via Toast
@@ -160,58 +173,87 @@ fun RelatorioPecasScreen(
                 color = Color(0xFF1A4A5C)
             )
 
-            // Campo Código com autocomplete
-            ExposedDropdownMenuBox(
-                expanded = expandedCodigos && sugestoesCodigos.isNotEmpty(),
-                onExpandedChange = { expandedCodigos = it }
+            // Campo Código com autocomplete e botão + para adicionar nova peça ao catálogo
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
-                    value = pecaSelecionada?.codigo ?: codigoBusca,
-                    onValueChange = { newValue ->
-                        if (pecaSelecionada == null) {
-                            codigoBusca = newValue
-                            novaPeca = novaPeca.copy(codigo = newValue)
-                            expandedCodigos = newValue.isNotEmpty()
-                        } else {
-                            // Limpar seleção e começar nova busca
-                            pecaSelecionada = null
-                            novaPeca = PecaUiModel(codigo = newValue)
-                            codigoBusca = newValue
-                            expandedCodigos = newValue.isNotEmpty()
-                        }
-                    },
-                    label = { Text("Código") },
-                    placeholder = { Text("Digite o código da peça") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedCodigos) },
-                    modifier = Modifier
-                        .menuAnchor(MenuAnchorType.PrimaryEditable)
-                        .fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.LightGray,
-                        unfocusedBorderColor = Color.LightGray
-                    )
-                )
-                ExposedDropdownMenu(
+                ExposedDropdownMenuBox(
                     expanded = expandedCodigos && sugestoesCodigos.isNotEmpty(),
-                    onDismissRequest = { expandedCodigos = false }
+                    onExpandedChange = { expandedCodigos = it },
+                    modifier = Modifier.weight(1f)
                 ) {
-                    sugestoesCodigos.forEach { peca ->
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text(text = peca.codigo)
-                                    Text(text = peca.descricao, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                                }
-                            },
-                            onClick = {
-                                pecaSelecionada = peca
-                                codigoBusca = ""
-                                expandedCodigos = false
+                    OutlinedTextField(
+                        value = pecaSelecionada?.codigo ?: codigoBusca,
+                        onValueChange = { newValue ->
+                            if (pecaSelecionada == null) {
+                                codigoBusca = newValue
+                                novaPeca = novaPeca.copy(codigo = newValue)
+                                expandedCodigos = newValue.isNotEmpty()
+                            } else {
+                                // Limpar seleção e começar nova busca
+                                pecaSelecionada = null
+                                novaPeca = PecaUiModel(codigo = newValue)
+                                codigoBusca = newValue
+                                expandedCodigos = newValue.isNotEmpty()
                             }
+                        },
+                        label = { Text("Código") },
+                        placeholder = { Text("Digite o código da peça") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedCodigos) },
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryEditable)
+                            .fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = Color.LightGray,
+                            unfocusedBorderColor = Color.LightGray
                         )
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedCodigos && sugestoesCodigos.isNotEmpty(),
+                        onDismissRequest = { expandedCodigos = false }
+                    ) {
+                        sugestoesCodigos.forEach { peca ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(text = peca.codigo)
+                                        Text(text = peca.descricao, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                    }
+                                },
+                                onClick = {
+                                    pecaSelecionada = peca
+                                    codigoBusca = ""
+                                    expandedCodigos = false
+                                }
+                            )
+                        }
                     }
+                }
+
+                // Botão + discreto para adicionar nova peça ao catálogo
+                IconButton(
+                    onClick = {
+                        editingPecaCatalogo = Peca(
+                            id = UUID.randomUUID().toString(),
+                            codigo = "",
+                            descricao = "",
+                            valorUnitario = 0.0
+                        )
+                        showAddEditCatalogo = true
+                    },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .offset(y = 8.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = "Adicionar nova peça ao catálogo",
+                        tint = Color(0xFF1A4A5C)
+                    )
                 }
             }
 
@@ -368,47 +410,208 @@ fun RelatorioPecasScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Botões de navegação
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                OutlinedButton(
-                    onClick = { navController.popBackStack() },
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.height(46.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White,
-                        contentColor = Color(0xFF1A4A5C)
-                    ),
-                    border = BorderStroke(0.dp, Color.Transparent),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                ) {
-                    Text("Anterior")
-                }
-                Button(
-                    onClick = {
-                        // Passar dados para próxima etapa incluindo as peças
-                        val defeitosString = defeitos
-                        val servicosString = servicos
-                        val observacoesEncoded = java.net.URLEncoder.encode(observacoesDecodificadas, "UTF-8")
-                        val pecasJson = pecas.joinToString("|") { "${it.codigo};${it.descricao};${it.quantidade};${it.valorUnit}" }
+            // Botão de navegação
+            Button(
+                onClick = {
+                    // Passar dados para próxima etapa incluindo as peças
+                    val defeitosString = defeitos
+                    val servicosString = servicos
+                    val observacoesEncoded = java.net.URLEncoder.encode(observacoesDecodificadas, "UTF-8")
+                    val pecasJson = pecas.joinToString("|") { "${it.codigo};${it.descricao};${it.quantidade};${it.valorUnit}" }
 
-                        navController.navigate("relatorioEtapa5?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&pecas=$pecasJson&clienteId=$clienteId")
-                    },
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.height(46.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1A4A5C),
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                ) {
-                    Text("Próximo")
-                }
+                    navController.navigate("relatorioEtapa5?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&pecas=$pecasJson&clienteId=$clienteId")
+                },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF1A4A5C),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Continuar", style = MaterialTheme.typography.titleMedium)
             }
+
+            Spacer(Modifier.height(16.dp))
+        }
+
+        // Modal para adicionar/editar peça no catálogo
+        if (showAddEditCatalogo && editingPecaCatalogo != null) {
+            AddEditPecaCatalogoDialog(
+                initial = editingPecaCatalogo!!,
+                onDismiss = {
+                    showAddEditCatalogo = false
+                    editingPecaCatalogo = null
+                },
+                onConfirm = { updated ->
+                    pecaViewModel.salvarPeca(updated)
+                    // O método salvarPeca já atualiza a lista automaticamente
+                    showAddEditCatalogo = false
+                    editingPecaCatalogo = null
+                }
+            )
+        }
+
+        // Modal para confirmar exclusão de peça do catálogo
+        if (showDeleteCatalogo && deletingPecaCatalogo != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    showDeleteCatalogo = false
+                    deletingPecaCatalogo = null
+                },
+                title = { Text("Excluir peça do catálogo") },
+                text = { Text("Tem certeza que deseja excluir \"${deletingPecaCatalogo!!.codigo}\" do catálogo?") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            pecaViewModel.excluirPeca(deletingPecaCatalogo!!.id)
+                            showDeleteCatalogo = false
+                            deletingPecaCatalogo = null
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1A4A5C),
+                            contentColor = Color.White
+                        )
+                    ) { Text("Excluir") }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = {
+                        showDeleteCatalogo = false
+                        deletingPecaCatalogo = null
+                    }) {
+                        Text("Cancelar", color = Color(0xFF1A4A5C))
+                    }
+                }
+            )
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddEditPecaCatalogoDialog(
+    initial: Peca,
+    onDismiss: () -> Unit,
+    onConfirm: (Peca) -> Unit
+) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    var codigo by remember { mutableStateOf(initial.codigo) }
+    var descricao by remember { mutableStateOf(initial.descricao) }
+    var valorUnitarioText by remember { mutableStateOf(if (initial.valorUnitario > 0) initial.valorUnitario.toString() else "") }
+
+    val salvarHabilitado = codigo.isNotBlank() && descricao.isNotBlank() && valorUnitarioText.isNotBlank()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initial.codigo.isBlank()) "Nova Peça no Catálogo" else "Editar Peça do Catálogo") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                OutlinedTextField(
+                    value = codigo,
+                    onValueChange = { codigo = it.uppercase() },
+                    label = { Text("Código *") },
+                    placeholder = { Text("Ex: PEC001, FLT002") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedBorderColor = Color.LightGray,
+                        unfocusedBorderColor = Color.LightGray
+                    ),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = descricao,
+                    onValueChange = { descricao = it },
+                    label = { Text("Descrição *") },
+                    placeholder = { Text("Ex: Filtro de ar, Correia dentada") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedBorderColor = Color.LightGray,
+                        unfocusedBorderColor = Color.LightGray
+                    ),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                )
+
+                OutlinedTextField(
+                    value = valorUnitarioText,
+                    onValueChange = { newValue ->
+                        val filtered = newValue.filter { it.isDigit() || it == '.' || it == ',' }
+                            .replace(',', '.')
+                        valorUnitarioText = filtered
+                    },
+                    label = { Text("Valor Unitário (R$) *") },
+                    placeholder = { Text("Ex: 45.90") },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { keyboardController?.hide() }
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedBorderColor = Color.LightGray,
+                        unfocusedBorderColor = Color.LightGray
+                    ),
+                    singleLine = true
+                )
+
+                Text(
+                    "* Campos obrigatórios",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    keyboardController?.hide()
+                    val valorUnitario = valorUnitarioText.toDoubleOrNull() ?: 0.0
+
+                    onConfirm(
+                        initial.copy(
+                            codigo = codigo.trim(),
+                            descricao = descricao.trim(),
+                            valorUnitario = valorUnitario
+                        )
+                    )
+                },
+                enabled = salvarHabilitado,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF1A4A5C),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(6.dp)
+            ) { Text("Salvar") }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = {
+                    keyboardController?.hide()
+                    onDismiss()
+                },
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text("Cancelar", color = Color(0xFF1A4A5C))
+            }
+        }
+    )
 }
 
 @Composable
