@@ -38,8 +38,6 @@ class ClienteViewModel(
     val sincronizacaoInicial: StateFlow<Boolean> = _sincronizacaoInicial.asStateFlow()
 
     init {
-        carregarClientes()
-        verificarItensPendentes()
         sincronizarDadosIniciais()
     }
 
@@ -153,9 +151,6 @@ class ClienteViewModel(
                 sincronizarClientesUseCase()
 
                 Log.d(TAG, "✅ Sincronização inicial concluída")
-
-                // Aguarda um pouco para garantir que o cache foi atualizado
-                kotlinx.coroutines.delay(500)
 
                 // Recarrega os dados do cache atualizado
                 carregarClientes()

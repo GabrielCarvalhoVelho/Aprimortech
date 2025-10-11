@@ -14,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -108,10 +107,7 @@ fun PecasScreen(
     // Carregar ao entrar
     LaunchedEffect(Unit) {
         android.util.Log.d("PecasScreen", "Carregando dados ao entrar na tela")
-        // Removendo chamada para método privado carregarPecas()
-        // Sincronização automática ao entrar na tela
-        android.util.Log.d("PecasScreen", "Iniciando sincronização automática")
-        viewModel.sincronizarPecas()
+        // Sincronização automática acontece no init do ViewModel
     }
 
     Scaffold(
@@ -164,55 +160,26 @@ fun PecasScreen(
                         singleLine = true
                     )
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = {
-                                android.util.Log.w("PECA_FIREBASE_TEST", "=== USUÁRIO CLICOU EM ADICIONAR PEÇA ===")
-                                editingPeca = Peca(
-                                    id = UUID.randomUUID().toString(),
-                                    nome = "",
-                                    codigo = "",
-                                    descricao = "",
-                                    fabricante = "",
-                                    categoria = "",
-                                    preco = 0.0
-                                )
-                                showAddEdit = true
-                            },
-                            modifier = Modifier.weight(1f).height(46.dp),
-                            shape = RoundedCornerShape(6.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                        ) { Text("Adicionar Peça") }
-
-                        IconButton(
-                            onClick = {
-                                android.util.Log.w("PECA_FIREBASE_TEST", "=== USUÁRIO CLICOU EM SINCRONIZAR ===")
-                                viewModel.sincronizarPecas()
-                            },
-                            modifier = Modifier.size(46.dp)
-                        ) {
-                            Card(
-                                modifier = Modifier.fillMaxSize(),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-                                shape = RoundedCornerShape(6.dp),
-                                border = BorderStroke(1.dp, Color.White)
-                            ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.Sync,
-                                        contentDescription = "Sincronizar",
-                                        tint = Brand,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    // Botão de adicionar peça em largura total
+                    Button(
+                        onClick = {
+                            android.util.Log.w("PECA_FIREBASE_TEST", "=== USUÁRIO CLICOU EM ADICIONAR PEÇA ===")
+                            editingPeca = Peca(
+                                id = UUID.randomUUID().toString(),
+                                nome = "",
+                                codigo = "",
+                                descricao = "",
+                                fabricante = "",
+                                categoria = "",
+                                preco = 0.0
+                            )
+                            showAddEdit = true
+                        },
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        shape = RoundedCornerShape(6.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+                    ) { Text("Adicionar Peça") }
                 }
             }
 

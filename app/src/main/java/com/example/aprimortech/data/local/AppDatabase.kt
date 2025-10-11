@@ -18,7 +18,7 @@ import com.example.aprimortech.data.local.entity.RelatorioEntity
 
 /**
  * Banco de dados Room local para operação offline
- * Versão 2: Adicionado suporte offline-first para máquinas (campos pendenteSincronizacao e timestampAtualizacao)
+ * Versão 3: Adicionado suporte offline-first para peças (tabela PecaEntity completa)
  */
 @Database(
     entities = [
@@ -27,7 +27,7 @@ import com.example.aprimortech.data.local.entity.RelatorioEntity
         PecaEntity::class,
         RelatorioEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(

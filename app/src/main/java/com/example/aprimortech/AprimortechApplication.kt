@@ -17,6 +17,7 @@ import com.example.aprimortech.domain.usecase.*
 import com.example.aprimortech.util.NetworkConnectivityObserver
 import com.example.aprimortech.worker.ClienteSyncWorker
 import com.example.aprimortech.worker.MaquinaSyncWorker
+import com.example.aprimortech.worker.PecaSyncWorker
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -59,7 +60,7 @@ class AprimortechApplication : Application() {
     }
 
     val pecaRepository: PecaRepository by lazy {
-        PecaRepository(firestore)
+        PecaRepository(firestore, database.pecaDao())
     }
 
     val contatoRepository: ContatoRepository by lazy {
@@ -161,7 +162,8 @@ class AprimortechApplication : Application() {
         // Inicializar sincronização periódica em background
         ClienteSyncWorker.schedulePeriodicSync(this)
         MaquinaSyncWorker.schedulePeriodicSync(this)
-        Log.d(TAG, "✅ WorkManager para sincronização periódica iniciado (Clientes e Máquinas)")
+        PecaSyncWorker.schedulePeriodicSync(this)
+        Log.d(TAG, "✅ WorkManager para sincronização periódica iniciado (Clientes, Máquinas e Peças)")
 
         // Observar conectividade e sincronizar quando online
         observarConectividade()
@@ -179,6 +181,7 @@ class AprimortechApplication : Application() {
                         Log.d(TAG, "🌐 Conexão restaurada - Sincronizando dados...")
                         ClienteSyncWorker.syncNow(this@AprimortechApplication)
                         MaquinaSyncWorker.syncNow(this@AprimortechApplication)
+                        PecaSyncWorker.syncNow(this@AprimortechApplication)
                     } else {
                         Log.d(TAG, "📵 Modo offline - Dados serão salvos localmente")
                     }

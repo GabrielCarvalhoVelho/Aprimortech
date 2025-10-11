@@ -53,6 +53,13 @@ class MaquinaViewModel(
     private val _itensPendentesSincronizacao = MutableStateFlow(0)
     val itensPendentesSincronizacao: StateFlow<Int> = _itensPendentesSincronizacao.asStateFlow()
 
+    private val _sincronizacaoInicial = MutableStateFlow(false)
+    val sincronizacaoInicial: StateFlow<Boolean> = _sincronizacaoInicial.asStateFlow()
+
+    init {
+        sincronizarDadosIniciais()
+    }
+
     fun carregarTodosDados() {
         viewModelScope.launch {
             try {
@@ -181,4 +188,27 @@ class MaquinaViewModel(
     }
 
     fun limparMensagem() { _mensagemOperacao.value = null }
+
+    private fun sincronizarDadosIniciais() {
+        viewModelScope.launch {
+            try {
+                _sincronizacaoInicial.value = true
+                Log.d(TAG, "🔄 Iniciando sincronização inicial com Firebase...")
+
+                // Força sincronização completa (baixa todos os dados do Firebase)
+                sincronizarMaquinasUseCase()
+
+                Log.d(TAG, "✅ Sincronização inicial concluída")
+
+                // Carrega os dados do cache atualizado
+                carregarTodosDados()
+            } catch (e: Exception) {
+                Log.e(TAG, "⚠️ Erro na sincronização inicial (modo offline?)", e)
+                // Mesmo com erro, tenta carregar o que tem no cache
+                carregarTodosDados()
+            } finally {
+                _sincronizacaoInicial.value = false
+            }
+        }
+    }
 }

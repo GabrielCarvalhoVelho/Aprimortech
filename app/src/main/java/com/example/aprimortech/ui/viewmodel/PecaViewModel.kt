@@ -1,5 +1,6 @@
 package com.example.aprimortech.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aprimortech.domain.usecase.BuscarPecasUseCase
@@ -20,6 +21,8 @@ class PecaViewModel @Inject constructor(
     private val pecaRepository: PecaRepository
 ) : ViewModel() {
 
+    companion object { private const val TAG = "PecaViewModel" }
+
     private val _mensagemOperacao = MutableStateFlow<String?>(null)
     val mensagemOperacao: StateFlow<String?> = _mensagemOperacao.asStateFlow()
 
@@ -32,19 +35,33 @@ class PecaViewModel @Inject constructor(
     private val _categoriasDisponiveis = MutableStateFlow<List<String>>(emptyList())
     val categoriasDisponiveis: StateFlow<List<String>> = _categoriasDisponiveis.asStateFlow()
 
+    private val _operacaoEmAndamento = MutableStateFlow(false)
+    val operacaoEmAndamento: StateFlow<Boolean> = _operacaoEmAndamento.asStateFlow()
+
+    private val _itensPendentesSincronizacao = MutableStateFlow(0)
+    val itensPendentesSincronizacao: StateFlow<Int> = _itensPendentesSincronizacao.asStateFlow()
+
+    private val _sincronizacaoInicial = MutableStateFlow(false)
+    val sincronizacaoInicial: StateFlow<Boolean> = _sincronizacaoInicial.asStateFlow()
+
     init {
-        carregarPecas()
-        carregarDadosAuxiliares()
+        sincronizarDadosIniciais()
     }
 
     private fun carregarPecas() {
         viewModelScope.launch {
             try {
+                _operacaoEmAndamento.value = true
                 val pecasList = buscarPecasUseCase()
                 _pecas.value = pecasList
+                Log.d(TAG, "✅ ${pecasList.size} peças carregadas (cache local)")
+                carregarDadosAuxiliares()
+                verificarItensPendentes()
             } catch (e: Exception) {
-                android.util.Log.e("PecaViewModel", "Erro ao carregar peças", e)
+                Log.e(TAG, "❌ Erro ao carregar peças", e)
                 _mensagemOperacao.value = "Erro ao carregar peças: ${e.message}"
+            } finally {
+                _operacaoEmAndamento.value = false
             }
         }
     }
@@ -57,25 +74,31 @@ class PecaViewModel @Inject constructor(
                 _fabricantesDisponiveis.value = pecasAtuais.map { it.fabricante }.filter { it.isNotBlank() }.distinct().sorted()
                 _categoriasDisponiveis.value = pecasAtuais.map { it.categoria }.filter { it.isNotBlank() }.distinct().sorted()
             } catch (e: Exception) {
-                android.util.Log.e("PecaViewModel", "Erro ao carregar dados auxiliares", e)
+                Log.e(TAG, "Erro ao carregar dados auxiliares", e)
             }
         }
     }
 
-    fun salvarPeca(peca: Peca) {
+    fun salvarPeca(peca: Peca, callback: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             try {
-                android.util.Log.d("PecaViewModel", "=== USUÁRIO SOLICITOU SALVAMENTO ===")
-                android.util.Log.d("PecaViewModel", "Peça: ${peca.nome}")
+                _operacaoEmAndamento.value = true
+                Log.d(TAG, "💾 Salvando peça: ${peca.nome}")
 
                 salvarPecaUseCase(peca)
-                android.util.Log.d("PecaViewModel", "Use case executado com sucesso")
-                _mensagemOperacao.value = "Peça salva com sucesso!"
-                carregarPecas() // Recarrega a lista
-                android.util.Log.d("PecaViewModel", "=== SALVAMENTO CONCLUÍDO COM SUCESSO ===")
+                val pecaSalva = _pecas.value.find { it.id == peca.id || it.nome == peca.nome }
+
+                _mensagemOperacao.value = "✅ Peça '${peca.nome}' salva!"
+                Log.d(TAG, "✅ Peça salva com sucesso")
+                callback(true)
+
+                carregarPecas()
             } catch (e: Exception) {
-                android.util.Log.e("PecaViewModel", "=== ERRO NO SALVAMENTO ===", e)
+                Log.e(TAG, "❌ Erro ao salvar peça", e)
                 _mensagemOperacao.value = "Erro ao salvar peça: ${e.message}"
+                callback(false)
+            } finally {
+                _operacaoEmAndamento.value = false
             }
         }
     }
@@ -83,29 +106,52 @@ class PecaViewModel @Inject constructor(
     fun excluirPeca(id: String) {
         viewModelScope.launch {
             try {
+                _operacaoEmAndamento.value = true
                 excluirPecaUseCase(id)
-                _mensagemOperacao.value = "Peça excluída com sucesso!"
-                carregarPecas() // Recarrega a lista
+                _mensagemOperacao.value = "✅ Peça excluída"
+                Log.d(TAG, "✅ Peça excluída com sucesso")
+                carregarPecas()
             } catch (e: Exception) {
-                android.util.Log.e("PecaViewModel", "Erro ao excluir peça", e)
-                _mensagemOperacao.value = "Erro ao excluir peça: ${e.message}"
+                Log.e(TAG, "❌ Erro ao excluir peça", e)
+                _mensagemOperacao.value = "Erro ao excluir: ${e.message}"
+            } finally {
+                _operacaoEmAndamento.value = false
             }
         }
     }
 
-    fun sincronizarPecas() {
+    private fun verificarItensPendentes() {
         viewModelScope.launch {
             try {
-                val sucesso = sincronizarPecasUseCase()
-                if (sucesso) {
-                    _mensagemOperacao.value = "Peças sincronizadas com sucesso!"
-                    carregarPecas()
-                } else {
-                    _mensagemOperacao.value = "Falha na sincronização das peças"
+                _itensPendentesSincronizacao.value = pecaRepository.contarPecasPendentes()
+                if (_itensPendentesSincronizacao.value > 0) {
+                    Log.d(TAG, "⚠️ ${_itensPendentesSincronizacao.value} peças pendentes de sincronização")
                 }
             } catch (e: Exception) {
-                android.util.Log.e("PecaViewModel", "Erro ao sincronizar peças", e)
-                _mensagemOperacao.value = "Erro na sincronização: ${e.message}"
+                Log.e(TAG, "Erro ao verificar itens pendentes", e)
+            }
+        }
+    }
+
+    private fun sincronizarDadosIniciais() {
+        viewModelScope.launch {
+            try {
+                _sincronizacaoInicial.value = true
+                Log.d(TAG, "🔄 Iniciando sincronização inicial com Firebase...")
+
+                // Força sincronização completa (baixa todos os dados do Firebase)
+                sincronizarPecasUseCase()
+
+                Log.d(TAG, "✅ Sincronização inicial concluída")
+
+                // Carrega os dados do cache atualizado
+                carregarPecas()
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Erro na sincronização inicial", e)
+                // Mesmo com erro, tenta carregar do cache local
+                carregarPecas()
+            } finally {
+                _sincronizacaoInicial.value = false
             }
         }
     }
