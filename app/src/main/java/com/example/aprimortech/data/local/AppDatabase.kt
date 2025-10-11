@@ -18,7 +18,7 @@ import com.example.aprimortech.data.local.entity.RelatorioEntity
 
 /**
  * Banco de dados Room local para operação offline
- * Versão 3: Adicionado suporte offline-first para peças (tabela PecaEntity completa)
+ * Versão 5: Removido campo quantidade do cadastro de Peças (quantidade apenas em relatórios)
  */
 @Database(
     entities = [
@@ -27,7 +27,7 @@ import com.example.aprimortech.data.local.entity.RelatorioEntity
         PecaEntity::class,
         RelatorioEntity::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(

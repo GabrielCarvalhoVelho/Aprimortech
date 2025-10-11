@@ -131,7 +131,7 @@ class PecaRepository @Inject constructor(
             // 2. SEMPRE salva localmente primeiro
             val entity = pecaComId.toEntity(pendenteSincronizacao = true)
             pecaDao.inserirPeca(entity)
-            Log.d(TAG, "✅ Peça '${peca.nome}' salva localmente")
+            Log.d(TAG, "✅ Peça '${peca.codigo}' salva localmente")
 
             // 3. Tenta sincronizar com Firebase
             try {
@@ -142,7 +142,7 @@ class PecaRepository @Inject constructor(
 
                 // Marca como sincronizado
                 pecaDao.marcarComoSincronizado(pecaId)
-                Log.d(TAG, "✅ Peça '${peca.nome}' sincronizada com Firebase")
+                Log.d(TAG, "✅ Peça '${peca.codigo}' sincronizada com Firebase")
             } catch (e: Exception) {
                 Log.w(TAG, "⚠️ Falha na sincronização com Firebase, mantido como pendente", e)
                 // Peça permanece marcada como pendente de sincronização
@@ -198,9 +198,9 @@ class PecaRepository @Inject constructor(
 
                     pecaDao.marcarComoSincronizado(entity.id)
                     sincronizados++
-                    Log.d(TAG, "✅ Peça '${entity.nome}' sincronizada")
+                    Log.d(TAG, "✅ Peça '${entity.codigo}' sincronizada")
                 } catch (e: Exception) {
-                    Log.w(TAG, "⚠️ Falha ao sincronizar peça '${entity.nome}'", e)
+                    Log.w(TAG, "⚠️ Falha ao sincronizar peça '${entity.codigo}'", e)
                 }
             }
 

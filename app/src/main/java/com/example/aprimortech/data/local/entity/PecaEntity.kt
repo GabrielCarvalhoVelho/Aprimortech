@@ -4,15 +4,17 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.aprimortech.model.Peca
 
+/**
+ * Entidade Room para Peça com suporte offline-first
+ * Campos: código, descrição, valor unitário
+ * A quantidade é controlada apenas nos relatórios
+ */
 @Entity(tableName = "pecas")
 data class PecaEntity(
     @PrimaryKey val id: String,
-    val nome: String,
     val codigo: String,
     val descricao: String,
-    val fabricante: String,
-    val categoria: String,
-    val preco: Double,
+    val valorUnitario: Double,
     val pendenteSincronizacao: Boolean = false,
     val timestampAtualizacao: Long = System.currentTimeMillis()
 )
@@ -23,12 +25,9 @@ data class PecaEntity(
 fun PecaEntity.toModel(): Peca {
     return Peca(
         id = id,
-        nome = nome,
         codigo = codigo,
         descricao = descricao,
-        fabricante = fabricante,
-        categoria = categoria,
-        preco = preco
+        valorUnitario = valorUnitario
     )
 }
 
@@ -38,12 +37,9 @@ fun PecaEntity.toModel(): Peca {
 fun Peca.toEntity(pendenteSincronizacao: Boolean = false): PecaEntity {
     return PecaEntity(
         id = id,
-        nome = nome,
         codigo = codigo,
         descricao = descricao,
-        fabricante = fabricante,
-        categoria = categoria,
-        preco = preco,
+        valorUnitario = valorUnitario,
         pendenteSincronizacao = pendenteSincronizacao,
         timestampAtualizacao = System.currentTimeMillis()
     )

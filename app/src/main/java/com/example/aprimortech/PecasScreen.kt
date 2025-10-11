@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -29,7 +28,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import androidx.compose.foundation.BorderStroke
 import com.example.aprimortech.model.Peca
 import com.example.aprimortech.ui.theme.AprimortechTheme
 import com.example.aprimortech.ui.viewmodel.PecaViewModel
@@ -38,7 +36,6 @@ import java.util.UUID
 import java.text.NumberFormat
 import java.util.Locale
 import kotlinx.coroutines.delay
-import androidx.compose.material3.MenuAnchorType
 
 private val Brand = Color(0xFF1A4A5C)
 
@@ -60,54 +57,36 @@ fun PecasScreen(
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    android.util.Log.w("PECA_FIREBASE_TEST", "=== PECAS SCREEN INICIADA ===")
-
     var query by remember { mutableStateOf("") }
     var debouncedQuery by remember { mutableStateOf("") }
 
-    // Debounce para a busca
     LaunchedEffect(query) {
-        delay(300) // 300ms de debounce
+        delay(300)
         debouncedQuery = query
     }
 
     val pecas by viewModel.pecas.collectAsState()
-    val fabricantesDisponiveis by viewModel.fabricantesDisponiveis.collectAsState()
-    val categoriasDisponiveis by viewModel.categoriasDisponiveis.collectAsState()
     val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
 
     val listaFiltrada = remember(pecas, debouncedQuery) {
-        android.util.Log.d("PecasScreen", "Filtrando ${pecas.size} peças com query: '$debouncedQuery'")
         if (debouncedQuery.isBlank()) pecas else pecas.filter { peca ->
-            peca.nome.contains(debouncedQuery, ignoreCase = true) ||
             peca.codigo.contains(debouncedQuery, ignoreCase = true) ||
-            peca.fabricante.contains(debouncedQuery, ignoreCase = true) ||
-            peca.categoria.contains(debouncedQuery, ignoreCase = true)
+            peca.descricao.contains(debouncedQuery, ignoreCase = true)
         }
     }
 
     var showAddEdit by remember { mutableStateOf(false) }
     var editingPeca by remember { mutableStateOf<Peca?>(null) }
-
     var showDelete by remember { mutableStateOf(false) }
     var deletingPeca by remember { mutableStateOf<Peca?>(null) }
-
     var showView by remember { mutableStateOf(false) }
     var viewingPeca by remember { mutableStateOf<Peca?>(null) }
 
-    // Feedback toast
     LaunchedEffect(mensagemOperacao) {
         mensagemOperacao?.let { msg ->
-            android.util.Log.d("PecasScreen", "Mostrando mensagem: $msg")
             android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
             viewModel.limparMensagem()
         }
-    }
-
-    // Carregar ao entrar
-    LaunchedEffect(Unit) {
-        android.util.Log.d("PecasScreen", "Carregando dados ao entrar na tela")
-        // Sincronização automática acontece no init do ViewModel
     }
 
     Scaffold(
@@ -140,38 +119,26 @@ fun PecasScreen(
 
             SectionCard {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Campo de busca com melhor controle de keyboard
                     OutlinedTextField(
                         value = query,
-                        onValueChange = {
-                            query = it
-                        },
-                        label = { Text("Buscar por nome, código, fabricante ou categoria") },
+                        onValueChange = { query = it },
+                        label = { Text("Buscar por código ou descrição") },
                         modifier = Modifier.fillMaxWidth(),
                         colors = textFieldColors(),
-                        keyboardOptions = KeyboardOptions(
-                            imeAction = ImeAction.Search
-                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(
-                            onSearch = {
-                                keyboardController?.hide()
-                            }
+                            onSearch = { keyboardController?.hide() }
                         ),
                         singleLine = true
                     )
 
-                    // Botão de adicionar peça em largura total
                     Button(
                         onClick = {
-                            android.util.Log.w("PECA_FIREBASE_TEST", "=== USUÁRIO CLICOU EM ADICIONAR PEÇA ===")
                             editingPeca = Peca(
                                 id = UUID.randomUUID().toString(),
-                                nome = "",
                                 codigo = "",
                                 descricao = "",
-                                fabricante = "",
-                                categoria = "",
-                                preco = 0.0
+                                valorUnitario = 0.0
                             )
                             showAddEdit = true
                         },
@@ -200,23 +167,22 @@ fun PecasScreen(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Column(Modifier.padding(16.dp)) {
-                            Text("${peca.nome} (${peca.codigo})", style = MaterialTheme.typography.titleMedium, color = Brand)
+                            Text(peca.codigo, style = MaterialTheme.typography.titleMedium, color = Brand)
                             Spacer(Modifier.height(4.dp))
-                            Text("Fabricante: ${peca.fabricante}", style = MaterialTheme.typography.bodySmall)
-                            Text("Categoria: ${peca.categoria}", style = MaterialTheme.typography.bodySmall)
-                            Text("Preço: ${currencyFormatter.format(peca.preco)}", style = MaterialTheme.typography.bodySmall)
+                            Text("Descrição: ${peca.descricao}", style = MaterialTheme.typography.bodySmall)
+                            Text("Valor Unitário: ${currencyFormatter.format(peca.valorUnitario)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Brand)
 
                             Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                                 IconButton(onClick = {
-                                    android.util.Log.d("PecasScreen", "Visualizando peça: ${peca.nome}")
                                     viewingPeca = peca
                                     showView = true
                                 }) {
                                     Icon(Icons.Filled.Edit, contentDescription = "Visualizar", tint = Brand)
                                 }
                                 IconButton(onClick = {
-                                    android.util.Log.d("PecasScreen", "Solicitando exclusão da peça: ${peca.nome}")
                                     deletingPeca = peca
                                     showDelete = true
                                 }) {
@@ -233,15 +199,11 @@ fun PecasScreen(
     if (showAddEdit && editingPeca != null) {
         AddEditPecaDialog(
             initial = editingPeca!!,
-            fabricantesDisponiveis = fabricantesDisponiveis,
-            categoriasDisponiveis = categoriasDisponiveis,
             onDismiss = {
-                android.util.Log.d("PecasScreen", "Dialog de adicionar/editar cancelado")
-                showAddEdit = false; editingPeca = null
+                showAddEdit = false
+                editingPeca = null
             },
             onConfirm = { updated ->
-                android.util.Log.w("PECA_FIREBASE_TEST", "=== USUÁRIO CONFIRMOU SALVAMENTO ===")
-                android.util.Log.w("PECA_FIREBASE_TEST", "Peça a ser salva: ${updated.nome}")
                 viewModel.salvarPeca(updated)
                 showAddEdit = false
                 editingPeca = null
@@ -253,12 +215,10 @@ fun PecasScreen(
         AlertDialog(
             onDismissRequest = { showDelete = false; deletingPeca = null },
             title = { Text("Excluir peça") },
-            text = { Text("Tem certeza que deseja excluir \"${deletingPeca!!.nome}\"?") },
+            text = { Text("Tem certeza que deseja excluir \"${deletingPeca!!.codigo}\"?") },
             confirmButton = {
                 Button(
                     onClick = {
-                        android.util.Log.w("PECA_FIREBASE_TEST", "=== USUÁRIO CONFIRMOU EXCLUSÃO ===")
-                        android.util.Log.w("PECA_FIREBASE_TEST", "Peça a ser excluída: ${deletingPeca!!.nome}")
                         viewModel.excluirPeca(deletingPeca!!.id)
                         showDelete = false
                         deletingPeca = null
@@ -279,13 +239,11 @@ fun PecasScreen(
             peca = viewingPeca!!,
             onDismiss = { showView = false; viewingPeca = null },
             onEdit = {
-                android.util.Log.d("PecasScreen", "Editando peça: ${viewingPeca!!.nome}")
                 editingPeca = viewingPeca
                 showView = false
                 showAddEdit = true
             },
             onDelete = {
-                android.util.Log.d("PecasScreen", "Solicitando exclusão da peça: ${viewingPeca!!.nome}")
                 deletingPeca = viewingPeca
                 showView = false
                 showDelete = true
@@ -308,222 +266,74 @@ private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 private fun AddEditPecaDialog(
     initial: Peca,
-    fabricantesDisponiveis: List<String>,
-    categoriasDisponiveis: List<String>,
     onDismiss: () -> Unit,
     onConfirm: (Peca) -> Unit
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    var nome by remember { mutableStateOf(initial.nome) }
     var codigo by remember { mutableStateOf(initial.codigo) }
     var descricao by remember { mutableStateOf(initial.descricao) }
-    var fabricante by remember { mutableStateOf(initial.fabricante) }
-    var categoria by remember { mutableStateOf(initial.categoria) }
-    var precoText by remember { mutableStateOf(if (initial.preco > 0) initial.preco.toString() else "") }
+    var valorUnitarioText by remember { mutableStateOf(if (initial.valorUnitario > 0) initial.valorUnitario.toString() else "") }
 
-    // Debounce para autocomplete
-    var debouncedFabricante by remember { mutableStateOf(initial.fabricante) }
-    var debouncedCategoria by remember { mutableStateOf(initial.categoria) }
-
-    LaunchedEffect(fabricante) {
-        delay(200)
-        debouncedFabricante = fabricante
-    }
-
-    LaunchedEffect(categoria) {
-        delay(200)
-        debouncedCategoria = categoria
-    }
-
-    val salvarHabilitado = nome.isNotBlank() && codigo.isNotBlank() && fabricante.isNotBlank() &&
-            categoria.isNotBlank() && precoText.isNotBlank()
+    val salvarHabilitado = codigo.isNotBlank() && descricao.isNotBlank() && valorUnitarioText.isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial.nome.isBlank()) "Nova Peça" else "Editar Peça") },
+        title = { Text(if (initial.codigo.isBlank()) "Nova Peça" else "Editar Peça") },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 600.dp)
+                    .heightIn(max = 400.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                OutlinedTextField(
-                    value = nome,
-                    onValueChange = { nome = it },
-                    label = { Text("Nome da Peça *") },
-                    placeholder = { Text("Ex: Filtro de Ar, Correia") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors(),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(
-                        onNext = { /* Move to next field */ }
-                    ),
-                    singleLine = true
-                )
-
+                // 1. Código
                 OutlinedTextField(
                     value = codigo,
                     onValueChange = { codigo = it.uppercase() },
                     label = { Text("Código *") },
-                    placeholder = { Text("Ex: FLT001, PC002") },
+                    placeholder = { Text("Ex: PEC001, FLT002") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = textFieldColors(),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(
-                        onNext = { /* Move to next field */ }
-                    ),
                     singleLine = true
                 )
 
+                // 2. Descrição
                 OutlinedTextField(
                     value = descricao,
                     onValueChange = { descricao = it },
-                    label = { Text("Descrição") },
-                    placeholder = { Text("Descrição detalhada da peça") },
+                    label = { Text("Descrição *") },
+                    placeholder = { Text("Ex: Filtro de ar, Correia dentada") },
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 3,
                     colors = textFieldColors(),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                 )
 
-                // Campo Fabricante com dropdown autocomplete otimizado
-                var fabricanteExpanded by remember { mutableStateOf(false) }
-                val fabricantesFiltrados = remember(debouncedFabricante, fabricantesDisponiveis) {
-                    if (debouncedFabricante.isBlank()) fabricantesDisponiveis.take(3)
-                    else fabricantesDisponiveis.filter {
-                        it.contains(debouncedFabricante, ignoreCase = true)
-                    }.take(3)
-                }
-
-                ExposedDropdownMenuBox(
-                    expanded = fabricanteExpanded && fabricantesFiltrados.isNotEmpty(),
-                    onExpandedChange = { expanded ->
-                        fabricanteExpanded = expanded && fabricantesFiltrados.isNotEmpty()
-                    }
-                ) {
-                    OutlinedTextField(
-                        value = fabricante,
-                        onValueChange = { newValue ->
-                            fabricante = newValue
-                            fabricanteExpanded = newValue.isNotEmpty()
-                        },
-                        label = { Text("Fabricante *") },
-                        placeholder = { Text("Ex: Hitachi, Videojet, Domino") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryEditable),
-                        colors = textFieldColors(),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                        keyboardActions = KeyboardActions(
-                            onNext = {
-                                fabricanteExpanded = false
-                            }
-                        ),
-                        singleLine = true
-                    )
-
-                    if (fabricantesFiltrados.isNotEmpty() && fabricanteExpanded) {
-                        ExposedDropdownMenu(
-                            expanded = true,
-                            onDismissRequest = { fabricanteExpanded = false }
-                        ) {
-                            fabricantesFiltrados.forEach { sugestao ->
-                                DropdownMenuItem(
-                                    text = { Text(sugestao) },
-                                    onClick = {
-                                        fabricante = sugestao
-                                        fabricanteExpanded = false
-                                        keyboardController?.hide()
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Campo Categoria com dropdown autocomplete otimizado
-                var categoriaExpanded by remember { mutableStateOf(false) }
-                val categoriasFiltradas = remember(debouncedCategoria, categoriasDisponiveis) {
-                    if (debouncedCategoria.isBlank()) categoriasDisponiveis.take(3)
-                    else categoriasDisponiveis.filter {
-                        it.contains(debouncedCategoria, ignoreCase = true)
-                    }.take(3)
-                }
-
-                ExposedDropdownMenuBox(
-                    expanded = categoriaExpanded && categoriasFiltradas.isNotEmpty(),
-                    onExpandedChange = { expanded ->
-                        categoriaExpanded = expanded && categoriasFiltradas.isNotEmpty()
-                    }
-                ) {
-                    OutlinedTextField(
-                        value = categoria,
-                        onValueChange = { newValue ->
-                            categoria = newValue
-                            categoriaExpanded = newValue.isNotEmpty()
-                        },
-                        label = { Text("Categoria *") },
-                        placeholder = { Text("Ex: Filtros, Cabeças, Tintas") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryEditable),
-                        colors = textFieldColors(),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                        keyboardActions = KeyboardActions(
-                            onNext = {
-                                categoriaExpanded = false
-                            }
-                        ),
-                        singleLine = true
-                    )
-
-                    if (categoriasFiltradas.isNotEmpty() && categoriaExpanded) {
-                        ExposedDropdownMenu(
-                            expanded = true,
-                            onDismissRequest = { categoriaExpanded = false }
-                        ) {
-                            categoriasFiltradas.forEach { sugestao ->
-                                DropdownMenuItem(
-                                    text = { Text(sugestao) },
-                                    onClick = {
-                                        categoria = sugestao
-                                        categoriaExpanded = false
-                                        keyboardController?.hide()
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
+                // 3. Valor Unitário
                 OutlinedTextField(
-                    value = precoText,
+                    value = valorUnitarioText,
                     onValueChange = { newValue ->
-                        // Permitir apenas números e vírgula/ponto decimal
                         val filtered = newValue.filter { it.isDigit() || it == '.' || it == ',' }
                             .replace(',', '.')
-                        precoText = filtered
+                        valorUnitarioText = filtered
                     },
-                    label = { Text("Preço Unitário *") },
+                    label = { Text("Valor Unitário (R$) *") },
                     placeholder = { Text("Ex: 45.90") },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal,
                         imeAction = ImeAction.Done
                     ),
                     keyboardActions = KeyboardActions(
-                        onDone = {
-                            keyboardController?.hide()
-                        }
+                        onDone = { keyboardController?.hide() }
                     ),
                     modifier = Modifier.fillMaxWidth(),
                     colors = textFieldColors(),
                     singleLine = true
                 )
 
-                // Informação sobre campos obrigatórios
                 Text(
                     "* Campos obrigatórios",
                     style = MaterialTheme.typography.bodySmall,
@@ -536,18 +346,13 @@ private fun AddEditPecaDialog(
             Button(
                 onClick = {
                     keyboardController?.hide()
-                    val preco = precoText.toDoubleOrNull() ?: 0.0
-
-                    android.util.Log.d("AddEditPecaDialog", "Convertendo dados: preco=$preco")
+                    val valorUnitario = valorUnitarioText.toDoubleOrNull() ?: 0.0
 
                     onConfirm(
                         initial.copy(
-                            nome = nome.trim(),
                             codigo = codigo.trim(),
                             descricao = descricao.trim(),
-                            fabricante = fabricante.trim(),
-                            categoria = categoria.trim(),
-                            preco = preco
+                            valorUnitario = valorUnitario
                         )
                     )
                 },
@@ -592,25 +397,28 @@ private fun ViewPecaDialog(
         title = { Text("Peça") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Nome: ${peca.nome}")
                 Text("Código: ${peca.codigo}")
                 Text("Descrição: ${peca.descricao}")
-                Text("Fabricante: ${peca.fabricante}")
-                Text("Categoria: ${peca.categoria}")
-                Text("Preço: ${currencyFormatter.format(peca.preco)}")
+                Text("Valor Unitário: ${currencyFormatter.format(peca.valorUnitario)}")
             }
         },
         confirmButton = {
-            Button(onClick = onEdit, colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White)) {
-                Text("Editar")
-            }
+            Button(
+                onClick = onEdit,
+                colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White),
+                shape = RoundedCornerShape(6.dp)
+            ) { Text("Editar") }
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onDismiss) { Text("Fechar", color = Brand) }
-                OutlinedButton(onClick = onDelete, colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                    Text("Excluir")
+                OutlinedButton(onClick = onDismiss, shape = RoundedCornerShape(6.dp)) {
+                    Text("Fechar", color = Brand)
                 }
+                OutlinedButton(
+                    onClick = onDelete,
+                    shape = RoundedCornerShape(6.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Excluir") }
             }
         }
     )

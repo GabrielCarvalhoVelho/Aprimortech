@@ -97,12 +97,12 @@ fun RelatorioPecasScreen(
         debouncedCodigoBusca = codigoBusca
     }
 
-    // Filtrar peças por código ou nome
+    // Filtrar peças por código ou descrição
     val sugestoesCodigos = remember(debouncedCodigoBusca, pecasDisponiveis) {
         if (debouncedCodigoBusca.isBlank()) emptyList()
         else pecasDisponiveis.filter {
             it.codigo.contains(debouncedCodigoBusca, ignoreCase = true) ||
-            it.nome.contains(debouncedCodigoBusca, ignoreCase = true)
+            it.descricao.contains(debouncedCodigoBusca, ignoreCase = true)
         }.take(5)
     }
 
@@ -119,8 +119,8 @@ fun RelatorioPecasScreen(
         pecaSelecionada?.let { peca ->
             novaPeca = novaPeca.copy(
                 codigo = peca.codigo,
-                descricao = peca.descricao.ifBlank { peca.nome },
-                valorUnit = peca.preco
+                descricao = peca.descricao,
+                valorUnit = peca.valorUnitario
             )
         }
     }
@@ -202,7 +202,7 @@ fun RelatorioPecasScreen(
                             text = {
                                 Column {
                                     Text(text = peca.codigo)
-                                    Text(text = peca.nome, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                    Text(text = peca.descricao, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                                 }
                             },
                             onClick = {
@@ -223,9 +223,9 @@ fun RelatorioPecasScreen(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("✓ Peça Selecionada", style = MaterialTheme.typography.labelMedium, color = Color(0xFF2E7D32))
-                        Text("${pecaSelecionada!!.codigo} - ${pecaSelecionada!!.nome}", style = MaterialTheme.typography.bodyMedium)
-                        if (pecaSelecionada!!.preco > 0) {
-                            Text("Preço cadastrado: R$ %.2f".format(pecaSelecionada!!.preco), style = MaterialTheme.typography.bodySmall)
+                        Text("${pecaSelecionada!!.codigo} - ${pecaSelecionada!!.descricao}", style = MaterialTheme.typography.bodyMedium)
+                        if (pecaSelecionada!!.valorUnitario > 0) {
+                            Text("Valor cadastrado: R$ %.2f".format(pecaSelecionada!!.valorUnitario), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -284,9 +284,8 @@ fun RelatorioPecasScreen(
                         if (pecaSelecionada == null && novaPeca.codigo.isNotBlank()) {
                             val novaPecaFirebase = Peca(
                                 codigo = novaPeca.codigo,
-                                nome = novaPeca.descricao,
                                 descricao = novaPeca.descricao,
-                                preco = novaPeca.valorUnit
+                                valorUnitario = novaPeca.valorUnit
                             )
                             pecaViewModel.salvarPeca(novaPecaFirebase)
                         }

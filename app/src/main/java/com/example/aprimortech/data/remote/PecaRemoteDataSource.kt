@@ -37,7 +37,7 @@ class PecaRemoteDataSource @Inject constructor() {
             android.util.Log.d("PecaRemoteDataSource", "Documento encontrado: ${document.exists()}")
 
             val peca = document.toObject(Peca::class.java)?.copy(id = document.id)
-            android.util.Log.d("PecaRemoteDataSource", "Peça convertida: ${peca?.nome ?: "null"}")
+            android.util.Log.d("PecaRemoteDataSource", "Peça convertida: ${peca?.codigo ?: "null"}")
             peca
         } catch (e: Exception) {
             android.util.Log.e("PecaRemoteDataSource", "Erro ao buscar peça por ID: $id", e)
@@ -48,11 +48,11 @@ class PecaRemoteDataSource @Inject constructor() {
     suspend fun salvarPeca(peca: Peca) {
         try {
             android.util.Log.w("PECA_FIREBASE_TEST", "=== TESTE CRÍTICO - SALVANDO PEÇA ===")
-            android.util.Log.w("PECA_FIREBASE_TEST", "Nome da peça: ${peca.nome}")
+            android.util.Log.w("PECA_FIREBASE_TEST", "Código da peça: ${peca.codigo}")
             android.util.Log.w("PECA_FIREBASE_TEST", "Firebase configurado: ${firestore != null}")
             android.util.Log.w("PECA_FIREBASE_TEST", "Collection configurada: ${collection != null}")
 
-            android.util.Log.d("PecaRemoteDataSource", "Iniciando salvamento da peça: ${peca.nome} (ID: ${peca.id})")
+            android.util.Log.d("PecaRemoteDataSource", "Iniciando salvamento da peça: ${peca.codigo} (ID: ${peca.id})")
 
             if (peca.id.isNotEmpty()) {
                 android.util.Log.d("PecaRemoteDataSource", "Atualizando peça existente com ID: ${peca.id}")
@@ -102,7 +102,7 @@ class PecaRemoteDataSource @Inject constructor() {
                     android.util.Log.d("PecaRemoteDataSource", "Usando ID existente: ${peca.id}")
                     collection.document(peca.id)
                 } else {
-                    android.util.Log.d("PecaRemoteDataSource", "Gerando novo ID para: ${peca.nome}")
+                    android.util.Log.d("PecaRemoteDataSource", "Gerando novo ID para: ${peca.codigo}")
                     collection.document()
                 }
                 batch.set(docRef, peca)

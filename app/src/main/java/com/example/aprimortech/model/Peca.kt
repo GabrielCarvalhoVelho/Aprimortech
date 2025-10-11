@@ -1,11 +1,13 @@
 package com.example.aprimortech.model
 
+/**
+ * Modelo de domínio para Peça
+ * Campos: código, descrição, valor unitário
+ * A quantidade é controlada apenas nos relatórios
+ */
 data class Peca(
     val id: String = "",
-    val nome: String = "",
     val codigo: String = "",
     val descricao: String = "",
-    val fabricante: String = "",
-    val categoria: String = "",
-    val preco: Double = 0.0
+    val valorUnitario: Double = 0.0
 )

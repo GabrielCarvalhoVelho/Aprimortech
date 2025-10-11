@@ -29,12 +29,6 @@ class PecaViewModel @Inject constructor(
     private val _pecas = MutableStateFlow<List<Peca>>(emptyList())
     val pecas: StateFlow<List<Peca>> = _pecas.asStateFlow()
 
-    private val _fabricantesDisponiveis = MutableStateFlow<List<String>>(emptyList())
-    val fabricantesDisponiveis: StateFlow<List<String>> = _fabricantesDisponiveis.asStateFlow()
-
-    private val _categoriasDisponiveis = MutableStateFlow<List<String>>(emptyList())
-    val categoriasDisponiveis: StateFlow<List<String>> = _categoriasDisponiveis.asStateFlow()
-
     private val _operacaoEmAndamento = MutableStateFlow(false)
     val operacaoEmAndamento: StateFlow<Boolean> = _operacaoEmAndamento.asStateFlow()
 
@@ -55,7 +49,6 @@ class PecaViewModel @Inject constructor(
                 val pecasList = buscarPecasUseCase()
                 _pecas.value = pecasList
                 Log.d(TAG, "✅ ${pecasList.size} peças carregadas (cache local)")
-                carregarDadosAuxiliares()
                 verificarItensPendentes()
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Erro ao carregar peças", e)
@@ -66,29 +59,15 @@ class PecaViewModel @Inject constructor(
         }
     }
 
-    private fun carregarDadosAuxiliares() {
-        viewModelScope.launch {
-            try {
-                // Extrair fabricantes e categorias das peças existentes
-                val pecasAtuais = _pecas.value
-                _fabricantesDisponiveis.value = pecasAtuais.map { it.fabricante }.filter { it.isNotBlank() }.distinct().sorted()
-                _categoriasDisponiveis.value = pecasAtuais.map { it.categoria }.filter { it.isNotBlank() }.distinct().sorted()
-            } catch (e: Exception) {
-                Log.e(TAG, "Erro ao carregar dados auxiliares", e)
-            }
-        }
-    }
-
     fun salvarPeca(peca: Peca, callback: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             try {
                 _operacaoEmAndamento.value = true
-                Log.d(TAG, "💾 Salvando peça: ${peca.nome}")
+                Log.d(TAG, "💾 Salvando peça: ${peca.codigo}")
 
                 salvarPecaUseCase(peca)
-                val pecaSalva = _pecas.value.find { it.id == peca.id || it.nome == peca.nome }
 
-                _mensagemOperacao.value = "✅ Peça '${peca.nome}' salva!"
+                _mensagemOperacao.value = "✅ Peça '${peca.codigo}' salva!"
                 Log.d(TAG, "✅ Peça salva com sucesso")
                 callback(true)
 
