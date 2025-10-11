@@ -2,6 +2,7 @@ package com.example.aprimortech
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -20,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
@@ -30,6 +33,9 @@ import com.example.aprimortech.data.local.entity.MaquinaEntity
 import androidx.compose.material3.MenuAnchorType
 import android.widget.Toast
 import java.util.UUID
+import java.util.Calendar
+import java.util.Locale
+import android.app.DatePickerDialog
 
 private val Brand = Color(0xFF1A4A5C)
 
@@ -208,7 +214,7 @@ fun RelatorioEquipamentoScreen(
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text("✓ Máquina Selecionada", style = MaterialTheme.typography.labelMedium, color = Color(0xFF2E7D32))
                                 Text(maquinaSelecionada!!.identificacao, style = MaterialTheme.typography.bodyMedium)
-                                Text("${maquinaSelecionada!!.fabricante} - ${maquinaSelecionada!!.modelo} (S/N: ${maquinaSelecionada!!.numeroSerie})",
+                                Text("${maquinaSelecionada!!.fabricante} - ${maquinaSelecionada!!.modelo} (N/S: ${maquinaSelecionada!!.numeroSerie})",
                                      style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                             }
                         }
@@ -322,25 +328,120 @@ fun RelatorioEquipamentoScreen(
                     Text("Próxima Manutenção Preventiva", style = MaterialTheme.typography.titleMedium, color = Brand)
                     Spacer(Modifier.height(8.dp))
 
-                    OutlinedTextField(
-                        value = dataProximaPreventiva,
-                        onValueChange = { dataProximaPreventiva = it },
-                        label = { Text("Data *") },
-                        placeholder = { Text("DD/MM/AAAA") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = textFieldColors()
-                    )
+                    // Campo de data com DatePickerDialog
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                // Abrir o DatePickerDialog
+                                val calendar = Calendar.getInstance()
+
+                                // Tentar parsear a data existente se houver
+                                if (dataProximaPreventiva.isNotBlank()) {
+                                    try {
+                                        val parts = dataProximaPreventiva.split("/")
+                                        if (parts.size == 3) {
+                                            calendar.set(parts[2].toInt(), parts[1].toInt() - 1, parts[0].toInt())
+                                        }
+                                    } catch (_: Exception) {
+                                        // Ignorar erro e usar data atual
+                                    }
+                                }
+
+                                val ano = calendar.get(Calendar.YEAR)
+                                val mes = calendar.get(Calendar.MONTH)
+                                val dia = calendar.get(Calendar.DAY_OF_MONTH)
+
+                                DatePickerDialog(
+                                    context,
+                                    { _, selectedYear, selectedMonth, selectedDay ->
+                                        // Atualizar o campo de data com a data selecionada
+                                        dataProximaPreventiva = String.format(
+                                            Locale.getDefault(),
+                                            "%02d/%02d/%04d",
+                                            selectedDay,
+                                            selectedMonth + 1,
+                                            selectedYear
+                                        )
+                                    },
+                                    ano, mes, dia
+                                ).show()
+                            }
+                    ) {
+                        OutlinedTextField(
+                            value = dataProximaPreventiva,
+                            onValueChange = { },
+                            label = { Text("Data *") },
+                            placeholder = { Text("DD/MM/AAAA") },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = textFieldColors(),
+                            trailingIcon = {
+                                Icon(Icons.Default.DateRange, contentDescription = "Selecionar Data", tint = Brand)
+                            },
+                            readOnly = true,
+                            enabled = false // Desabilitar interação direta com o TextField
+                        )
+                    }
 
                     Spacer(Modifier.height(12.dp))
 
                     OutlinedTextField(
                         value = horasProximaPreventiva,
-                        onValueChange = { horasProximaPreventiva = it },
+                        onValueChange = { newValue ->
+                            // Aceitar apenas números
+                            val filtered = newValue.filter { it.isDigit() }
+                            horasProximaPreventiva = filtered
+                        },
                         label = { Text("Horas *") },
                         placeholder = { Text("Ex: 500") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
-                        colors = textFieldColors()
+                        colors = textFieldColors(),
+                        trailingIcon = {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(end = 4.dp)
+                            ) {
+                                // Botão +100 moderno e compacto
+                                FilledTonalIconButton(
+                                    onClick = {
+                                        val atual = horasProximaPreventiva.toIntOrNull() ?: 0
+                                        horasProximaPreventiva = (atual + 100).toString()
+                                    },
+                                    modifier = Modifier.size(32.dp),
+                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                        containerColor = Brand.copy(alpha = 0.1f),
+                                        contentColor = Brand
+                                    )
+                                ) {
+                                    Text(
+                                        text = "+100",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 9.sp
+                                    )
+                                }
+
+                                // Botão +500 moderno e compacto
+                                FilledTonalIconButton(
+                                    onClick = {
+                                        val atual = horasProximaPreventiva.toIntOrNull() ?: 0
+                                        horasProximaPreventiva = (atual + 500).toString()
+                                    },
+                                    modifier = Modifier.size(32.dp),
+                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                        containerColor = Brand.copy(alpha = 0.15f),
+                                        contentColor = Brand
+                                    )
+                                ) {
+                                    Text(
+                                        text = "+500",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 9.sp
+                                    )
+                                }
+                            }
+                        }
                     )
                 }
 
@@ -426,8 +527,13 @@ private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
 private fun textFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedContainerColor = Color.White,
     unfocusedContainerColor = Color.White,
+    disabledContainerColor = Color.White,
     focusedBorderColor = Color.LightGray,
-    unfocusedBorderColor = Color.LightGray
+    unfocusedBorderColor = Color.LightGray,
+    disabledBorderColor = Color.LightGray,
+    disabledTextColor = Color.Black,
+    disabledLabelColor = Color.Gray,
+    disabledPlaceholderColor = Color.Gray
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
