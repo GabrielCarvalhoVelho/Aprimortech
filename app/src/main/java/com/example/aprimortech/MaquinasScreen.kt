@@ -65,6 +65,8 @@ fun MaquinasScreen(
     val codigosTintaDisponiveis by viewModel.codigosTintaDisponiveis.collectAsState()
     val codigosSolventeDisponiveis by viewModel.codigosSolventeDisponiveis.collectAsState()
     val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
+    val operacaoEmAndamento by viewModel.operacaoEmAndamento.collectAsState()
+    val itensPendentes by viewModel.itensPendentesSincronizacao.collectAsState()
 
     val listaFiltrada = remember(maquinas, clientes, query) {
         if (query.isBlank()) maquinas else maquinas.filter { maquina ->
@@ -160,31 +162,6 @@ fun MaquinasScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White),
                             elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
                         ) { Text("Adicionar Máquina") }
-
-                        IconButton(
-                            onClick = { viewModel.sincronizarDadosExistentes() },
-                            modifier = Modifier.size(46.dp)
-                        ) {
-                            Card(
-                                modifier = Modifier.fillMaxSize(),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-                                shape = RoundedCornerShape(6.dp),
-                                border = BorderStroke(1.dp, Color.White)
-                            ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.Sync,
-                                        contentDescription = "Sincronizar",
-                                        tint = Brand,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
             }

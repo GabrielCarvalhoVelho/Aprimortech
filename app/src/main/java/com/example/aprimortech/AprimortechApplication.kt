@@ -16,6 +16,7 @@ import com.example.aprimortech.data.repository.ServicoRepository
 import com.example.aprimortech.domain.usecase.*
 import com.example.aprimortech.util.NetworkConnectivityObserver
 import com.example.aprimortech.worker.ClienteSyncWorker
+import com.example.aprimortech.worker.MaquinaSyncWorker
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -46,7 +47,7 @@ class AprimortechApplication : Application() {
 
     // Repositories
     val maquinaRepository: MaquinaRepository by lazy {
-        MaquinaRepository(firestore)
+        MaquinaRepository(firestore, database.maquinaDao())
     }
 
     val relatorioRepository: RelatorioRepository by lazy {
@@ -159,7 +160,8 @@ class AprimortechApplication : Application() {
 
         // Inicializar sincronização periódica em background
         ClienteSyncWorker.schedulePeriodicSync(this)
-        Log.d(TAG, "✅ WorkManager para sincronização periódica iniciado")
+        MaquinaSyncWorker.schedulePeriodicSync(this)
+        Log.d(TAG, "✅ WorkManager para sincronização periódica iniciado (Clientes e Máquinas)")
 
         // Observar conectividade e sincronizar quando online
         observarConectividade()
@@ -176,6 +178,7 @@ class AprimortechApplication : Application() {
                     if (isOnline) {
                         Log.d(TAG, "🌐 Conexão restaurada - Sincronizando dados...")
                         ClienteSyncWorker.syncNow(this@AprimortechApplication)
+                        MaquinaSyncWorker.syncNow(this@AprimortechApplication)
                     } else {
                         Log.d(TAG, "📵 Modo offline - Dados serão salvos localmente")
                     }

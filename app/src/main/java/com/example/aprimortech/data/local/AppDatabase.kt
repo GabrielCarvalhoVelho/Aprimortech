@@ -18,7 +18,7 @@ import com.example.aprimortech.data.local.entity.RelatorioEntity
 
 /**
  * Banco de dados Room local para operação offline
- * Versão 1: Implementação inicial com suporte a clientes, máquinas, peças e relatórios
+ * Versão 2: Adicionado suporte offline-first para máquinas (campos pendenteSincronizacao e timestampAtualizacao)
  */
 @Database(
     entities = [
@@ -27,7 +27,7 @@ import com.example.aprimortech.data.local.entity.RelatorioEntity
         PecaEntity::class,
         RelatorioEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(
@@ -60,4 +60,3 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
-

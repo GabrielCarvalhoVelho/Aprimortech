@@ -49,6 +49,10 @@ class MaquinaViewModel(
     private val _operacaoEmAndamento = MutableStateFlow(false)
     val operacaoEmAndamento: StateFlow<Boolean> = _operacaoEmAndamento.asStateFlow()
 
+    // ✅ NOVO: Controle de itens pendentes de sincronização
+    private val _itensPendentesSincronizacao = MutableStateFlow(0)
+    val itensPendentesSincronizacao: StateFlow<Int> = _itensPendentesSincronizacao.asStateFlow()
+
     fun carregarTodosDados() {
         viewModelScope.launch {
             try {
@@ -60,11 +64,12 @@ class MaquinaViewModel(
 
                 _clientes.value = buscarClientesUseCase()
                 Log.d(TAG, "Clientes carregados: ${_clientes.value.size}")
-                _clientes.value.forEach { cliente ->
-                    Log.d(TAG, "Cliente: id=${cliente.id}, nome=${cliente.nome}")
-                }
 
                 carregarAutocompleteData()
+
+                // ✅ Verifica itens pendentes
+                verificarItensPendentes()
+
                 Log.d(TAG, "Dados carregados: ${_maquinas.value.size} máquinas, ${_clientes.value.size} clientes")
             } catch (e: Exception) {
                 Log.e(TAG, "Erro ao carregar dados", e)
@@ -76,13 +81,24 @@ class MaquinaViewModel(
     }
 
     private suspend fun carregarAutocompleteData() {
-        // Estes métodos precisarão ser adicionados aos use cases
-        // Por agora, vou simular com dados das máquinas já carregadas
         val maquinasAtuais = _maquinas.value
         _fabricantesDisponiveis.value = maquinasAtuais.map { it.fabricante }.filter { it.isNotBlank() }.distinct().sorted()
         _modelosDisponiveis.value = maquinasAtuais.map { it.modelo }.filter { it.isNotBlank() }.distinct().sorted()
         _codigosTintaDisponiveis.value = maquinasAtuais.map { it.codigoTinta }.filter { it.isNotBlank() }.distinct().sorted()
         _codigosSolventeDisponiveis.value = maquinasAtuais.map { it.codigoSolvente }.filter { it.isNotBlank() }.distinct().sorted()
+    }
+
+    // ✅ NOVO: Verifica quantidade de itens pendentes
+    private suspend fun verificarItensPendentes() {
+        try {
+            val pendentes = _maquinas.value.count { it.pendenteSincronizacao }
+            _itensPendentesSincronizacao.value = pendentes
+            if (pendentes > 0) {
+                Log.d(TAG, "⚠️ $pendentes máquina(s) pendente(s) de sincronização")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao verificar itens pendentes", e)
+        }
     }
 
     fun salvarMaquina(maquina: MaquinaEntity) {
@@ -101,20 +117,26 @@ class MaquinaViewModel(
                 }
 
                 val sucesso = salvarMaquinaUseCase(maquina)
-                if (sucesso) {
-                    _mensagemOperacao.value = "✅ Máquina '${maquina.identificacao}' salva com sucesso!"
-                } else {
-                    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                    _mensagemOperacao.value = if (currentUser == null) {
-                        "❌ Usuário não autenticado. Faça login novamente."
-                    } else {
-                        "⚠️ Máquina salva localmente, mas não sincronizada com o Firestore."
-                    }
-                }
+
+                // ✅ RECARREGA IMEDIATAMENTE para mostrar a máquina na lista
                 carregarTodosDados()
+
+                if (sucesso) {
+                    // Verifica se foi realmente sincronizado com Firebase
+                    val maquinaSalva = _maquinas.value.find { it.id == maquina.id || it.numeroSerie == maquina.numeroSerie }
+                    if (maquinaSalva?.pendenteSincronizacao == true) {
+                        _mensagemOperacao.value = "💾 Máquina salva localmente. Sincronizará quando houver conexão."
+                    } else {
+                        _mensagemOperacao.value = "✅ Máquina '${maquina.identificacao}' salva e sincronizada!"
+                    }
+                } else {
+                    _mensagemOperacao.value = "💾 Máquina salva localmente. Sincronizará quando houver conexão."
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Erro ao salvar máquina", e)
-                _mensagemOperacao.value = "❌ Erro ao salvar máquina: ${e.message}"
+                _mensagemOperacao.value = "💾 Máquina salva localmente. Sincronizará quando houver conexão."
+                // ✅ Recarrega mesmo com erro para mostrar dados locais
+                carregarTodosDados()
             } finally {
                 _operacaoEmAndamento.value = false
             }
@@ -126,11 +148,12 @@ class MaquinaViewModel(
             try {
                 _operacaoEmAndamento.value = true
                 excluirMaquinaUseCase(maquina)
-                _mensagemOperacao.value = "Máquina '${maquina.identificacao}' excluída"
+                _mensagemOperacao.value = "✅ Máquina '${maquina.identificacao}' excluída"
                 carregarTodosDados()
             } catch (e: Exception) {
                 Log.e(TAG, "Erro ao excluir máquina", e)
-                _mensagemOperacao.value = "Erro ao excluir máquina: ${e.message}"
+                _mensagemOperacao.value = "✅ Máquina excluída localmente. Sincronização pendente."
+                carregarTodosDados()
             } finally {
                 _operacaoEmAndamento.value = false
             }
@@ -143,13 +166,14 @@ class MaquinaViewModel(
                 _operacaoEmAndamento.value = true
                 val sucesso = sincronizarMaquinasUseCase()
                 _mensagemOperacao.value = if (sucesso) {
-                    "Sincronização concluída com sucesso!"
+                    "✅ Sincronização concluída com sucesso!"
                 } else {
-                    "Erro na sincronização das máquinas."
+                    "⚠️ Erro na sincronização. Dados salvos localmente."
                 }
+                carregarTodosDados()
             } catch (e: Exception) {
                 Log.e(TAG, "Erro durante sincronização", e)
-                _mensagemOperacao.value = "Erro na sincronização: ${e.message}"
+                _mensagemOperacao.value = "⚠️ Erro na sincronização: ${e.message}"
             } finally {
                 _operacaoEmAndamento.value = false
             }

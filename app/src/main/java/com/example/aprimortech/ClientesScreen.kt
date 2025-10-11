@@ -112,58 +112,6 @@ fun ClientesScreen(
             Text("Clientes", style = MaterialTheme.typography.headlineMedium, color = Brand)
             Spacer(Modifier.height(12.dp))
 
-            // Indicador de sincronização inicial
-            if (sincronizacaoInicial) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9C4)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
-                            color = Brand
-                        )
-                        Text(
-                            "Sincronizando dados do servidor...",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Brand
-                        )
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-            }
-
-            // Indicador de itens pendentes
-            if (itensPendentes > 0) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFECB3)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            "⚠️ $itensPendentes cliente(s) aguardando sincronização",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF8D6E63)
-                        )
-                        TextButton(onClick = { viewModel.sincronizarDados() }) {
-                            Text("Sincronizar", color = Brand)
-                        }
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-            }
-
             ClientesSectionCard {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(

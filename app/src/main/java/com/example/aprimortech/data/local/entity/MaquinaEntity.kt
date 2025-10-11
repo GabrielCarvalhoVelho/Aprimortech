@@ -2,6 +2,7 @@ package com.example.aprimortech.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.example.aprimortech.model.Maquina
 
 @Entity(tableName = "maquinas")
 data class MaquinaEntity(
@@ -17,5 +18,49 @@ data class MaquinaEntity(
     val codigoSolvente: String = "",
     val dataProximaPreventiva: String = "",
     val codigoConfiguracao: String = "",
-    val horasProximaPreventiva: String = ""
+    val horasProximaPreventiva: String = "",
+    val pendenteSincronizacao: Boolean = false, // Flag para indicar sincronização pendente
+    val timestampAtualizacao: Long = System.currentTimeMillis() // Timestamp da última atualização
 )
+
+/**
+ * Extensão para converter Entity -> Model
+ */
+fun MaquinaEntity.toModel(): Maquina {
+    return Maquina(
+        id = id,
+        clienteId = clienteId,
+        fabricante = fabricante,
+        numeroSerie = numeroSerie,
+        modelo = modelo,
+        identificacao = identificacao,
+        anoFabricacao = anoFabricacao,
+        codigoTinta = codigoTinta,
+        codigoSolvente = codigoSolvente,
+        dataProximaPreventiva = dataProximaPreventiva,
+        codigoConfiguracao = codigoConfiguracao,
+        horasProximaPreventiva = horasProximaPreventiva
+    )
+}
+
+/**
+ * Extensão para converter Model -> Entity
+ */
+fun Maquina.toEntity(pendenteSincronizacao: Boolean = false): MaquinaEntity {
+    return MaquinaEntity(
+        id = id,
+        clienteId = clienteId,
+        fabricante = fabricante,
+        numeroSerie = numeroSerie,
+        modelo = modelo,
+        identificacao = identificacao,
+        anoFabricacao = anoFabricacao,
+        codigoTinta = codigoTinta,
+        codigoSolvente = codigoSolvente,
+        dataProximaPreventiva = dataProximaPreventiva,
+        codigoConfiguracao = codigoConfiguracao,
+        horasProximaPreventiva = horasProximaPreventiva,
+        pendenteSincronizacao = pendenteSincronizacao,
+        timestampAtualizacao = System.currentTimeMillis()
+    )
+}
