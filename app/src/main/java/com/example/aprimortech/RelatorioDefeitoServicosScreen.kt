@@ -1,6 +1,5 @@
 package com.example.aprimortech
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -26,7 +25,6 @@ import com.example.aprimortech.ui.viewmodel.DefeitoViewModel
 import com.example.aprimortech.ui.viewmodel.DefeitoViewModelFactory
 import com.example.aprimortech.ui.viewmodel.ServicoViewModel
 import com.example.aprimortech.ui.viewmodel.ServicoViewModelFactory
-import com.google.firebase.firestore.FirebaseFirestore
 import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -310,43 +308,40 @@ fun RelatorioDefeitoServicosScreen(
 
             // ====== Navegação ======
             Spacer(Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                OutlinedButton(
-                    onClick = { navController.popBackStack() },
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.height(46.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White,
-                        contentColor = Color(0xFF1A4A5C)
-                    ),
-                    border = BorderStroke(0.dp, Color.Transparent),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                ) {
-                    Text("Anterior")
-                }
-                Button(
-                    onClick = {
-                        // Passar dados para a próxima etapa
-                        val defeitosString = defeitosSelecionados.joinToString(",")
-                        val servicosString = servicosSelecionados.joinToString(",")
-                        val observacoesEncoded = java.net.URLEncoder.encode(observacoes, "UTF-8")
 
-                        navController.navigate("relatorioEtapa4?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&clienteId=$clienteId")
-                    },
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.height(46.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1A4A5C),
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                ) {
-                    Text("Próximo")
-                }
+            // Botão Continuar com validação
+            Button(
+                onClick = {
+                    // Validação: verificar se há pelo menos 1 defeito e 1 serviço
+                    if (defeitosSelecionados.isEmpty()) {
+                        Toast.makeText(context, "Selecione pelo menos 1 defeito identificado", Toast.LENGTH_LONG).show()
+                        return@Button
+                    }
+
+                    if (servicosSelecionados.isEmpty()) {
+                        Toast.makeText(context, "Selecione pelo menos 1 serviço realizado", Toast.LENGTH_LONG).show()
+                        return@Button
+                    }
+
+                    // Passar dados para a próxima etapa
+                    val defeitosString = defeitosSelecionados.joinToString(",")
+                    val servicosString = servicosSelecionados.joinToString(",")
+                    val observacoesEncoded = java.net.URLEncoder.encode(observacoes, "UTF-8")
+
+                    navController.navigate("relatorioEtapa4?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&clienteId=$clienteId")
+                },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                enabled = defeitosSelecionados.isNotEmpty() && servicosSelecionados.isNotEmpty(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF1A4A5C),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Continuar", style = MaterialTheme.typography.titleMedium)
             }
+
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
