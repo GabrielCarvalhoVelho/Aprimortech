@@ -40,10 +40,10 @@ class PreventiveMaintenanceNotificationWorker(
             val maquinasProximas = maquinas.filter { maquina ->
                 try {
                     val dataPreventiva = maquina.dataProximaPreventiva
-                    android.util.Log.d("PreventiveWorker", "Verificando máquina ${maquina.nomeMaquina}: $dataPreventiva")
+                    android.util.Log.d("PreventiveWorker", "Verificando máquina ${maquina.identificacao}: $dataPreventiva")
                     dataPreventiva == alvo
                 } catch (e: Exception) {
-                    android.util.Log.w("PreventiveWorker", "Erro ao parsear data da máquina ${maquina.nomeMaquina}", e)
+                    android.util.Log.w("PreventiveWorker", "Erro ao parsear data da máquina ${maquina.identificacao}", e)
                     false
                 }
             }
@@ -58,15 +58,15 @@ class PreventiveMaintenanceNotificationWorker(
                     val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
                         .setSmallIcon(R.drawable.ic_notification) // Será criado
                         .setContentTitle("Manutenção Preventiva Próxima")
-                        .setContentText("Máquina ${maquina.nomeMaquina} precisa de manutenção em 30 dias")
+                        .setContentText("Máquina ${maquina.identificacao} precisa de manutenção em 30 dias")
                         .setStyle(NotificationCompat.BigTextStyle()
-                            .bigText("A máquina ${maquina.nomeMaquina} (${maquina.modelo}) está programada para manutenção preventiva em 30 dias. Data: ${maquina.dataProximaPreventiva}"))
+                            .bigText("A máquina ${maquina.identificacao} (${maquina.modelo}) está programada para manutenção preventiva em 30 dias. Data: ${maquina.dataProximaPreventiva}"))
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setAutoCancel(true)
                         .build()
 
                     notificationManager.notify(NOTIFICATION_ID_BASE + index, notification)
-                    android.util.Log.d("PreventiveWorker", "Notificação enviada para máquina: ${maquina.nomeMaquina}")
+                    android.util.Log.d("PreventiveWorker", "Notificação enviada para máquina: ${maquina.identificacao}")
                 }
             }
 

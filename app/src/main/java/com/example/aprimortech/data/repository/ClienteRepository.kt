@@ -1,5 +1,6 @@
 package com.example.aprimortech.data.repository
 
+import android.util.Log
 import com.example.aprimortech.data.local.dao.ClienteDao
 import com.example.aprimortech.data.local.entity.ClienteEntity
 import com.example.aprimortech.model.Cliente
@@ -17,6 +18,10 @@ class ClienteRepository @Inject constructor(
     private val clienteDao: ClienteDao
 ) {
     private val collection = firestore.collection("clientes")
+
+    companion object {
+        private const val TAG = "ClienteRepository"
+    }
 
     private fun parseContatos(raw: Any?): List<ContatoCliente> {
         if (raw !is List<*>) return emptyList()
@@ -95,19 +100,43 @@ class ClienteRepository @Inject constructor(
     )
 
     suspend fun buscarClientes(): List<Cliente> = withContext(Dispatchers.IO) {
+        Log.d(TAG, "buscarClientes() - Iniciando...")
+
         // 1. Carrega do cache primeiro
-        val locais = try { clienteDao.getAll().map { it.toDomain() } } catch (_: Exception) { emptyList() }
+        val locais = try {
+            val result = clienteDao.getAll().map { it.toDomain() }
+            Log.d(TAG, "Cache local: ${result.size} clientes")
+            result.forEach { Log.d(TAG, "Cache - Cliente: ${it.nome}") }
+            result
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao carregar cache local", e)
+            emptyList()
+        }
 
         // 2. Tenta atualizar do remoto
         return@withContext try {
+            Log.d(TAG, "Tentando buscar do Firestore...")
             val snapshot = collection.get().await()
-            val remotos = snapshot.documents.mapNotNull { documentToCliente(it) }
+            Log.d(TAG, "Firestore retornou ${snapshot.documents.size} documentos")
+
+            val remotos = snapshot.documents.mapNotNull { doc ->
+                Log.d(TAG, "Processando documento: ${doc.id}")
+                documentToCliente(doc)
+            }
+            Log.d(TAG, "Convertidos ${remotos.size} documentos em clientes")
+
             // Substitui cache (estratégia simples)
+            Log.d(TAG, "Atualizando cache local...")
             clienteDao.deleteAll()
-            remotos.forEach { clienteDao.insert(it.toEntity()) }
+            remotos.forEach {
+                clienteDao.insert(it.toEntity())
+                Log.d(TAG, "Inserido no cache: ${it.nome}")
+            }
+            Log.d(TAG, "buscarClientes() - Retornando ${remotos.size} clientes do Firestore")
             remotos
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             // Falhou remoto: retorna cache
+            Log.e(TAG, "Erro ao buscar do Firestore, usando cache local (${locais.size} clientes)", e)
             locais
         }
     }

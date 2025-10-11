@@ -146,7 +146,7 @@ fun DadosEquipamentoScreen(
                 anoFabricacao = maquina.anoFabricacao.toString()
                 codigoConfiguracao = maquina.codigoConfiguracao
                 modelo = maquina.modelo
-                identificacao = maquina.nomeMaquina
+                identificacao = maquina.identificacao
                 codigoTinta = maquina.codigoTinta
                 codigoSolvente = maquina.codigoSolvente
             } else {

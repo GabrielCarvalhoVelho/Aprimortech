@@ -220,7 +220,7 @@ fun RelatoriosScreen(
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text(
-                                        maquina.nomeMaquina,
+                                        maquina.identificacao,
                                         style = MaterialTheme.typography.titleSmall
                                     )
                                     Text(

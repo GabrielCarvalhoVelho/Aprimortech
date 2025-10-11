@@ -92,7 +92,6 @@ class MaquinaRepository @Inject constructor(
         return MaquinaEntity(
             id = id,
             clienteId = clienteId,
-            nomeMaquina = nomeMaquina,
             fabricante = fabricante,
             numeroSerie = numeroSerie,
             modelo = modelo,
@@ -101,7 +100,8 @@ class MaquinaRepository @Inject constructor(
             codigoTinta = codigoTinta,
             codigoSolvente = codigoSolvente,
             dataProximaPreventiva = dataProximaPreventiva,
-            codigoConfiguracao = codigoConfiguracao
+            codigoConfiguracao = codigoConfiguracao,
+            horasProximaPreventiva = ""
         )
     }
 
@@ -109,7 +109,6 @@ class MaquinaRepository @Inject constructor(
         return Maquina(
             id = id,
             clienteId = clienteId,
-            nomeMaquina = nomeMaquina,
             fabricante = fabricante,
             numeroSerie = numeroSerie,
             modelo = modelo,

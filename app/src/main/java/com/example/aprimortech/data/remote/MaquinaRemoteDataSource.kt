@@ -41,7 +41,6 @@ class MaquinaRemoteDataSource {
                 } else {
                     val data = mapOf(
                         "clienteId" to maquina.clienteId,
-                        "nomeMaquina" to maquina.nomeMaquina,
                         "fabricante" to maquina.fabricante,
                         "numeroSerie" to maquina.numeroSerie,
                         "modelo" to maquina.modelo,
@@ -76,7 +75,6 @@ class MaquinaRemoteDataSource {
         return try {
             val data = mapOf(
                 "clienteId" to maquina.clienteId,
-                "nomeMaquina" to maquina.nomeMaquina,
                 "fabricante" to maquina.fabricante,
                 "numeroSerie" to maquina.numeroSerie,
                 "modelo" to maquina.modelo,

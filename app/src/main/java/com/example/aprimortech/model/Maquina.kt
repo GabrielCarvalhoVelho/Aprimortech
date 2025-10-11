@@ -3,7 +3,6 @@ package com.example.aprimortech.model
 data class Maquina(
     val id: String = "",
     val clienteId: String = "",
-    val nomeMaquina: String = "",
     val fabricante: String = "",
     val numeroSerie: String = "",
     val modelo: String = "",

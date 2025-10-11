@@ -53,8 +53,17 @@ class MaquinaViewModel(
         viewModelScope.launch {
             try {
                 _operacaoEmAndamento.value = true
+                Log.d(TAG, "Iniciando carregamento de dados...")
+
                 _maquinas.value = buscarMaquinasUseCase()
+                Log.d(TAG, "Máquinas carregadas: ${_maquinas.value.size}")
+
                 _clientes.value = buscarClientesUseCase()
+                Log.d(TAG, "Clientes carregados: ${_clientes.value.size}")
+                _clientes.value.forEach { cliente ->
+                    Log.d(TAG, "Cliente: id=${cliente.id}, nome=${cliente.nome}")
+                }
+
                 carregarAutocompleteData()
                 Log.d(TAG, "Dados carregados: ${_maquinas.value.size} máquinas, ${_clientes.value.size} clientes")
             } catch (e: Exception) {
@@ -93,7 +102,7 @@ class MaquinaViewModel(
 
                 val sucesso = salvarMaquinaUseCase(maquina)
                 if (sucesso) {
-                    _mensagemOperacao.value = "✅ Máquina '${maquina.nomeMaquina}' salva com sucesso!"
+                    _mensagemOperacao.value = "✅ Máquina '${maquina.identificacao}' salva com sucesso!"
                 } else {
                     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                     _mensagemOperacao.value = if (currentUser == null) {
@@ -117,7 +126,7 @@ class MaquinaViewModel(
             try {
                 _operacaoEmAndamento.value = true
                 excluirMaquinaUseCase(maquina)
-                _mensagemOperacao.value = "Máquina '${maquina.nomeMaquina}' excluída"
+                _mensagemOperacao.value = "Máquina '${maquina.identificacao}' excluída"
                 carregarTodosDados()
             } catch (e: Exception) {
                 Log.e(TAG, "Erro ao excluir máquina", e)

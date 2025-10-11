@@ -105,7 +105,7 @@ class DadosEquipamentoViewModel(
 
                 if (maquina != null) {
                     // Atualizar a máquina com a nova identificação
-                    val maquinaAtualizada = maquina.copy(nomeMaquina = novaIdentificacao)
+                    val maquinaAtualizada = maquina.copy(identificacao = novaIdentificacao)
 
                     // Converter para MaquinaEntity antes de salvar
                     val maquinaEntity = maquinaAtualizada.toEntity()
@@ -133,7 +133,6 @@ class DadosEquipamentoViewModel(
         return com.example.aprimortech.data.local.entity.MaquinaEntity(
             id = this.id,
             clienteId = this.clienteId,
-            nomeMaquina = this.nomeMaquina,
             fabricante = this.fabricante,
             numeroSerie = this.numeroSerie,
             modelo = this.modelo,
@@ -142,7 +141,8 @@ class DadosEquipamentoViewModel(
             codigoTinta = this.codigoTinta ?: "",
             codigoSolvente = this.codigoSolvente ?: "",
             dataProximaPreventiva = this.dataProximaPreventiva ?: "",
-            codigoConfiguracao = this.codigoConfiguracao
+            codigoConfiguracao = this.codigoConfiguracao,
+            horasProximaPreventiva = ""
         )
     }
 

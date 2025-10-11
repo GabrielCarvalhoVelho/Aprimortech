@@ -2,7 +2,6 @@ package com.example.aprimortech
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.EditCalendar
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -70,10 +68,10 @@ fun MaquinasScreen(
         if (query.isBlank()) maquinas else maquinas.filter { maquina ->
             val clienteNome = clientes.find { it.id == maquina.clienteId }?.nome ?: ""
 
-            maquina.nomeMaquina.contains(query, ignoreCase = true) ||
             maquina.modelo.contains(query, ignoreCase = true) ||
             maquina.numeroSerie.contains(query, ignoreCase = true) ||
             maquina.fabricante.contains(query, ignoreCase = true) ||
+            maquina.identificacao.contains(query, ignoreCase = true) ||
             clienteNome.contains(query, ignoreCase = true)
         }
     }
@@ -142,7 +140,6 @@ fun MaquinasScreen(
                                 editingMaquina = MaquinaEntity(
                                     id = UUID.randomUUID().toString(),
                                     clienteId = "",
-                                    nomeMaquina = "",
                                     fabricante = "",
                                     numeroSerie = "",
                                     modelo = "",
@@ -150,7 +147,9 @@ fun MaquinasScreen(
                                     anoFabricacao = "",
                                     codigoTinta = "",
                                     codigoSolvente = "",
-                                    dataProximaPreventiva = ""
+                                    dataProximaPreventiva = "",
+                                    codigoConfiguracao = "",
+                                    horasProximaPreventiva = ""
                                 )
                                 showAddEdit = true
                             },
@@ -205,11 +204,11 @@ fun MaquinasScreen(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Column(Modifier.padding(16.dp)) {
-                            Text("${maq.nomeMaquina} (${maq.fabricante})", style = MaterialTheme.typography.titleMedium, color = Brand)
+                            Text("${maq.fabricante} ${maq.modelo}", style = MaterialTheme.typography.titleMedium, color = Brand)
                             Spacer(Modifier.height(4.dp))
                             Text("Cliente: $clienteNome", style = MaterialTheme.typography.bodySmall)
-                            Text("Modelo: ${maq.modelo} • Nº Série: ${maq.numeroSerie}", style = MaterialTheme.typography.bodySmall)
-                            Text("Próx. Preventiva: ${maq.dataProximaPreventiva}", style = MaterialTheme.typography.bodySmall)
+                            Text("Nº Série: ${maq.numeroSerie} • Identificação: ${maq.identificacao}", style = MaterialTheme.typography.bodySmall)
+                            Text("Próx. Preventiva: ${maq.dataProximaPreventiva} • ${maq.horasProximaPreventiva}h", style = MaterialTheme.typography.bodySmall)
 
                             Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
@@ -254,7 +253,7 @@ fun MaquinasScreen(
         AlertDialog(
             onDismissRequest = { showDelete = false; deletingMaquina = null },
             title = { Text("Excluir máquina") },
-            text = { Text("Tem certeza que deseja excluir \"${deletingMaquina!!.nomeMaquina}\"?") },
+            text = { Text("Tem certeza que deseja excluir \"${deletingMaquina!!.identificacao}\"?") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -276,7 +275,7 @@ fun MaquinasScreen(
     if (showView && viewingMaquina != null) {
         ViewMaquinaDialog(
             maquina = viewingMaquina!!,
-            clienteNome = clientes.find { it.id == viewingMaquina!!.clienteId }?.nome ?: "Cliente não encontrado",
+            cliente = clientes.find { it.id == viewingMaquina!!.clienteId },
             onDismiss = { showView = false; viewingMaquina = null },
             onEdit = {
                 editingMaquina = viewingMaquina
@@ -315,7 +314,6 @@ private fun AddEditMaquinaDialog(
     onConfirm: (MaquinaEntity) -> Unit
 ) {
     var clienteId by remember { mutableStateOf(initial.clienteId) }
-    var nomeMaquina by remember { mutableStateOf(initial.nomeMaquina) }
     var fabricante by remember { mutableStateOf(initial.fabricante) }
     var numeroSerie by remember { mutableStateOf(initial.numeroSerie) }
     var modelo by remember { mutableStateOf(initial.modelo) }
@@ -325,11 +323,13 @@ private fun AddEditMaquinaDialog(
     var codigoSolvente by remember { mutableStateOf(initial.codigoSolvente) }
     var dataProximaPreventiva by remember { mutableStateOf(initial.dataProximaPreventiva) }
     var codigoConfiguracao by remember { mutableStateOf(initial.codigoConfiguracao) }
+    var horasProximaPreventiva by remember { mutableStateOf(initial.horasProximaPreventiva) }
 
-    val salvarHabilitado = clienteId.isNotBlank() && nomeMaquina.isNotBlank() && fabricante.isNotBlank() &&
+    val salvarHabilitado = clienteId.isNotBlank() && fabricante.isNotBlank() &&
             numeroSerie.isNotBlank() && modelo.isNotBlank() && codigoTinta.isNotBlank() &&
             anoFabricacao.isNotBlank() && identificacao.isNotBlank() &&
-            codigoSolvente.isNotBlank() && dataProximaPreventiva.isNotBlank()
+            codigoSolvente.isNotBlank() && dataProximaPreventiva.isNotBlank() &&
+            codigoConfiguracao.isNotBlank() && horasProximaPreventiva.isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -377,15 +377,6 @@ private fun AddEditMaquinaDialog(
                         }
                     }
                 }
-
-                OutlinedTextField(
-                    value = nomeMaquina,
-                    onValueChange = { nomeMaquina = it },
-                    label = { Text("Nome da Máquina *") },
-                    placeholder = { Text("Ex: Impressora Linha 1") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors()
-                )
 
                 // Campo Fabricante com dropdown autocomplete
                 var fabricanteExpanded by remember { mutableStateOf(false) }
@@ -492,7 +483,6 @@ private fun AddEditMaquinaDialog(
                 OutlinedTextField(
                     value = anoFabricacao,
                     onValueChange = { newValue ->
-                        // Permitir apenas números e máximo 4 dígitos
                         val filtered = newValue.filter { it.isDigit() }.take(4)
                         anoFabricacao = filtered
                     },
@@ -506,7 +496,7 @@ private fun AddEditMaquinaDialog(
                 OutlinedTextField(
                     value = codigoConfiguracao,
                     onValueChange = { codigoConfiguracao = it.uppercase() },
-                    label = { Text("Código de Configuração") },
+                    label = { Text("Código de Configuração *") },
                     placeholder = { Text("Ex: CFG001, CONFIG-A") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = textFieldColors()
@@ -596,90 +586,21 @@ private fun AddEditMaquinaDialog(
                     }
                 }
 
-                // Campo para Data/Horas da Próxima Manutenção
-                var tipoManutencao by remember { mutableStateOf("data") } // "data" ou "horas"
-                val ctx = LocalContext.current
-                val dateFormatter = remember { java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()) }
+                // Seção de Manutenção Preventiva com Interface Moderna
+                Text(
+                    "Manutenção Preventiva",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Brand,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
 
-                fun abrirDatePicker() {
-                    val hoje = java.util.Calendar.getInstance()
-                    val dataInicial = try {
-                        val parsedDate = dateFormatter.parse(dataProximaPreventiva)
-                        val cal = java.util.Calendar.getInstance()
-                        if (parsedDate != null) {
-                            cal.time = parsedDate
-                        }
-                        cal
-                    } catch (e: Exception) { hoje }
+                ManutencaoPreventivaSection(
+                    dataProximaPreventiva = dataProximaPreventiva,
+                    horasProximaPreventiva = horasProximaPreventiva,
+                    onDataChange = { dataProximaPreventiva = it },
+                    onHorasChange = { horasProximaPreventiva = it }
+                )
 
-                    val dialog = android.app.DatePickerDialog(
-                        ctx,
-                        { _, year, month, dayOfMonth ->
-                            val cal = java.util.Calendar.getInstance()
-                            cal.set(year, month, dayOfMonth)
-                            dataProximaPreventiva = dateFormatter.format(cal.time)
-                        },
-                        dataInicial.get(java.util.Calendar.YEAR),
-                        dataInicial.get(java.util.Calendar.MONTH),
-                        dataInicial.get(java.util.Calendar.DAY_OF_MONTH)
-                    )
-                    dialog.show()
-                }
-
-                // Toggle para escolher entre Data ou Horas
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        onClick = { tipoManutencao = "data" },
-                        label = { Text("Data") },
-                        selected = tipoManutencao == "data",
-                        modifier = Modifier.weight(1f)
-                    )
-                    FilterChip(
-                        onClick = { tipoManutencao = "horas" },
-                        label = { Text("Horas") },
-                        selected = tipoManutencao == "horas",
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                if (tipoManutencao == "data") {
-                    OutlinedTextField(
-                        value = dataProximaPreventiva,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Data Próxima Manutenção *") },
-                        placeholder = { Text("dd/mm/aaaa") },
-                        trailingIcon = {
-                            IconButton(onClick = { abrirDatePicker() }) {
-                                Icon(Icons.Default.EditCalendar, contentDescription = "Abrir calendário", tint = Brand)
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { abrirDatePicker() },
-                        colors = textFieldColors()
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = dataProximaPreventiva,
-                        onValueChange = { newValue ->
-                            // Permitir apenas números e máximo 6 dígitos para horas
-                            val filtered = newValue.filter { it.isDigit() }.take(6)
-                            dataProximaPreventiva = if (filtered.isNotEmpty()) "${filtered}h" else ""
-                        },
-                        label = { Text("Horas para Próxima Manutenção *") },
-                        placeholder = { Text("Ex: 500h, 1000h, 2500h") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        supportingText = { Text("Digite apenas números (ex: 500 para 500h)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = textFieldColors()
-                    )
-                }
-
-                // Informação sobre campos obrigatórios
                 Text(
                     "* Campos obrigatórios",
                     style = MaterialTheme.typography.bodySmall,
@@ -694,7 +615,6 @@ private fun AddEditMaquinaDialog(
                     onConfirm(
                         initial.copy(
                             clienteId = clienteId.trim(),
-                            nomeMaquina = nomeMaquina.trim(),
                             fabricante = fabricante.trim(),
                             numeroSerie = numeroSerie.trim(),
                             modelo = modelo.trim(),
@@ -703,12 +623,18 @@ private fun AddEditMaquinaDialog(
                             identificacao = identificacao.trim(),
                             codigoSolvente = codigoSolvente.trim(),
                             dataProximaPreventiva = dataProximaPreventiva.trim(),
-                            codigoConfiguracao = codigoConfiguracao.trim()
+                            codigoConfiguracao = codigoConfiguracao.trim(),
+                            horasProximaPreventiva = horasProximaPreventiva.trim()
                         )
                     )
                 },
                 enabled = salvarHabilitado,
-                colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Brand,
+                    contentColor = Color.White,
+                    disabledContainerColor = Brand.copy(alpha = 0.4f),
+                    disabledContentColor = Color.White.copy(alpha = 0.8f)
+                ),
                 shape = RoundedCornerShape(6.dp)
             ) { Text("Salvar") }
         },
@@ -724,50 +650,91 @@ private fun AddEditMaquinaDialog(
 private fun textFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedContainerColor = Color.White,
     unfocusedContainerColor = Color.White,
-    focusedBorderColor = Color.LightGray,
+    focusedBorderColor = Brand,
     unfocusedBorderColor = Color.LightGray
 )
 
 @Composable
+private fun ManutencaoPreventivaSection(
+    dataProximaPreventiva: String,
+    horasProximaPreventiva: String,
+    onDataChange: (String) -> Unit,
+    onHorasChange: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Campo de Data simples
+        OutlinedTextField(
+            value = dataProximaPreventiva,
+            onValueChange = { newValue ->
+                // Formatar como DD/MM/YYYY
+                val filtered = newValue.filter { it.isDigit() || it == '/' }.take(10)
+                onDataChange(filtered)
+            },
+            label = { Text("Data da Próxima Preventiva *") },
+            placeholder = { Text("DD/MM/AAAA") },
+            modifier = Modifier.fillMaxWidth(),
+            colors = textFieldColors()
+        )
+
+        // Campo de Horas simples
+        OutlinedTextField(
+            value = horasProximaPreventiva,
+            onValueChange = { newValue ->
+                val filtered = newValue.filter { it.isDigit() }.take(6)
+                onHorasChange(filtered)
+            },
+            label = { Text("Horas até a Próxima Preventiva *") },
+            placeholder = { Text("Ex: 1000") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth(),
+            colors = textFieldColors()
+        )
+    }
+}
+
+@Composable
 private fun ViewMaquinaDialog(
     maquina: MaquinaEntity,
-    clienteNome: String,
+    cliente: Cliente?,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Máquina") },
+        title = { Text("Detalhes da Máquina") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Cliente: $clienteNome")
-                Text("Nome da Máquina: ${maquina.nomeMaquina}")
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState())
+            ) {
+                Text("Cliente: ${cliente?.nome ?: "Não encontrado"}")
                 Text("Fabricante: ${maquina.fabricante}")
-                Text("Número de Série: ${maquina.numeroSerie}")
                 Text("Modelo: ${maquina.modelo}")
+                Text("Número de Série: ${maquina.numeroSerie}")
                 Text("Identificação: ${maquina.identificacao}")
-                Text("Ano Fabricação: ${maquina.anoFabricacao}")
-                if (maquina.codigoConfiguracao.isNotEmpty()) {
-                    Text("Código de Configuração: ${maquina.codigoConfiguracao}")
-                }
+                Text("Ano de Fabricação: ${maquina.anoFabricacao}")
                 Text("Código da Tinta: ${maquina.codigoTinta}")
                 Text("Código do Solvente: ${maquina.codigoSolvente}")
-                Text("Próx. Preventiva: ${maquina.dataProximaPreventiva}")
+                Text("Código de Configuração: ${maquina.codigoConfiguracao}")
+                Text("Próxima Preventiva: ${maquina.dataProximaPreventiva}")
+                Text("Horas para Preventiva: ${maquina.horasProximaPreventiva}h")
             }
         },
         confirmButton = {
-            Button(onClick = onEdit, colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White)) {
-                Text("Editar")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onEdit) { Text("Editar") }
+                Button(
+                    onClick = onDelete,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Excluir") }
             }
         },
         dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onDismiss) { Text("Fechar", color = Brand) }
-                OutlinedButton(onClick = onDelete, colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                    Text("Excluir")
-                }
-            }
+            OutlinedButton(onClick = onDismiss) { Text("Fechar") }
         }
     )
 }

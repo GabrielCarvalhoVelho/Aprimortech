@@ -16,7 +16,7 @@ import com.example.aprimortech.data.local.converters.StringListConverter
 
 @Database(
     entities = [ClienteEntity::class, MaquinaEntity::class, PecaEntity::class, RelatorioEntity::class],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(StringListConverter::class, ContatoClienteListConverter::class)

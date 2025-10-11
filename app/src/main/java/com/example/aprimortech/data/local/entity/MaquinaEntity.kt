@@ -8,7 +8,6 @@ data class MaquinaEntity(
     @PrimaryKey
     val id: String = "",
     val clienteId: String = "",
-    val nomeMaquina: String = "",
     val fabricante: String = "",
     val numeroSerie: String = "",
     val modelo: String = "",
@@ -17,5 +16,6 @@ data class MaquinaEntity(
     val codigoTinta: String = "",
     val codigoSolvente: String = "",
     val dataProximaPreventiva: String = "",
-    val codigoConfiguracao: String = ""
+    val codigoConfiguracao: String = "",
+    val horasProximaPreventiva: String = ""
 )
