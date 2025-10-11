@@ -71,6 +71,8 @@ dependencies {
     // ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-process:2.8.7") // Para ProcessLifecycleOwner
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
 
     // Room (persistência local) - versões estáveis compatíveis
     implementation("androidx.room:room-runtime:2.6.1")

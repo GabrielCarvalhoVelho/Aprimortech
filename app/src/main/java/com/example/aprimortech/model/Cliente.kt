@@ -1,7 +1,7 @@
 package com.example.aprimortech.model
 
 data class ContatoCliente(
-    val nome: String,
+    val nome: String = "",  // ✅ Adicionado valor padrão para Firebase
     val setor: String? = null,
     val celular: String? = null
 )

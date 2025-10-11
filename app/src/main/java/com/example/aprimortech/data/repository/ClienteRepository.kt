@@ -2,207 +2,270 @@ package com.example.aprimortech.data.repository
 
 import android.util.Log
 import com.example.aprimortech.data.local.dao.ClienteDao
-import com.example.aprimortech.data.local.entity.ClienteEntity
+import com.example.aprimortech.data.local.entity.toEntity
+import com.example.aprimortech.data.local.entity.toModel
 import com.example.aprimortech.model.Cliente
-import com.example.aprimortech.model.ContatoCliente
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
-import javax.inject.Inject
-import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import java.util.UUID
 
-@Singleton
-class ClienteRepository @Inject constructor(
+/**
+ * Repositório de Clientes com suporte completo para operação offline
+ *
+ * Estratégia:
+ * 1. SEMPRE salva localmente primeiro (garantia de persistência offline)
+ * 2. Tenta sincronizar com Firebase quando há conexão
+ * 3. Marca itens como pendentes se sincronização falhar
+ * 4. Lê dados locais como fonte primária
+ */
+class ClienteRepository(
     private val firestore: FirebaseFirestore,
     private val clienteDao: ClienteDao
 ) {
-    private val collection = firestore.collection("clientes")
-
     companion object {
         private const val TAG = "ClienteRepository"
+        private const val COLLECTION_CLIENTES = "clientes"
     }
 
-    private fun parseContatos(raw: Any?): List<ContatoCliente> {
-        if (raw !is List<*>) return emptyList()
-        return raw.mapNotNull { item ->
-            when (item) {
-                is String -> ContatoCliente(nome = item)
-                is Map<*, *> -> {
-                    val nome = item["nome"] as? String ?: return@mapNotNull null
-                    val setor = item["setor"] as? String
-                    val celular = item["celular"] as? String
-                    ContatoCliente(nome = nome, setor = setor, celular = celular)
+    /**
+     * Busca todos os clientes - Prioriza cache local
+     */
+    suspend fun buscarClientes(): List<Cliente> {
+        return try {
+            Log.d(TAG, "📂 Buscando clientes do cache local...")
+            val clientesLocais = clienteDao.buscarTodosClientes()
+
+            Log.d(TAG, "📊 ${clientesLocais.size} clientes no cache local")
+
+            if (clientesLocais.isEmpty()) {
+                Log.d(TAG, "⚠️ Cache vazio, buscando do Firebase...")
+                // CORREÇÃO: Retornar os dados do Firebase
+                return buscarClientesDoFirebase()
+            } else {
+                Log.d(TAG, "✅ Retornando ${clientesLocais.size} clientes do cache local:")
+                clientesLocais.forEach {
+                    Log.d(TAG, "   - ${it.nome} (ID: ${it.id}, Pendente: ${it.pendenteSincronizacao})")
                 }
-                else -> null
+                clientesLocais.map { it.toModel() }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Erro ao buscar clientes", e)
+            // Retorna cache local mesmo em caso de erro
+            clienteDao.buscarTodosClientes().map { it.toModel() }
         }
     }
 
-    private fun documentToCliente(document: com.google.firebase.firestore.DocumentSnapshot): Cliente? {
-        val data = document.data ?: return null
+    /**
+     * Busca clientes do Firebase e atualiza cache local
+     */
+    private suspend fun buscarClientesDoFirebase(): List<Cliente> {
         return try {
-            val id = document.id
-            val nome = data["nome"] as? String ?: ""
-            val cnpjCpf = data["cnpjCpf"] as? String ?: ""
-            val contatos = parseContatos(data["contatos"]) // retrocompatível
-            val endereco = data["endereco"] as? String ?: ""
-            val cidade = data["cidade"] as? String ?: ""
-            val estado = data["estado"] as? String ?: ""
-            val telefone = data["telefone"] as? String ?: ""
-            val celular = data["celular"] as? String ?: ""
-            val latitude = (data["latitude"] as? Number)?.toDouble()
-            val longitude = (data["longitude"] as? Number)?.toDouble()
-            Cliente(
-                id = id,
-                nome = nome,
-                cnpjCpf = cnpjCpf,
-                contatos = contatos,
-                endereco = endereco,
-                cidade = cidade,
-                estado = estado,
-                telefone = telefone,
-                celular = celular,
-                latitude = latitude,
-                longitude = longitude
-            )
-        } catch (_: Exception) {
+            val snapshot = firestore.collection(COLLECTION_CLIENTES)
+                .get()
+                .await()
+
+            val clientes = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(Cliente::class.java)?.copy(id = doc.id)
+            }
+
+            // Atualiza cache local
+            if (clientes.isNotEmpty()) {
+                val entities = clientes.map { it.toEntity(pendenteSincronizacao = false) }
+                clienteDao.inserirClientes(entities)
+                Log.d(TAG, "✅ Cache local atualizado com ${clientes.size} clientes do Firebase")
+            }
+
+            clientes
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Erro ao buscar clientes do Firebase", e)
+            // Retorna cache local se Firebase falhar
+            clienteDao.buscarTodosClientes().map { it.toModel() }
+        }
+    }
+
+    /**
+     * Observa mudanças nos clientes em tempo real (Flow)
+     */
+    fun observarClientes(): Flow<List<Cliente>> {
+        return clienteDao.observarTodosClientes()
+            .map { entities -> entities.map { it.toModel() } }
+    }
+
+    /**
+     * Salva cliente com estratégia offline-first
+     */
+    suspend fun salvarCliente(cliente: Cliente): String {
+        return try {
+            // 1. Gera ID se necessário
+            val clienteId = cliente.id.ifEmpty { UUID.randomUUID().toString() }
+            val clienteComId = cliente.copy(id = clienteId)
+
+            // 2. SEMPRE salva localmente primeiro
+            val entity = clienteComId.toEntity(pendenteSincronizacao = true)
+            clienteDao.inserirCliente(entity)
+            Log.d(TAG, "✅ Cliente '${cliente.nome}' salvo localmente")
+
+            // 3. Tenta sincronizar com Firebase
+            try {
+                firestore.collection(COLLECTION_CLIENTES)
+                    .document(clienteId)
+                    .set(clienteComId)
+                    .await()
+
+                // Marca como sincronizado
+                clienteDao.marcarComoSincronizado(clienteId)
+                Log.d(TAG, "✅ Cliente '${cliente.nome}' sincronizado com Firebase")
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ Falha na sincronização com Firebase, mantido como pendente", e)
+                // Cliente permanece marcado como pendente de sincronização
+            }
+
+            clienteId
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Erro ao salvar cliente", e)
+            throw e
+        }
+    }
+
+    /**
+     * Exclui cliente com estratégia offline-first
+     */
+    suspend fun excluirCliente(clienteId: String) {
+        try {
+            // 1. Remove do cache local imediatamente
+            clienteDao.deletarClientePorId(clienteId)
+            Log.d(TAG, "✅ Cliente excluído do cache local")
+
+            // 2. Tenta excluir do Firebase
+            try {
+                firestore.collection(COLLECTION_CLIENTES)
+                    .document(clienteId)
+                    .delete()
+                    .await()
+                Log.d(TAG, "✅ Cliente excluído do Firebase")
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ Falha ao excluir do Firebase, será removido na próxima sincronização", e)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Erro ao excluir cliente", e)
+            throw e
+        }
+    }
+
+    /**
+     * Busca cliente por ID
+     */
+    suspend fun buscarClientePorId(clienteId: String): Cliente? {
+        return try {
+            // Busca primeiro no cache local
+            val local = clienteDao.buscarClientePorId(clienteId)
+            if (local != null) {
+                return local.toModel()
+            }
+
+            // Se não encontrar, busca no Firebase
+            val doc = firestore.collection(COLLECTION_CLIENTES)
+                .document(clienteId)
+                .get()
+                .await()
+
+            doc.toObject(Cliente::class.java)?.copy(id = doc.id)?.also { cliente ->
+                // Salva no cache
+                clienteDao.inserirCliente(cliente.toEntity(pendenteSincronizacao = false))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao buscar cliente por ID", e)
             null
         }
     }
 
-    private fun Cliente.toEntity(): ClienteEntity = ClienteEntity(
-        id = id,
-        nome = nome,
-        cnpjCpf = cnpjCpf,
-        contatos = contatos,
-        endereco = endereco,
-        cidade = cidade,
-        estado = estado,
-        telefone = telefone,
-        celular = celular,
-        latitude = latitude,
-        longitude = longitude
-    )
+    /**
+     * Sincroniza clientes pendentes com Firebase
+     */
+    suspend fun sincronizarClientesPendentes(): Int {
+        return try {
+            val pendentes = clienteDao.buscarClientesPendentesSincronizacao()
+            Log.d(TAG, "Sincronizando ${pendentes.size} clientes pendentes...")
 
-    private fun ClienteEntity.toDomain(): Cliente = Cliente(
-        id = id,
-        nome = nome,
-        cnpjCpf = cnpjCpf,
-        contatos = contatos,
-        endereco = endereco,
-        cidade = cidade,
-        estado = estado,
-        telefone = telefone,
-        celular = celular,
-        latitude = latitude,
-        longitude = longitude
-    )
+            var sincronizados = 0
+            pendentes.forEach { entity ->
+                try {
+                    firestore.collection(COLLECTION_CLIENTES)
+                        .document(entity.id)
+                        .set(entity.toModel())
+                        .await()
 
-    suspend fun buscarClientes(): List<Cliente> = withContext(Dispatchers.IO) {
-        Log.d(TAG, "buscarClientes() - Iniciando...")
+                    clienteDao.marcarComoSincronizado(entity.id)
+                    sincronizados++
+                    Log.d(TAG, "✅ Cliente '${entity.nome}' sincronizado")
+                } catch (e: Exception) {
+                    Log.w(TAG, "⚠️ Falha ao sincronizar cliente '${entity.nome}'", e)
+                }
+            }
 
-        // 1. Carrega do cache primeiro
-        val locais = try {
-            val result = clienteDao.getAll().map { it.toDomain() }
-            Log.d(TAG, "Cache local: ${result.size} clientes")
-            result.forEach { Log.d(TAG, "Cache - Cliente: ${it.nome}") }
-            result
+            Log.d(TAG, "✅ ${sincronizados}/${pendentes.size} clientes sincronizados")
+            sincronizados
         } catch (e: Exception) {
-            Log.e(TAG, "Erro ao carregar cache local", e)
+            Log.e(TAG, "❌ Erro ao sincronizar clientes pendentes", e)
+            0
+        }
+    }
+
+    /**
+     * Força sincronização completa com Firebase
+     * Baixa todos os clientes do Firebase e atualiza cache local
+     */
+    suspend fun sincronizarComFirebase() {
+        try {
+            Log.d(TAG, "Iniciando sincronização completa com Firebase...")
+
+            // 1. Sincroniza pendentes locais para Firebase
+            sincronizarClientesPendentes()
+
+            // 2. Baixa dados atualizados do Firebase
+            buscarClientesDoFirebase()
+
+            Log.d(TAG, "✅ Sincronização completa finalizada")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Erro na sincronização completa", e)
+        }
+    }
+
+    /**
+     * Retorna quantidade de clientes pendentes de sincronização
+     */
+    suspend fun contarClientesPendentes(): Int {
+        return try {
+            clienteDao.contarClientesPendentes()
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao contar clientes pendentes", e)
+            0
+        }
+    }
+
+    /**
+     * Pesquisa clientes por nome ou CNPJ/CPF
+     */
+    suspend fun pesquisarClientes(query: String): List<Cliente> {
+        return try {
+            clienteDao.buscarClientesPorNome(query).map { it.toModel() }
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao pesquisar clientes", e)
             emptyList()
         }
+    }
 
-        // 2. Tenta atualizar do remoto
-        return@withContext try {
-            Log.d(TAG, "Tentando buscar do Firestore...")
-            val snapshot = collection.get().await()
-            Log.d(TAG, "Firestore retornou ${snapshot.documents.size} documentos")
-
-            val remotos = snapshot.documents.mapNotNull { doc ->
-                Log.d(TAG, "Processando documento: ${doc.id}")
-                documentToCliente(doc)
-            }
-            Log.d(TAG, "Convertidos ${remotos.size} documentos em clientes")
-
-            // Substitui cache (estratégia simples)
-            Log.d(TAG, "Atualizando cache local...")
-            clienteDao.deleteAll()
-            remotos.forEach {
-                clienteDao.insert(it.toEntity())
-                Log.d(TAG, "Inserido no cache: ${it.nome}")
-            }
-            Log.d(TAG, "buscarClientes() - Retornando ${remotos.size} clientes do Firestore")
-            remotos
+    /**
+     * Limpa cache local (use com cuidado!)
+     */
+    suspend fun limparCacheLocal() {
+        try {
+            clienteDao.limparTodosClientes()
+            Log.d(TAG, "Cache local limpo")
         } catch (e: Exception) {
-            // Falhou remoto: retorna cache
-            Log.e(TAG, "Erro ao buscar do Firestore, usando cache local (${locais.size} clientes)", e)
-            locais
+            Log.e(TAG, "Erro ao limpar cache", e)
         }
-    }
-
-    suspend fun buscarClientePorId(id: String): Cliente? = withContext(Dispatchers.IO) {
-        // Cache primeiro
-        val local = try { clienteDao.getById(id)?.toDomain() } catch (_: Exception) { null }
-        // Tenta remoto
-        return@withContext try {
-            val document = collection.document(id).get().await()
-            val remoto = documentToCliente(document)
-            if (remoto != null) clienteDao.insert(remoto.toEntity())
-            remoto ?: local
-        } catch (_: Exception) { local }
-    }
-
-    suspend fun salvarCliente(cliente: Cliente): String = withContext(Dispatchers.IO) {
-        // Salva remoto primeiro
-        val savedId = try {
-            val contatosMap = cliente.contatos.map {
-                mapOf(
-                    "nome" to it.nome,
-                    "setor" to it.setor,
-                    "celular" to it.celular
-                )
-            }
-            val payload = mapOf(
-                "nome" to cliente.nome,
-                "cnpjCpf" to cliente.cnpjCpf,
-                "contatos" to contatosMap,
-                "endereco" to cliente.endereco,
-                "cidade" to cliente.cidade,
-                "estado" to cliente.estado,
-                "telefone" to cliente.telefone,
-                "celular" to cliente.celular,
-                "latitude" to cliente.latitude,
-                "longitude" to cliente.longitude
-            )
-            if (cliente.id.isEmpty()) {
-                val documentRef = collection.add(payload).await()
-                documentRef.id
-            } else {
-                collection.document(cliente.id).set(payload).await()
-                cliente.id
-            }
-        } catch (e: Exception) {
-            throw Exception("Erro ao salvar cliente remoto: ${e.message}")
-        }
-        // Atualiza cache local
-        val finalId = if (cliente.id.isEmpty()) savedId else cliente.id
-        clienteDao.insert(cliente.copy(id = finalId).toEntity())
-        finalId
-    }
-
-    suspend fun excluirCliente(id: String) = withContext(Dispatchers.IO) {
-        try { collection.document(id).delete().await() } catch (_: Exception) {}
-        try { clienteDao.getById(id)?.let { clienteDao.delete(it) } } catch (_: Exception) {}
-    }
-
-    suspend fun sincronizarTudo(): Boolean = withContext(Dispatchers.IO) {
-        return@withContext try {
-            val snapshot = collection.get().await()
-            val remotos = snapshot.documents.mapNotNull { documentToCliente(it) }
-            clienteDao.deleteAll()
-            remotos.forEach { clienteDao.insert(it.toEntity()) }
-            true
-        } catch (_: Exception) { false }
     }
 }

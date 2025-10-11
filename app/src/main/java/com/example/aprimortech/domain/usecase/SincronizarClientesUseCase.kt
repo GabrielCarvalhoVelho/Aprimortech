@@ -2,6 +2,25 @@ package com.example.aprimortech.domain.usecase
 
 import com.example.aprimortech.data.repository.ClienteRepository
 
-class SincronizarClientesUseCase(private val repository: ClienteRepository) {
-    suspend operator fun invoke(): Boolean = repository.sincronizarTudo()
+/**
+ * Use Case para sincronizar clientes
+ * Sincroniza dados pendentes com Firebase e atualiza cache local
+ */
+class SincronizarClientesUseCase(
+    private val repository: ClienteRepository
+) {
+    /**
+     * Sincroniza todos os dados
+     */
+    suspend operator fun invoke() {
+        repository.sincronizarComFirebase()
+    }
+
+    /**
+     * Retorna quantidade de itens pendentes de sincronização
+     */
+    suspend fun contarPendentes(): Int {
+        return repository.contarClientesPendentes()
+    }
 }
+

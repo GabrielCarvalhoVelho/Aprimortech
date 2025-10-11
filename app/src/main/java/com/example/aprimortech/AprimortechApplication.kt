@@ -2,6 +2,8 @@ package com.example.aprimortech
 
 import android.app.Application
 import androidx.room.Room
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import com.example.aprimortech.data.local.AppDatabase
 import com.example.aprimortech.data.repository.MaquinaRepository
 import com.example.aprimortech.data.repository.RelatorioRepository
@@ -12,11 +14,19 @@ import com.example.aprimortech.data.repository.SetorRepository
 import com.example.aprimortech.data.repository.DefeitoRepository
 import com.example.aprimortech.data.repository.ServicoRepository
 import com.example.aprimortech.domain.usecase.*
+import com.example.aprimortech.util.NetworkConnectivityObserver
+import com.example.aprimortech.worker.ClienteSyncWorker
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
-import com.example.aprimortech.OfflineAuthManager
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
+import android.util.Log
 
 class AprimortechApplication : Application() {
+
+    companion object {
+        private const val TAG = "AprimortechApp"
+    }
 
     // Inicialização lazy das dependências
     private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
@@ -27,6 +37,11 @@ class AprimortechApplication : Application() {
             AppDatabase::class.java,
             "aprimortech.db"
         ).fallbackToDestructiveMigration().build()
+    }
+
+    // Monitor de conectividade
+    private val networkObserver: NetworkConnectivityObserver by lazy {
+        NetworkConnectivityObserver(this)
     }
 
     // Repositories
@@ -141,5 +156,30 @@ class AprimortechApplication : Application() {
 
         // Inicializar Firebase
         FirebaseApp.initializeApp(this)
+
+        // Inicializar sincronização periódica em background
+        ClienteSyncWorker.schedulePeriodicSync(this)
+        Log.d(TAG, "✅ WorkManager para sincronização periódica iniciado")
+
+        // Observar conectividade e sincronizar quando online
+        observarConectividade()
+    }
+
+    /**
+     * Observa mudanças na conectividade e sincroniza automaticamente quando online
+     */
+    private fun observarConectividade() {
+        ProcessLifecycleOwner.get().lifecycleScope.launch {
+            networkObserver.observe()
+                .distinctUntilChanged() // Evita eventos duplicados
+                .collect { isOnline ->
+                    if (isOnline) {
+                        Log.d(TAG, "🌐 Conexão restaurada - Sincronizando dados...")
+                        ClienteSyncWorker.syncNow(this@AprimortechApplication)
+                    } else {
+                        Log.d(TAG, "📵 Modo offline - Dados serão salvos localmente")
+                    }
+                }
+        }
     }
 }
