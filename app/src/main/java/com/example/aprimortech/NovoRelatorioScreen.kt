@@ -11,6 +11,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -21,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavController
@@ -28,9 +31,13 @@ import androidx.navigation.compose.rememberNavController
 import com.example.aprimortech.ui.theme.AprimortechTheme
 import com.example.aprimortech.ui.viewmodel.NovoRelatorioViewModel
 import com.example.aprimortech.ui.viewmodel.NovoRelatorioViewModelFactory
+import com.example.aprimortech.ui.viewmodel.ClienteViewModel
+import com.example.aprimortech.ui.viewmodel.ClienteViewModelFactory
 import com.example.aprimortech.model.Cliente
 import com.example.aprimortech.model.Contato
 import com.example.aprimortech.model.Setor
+import com.example.aprimortech.model.ContatoCliente
+import com.example.aprimortech.ui.components.AutoCompleteEnderecoField
 import kotlinx.coroutines.delay
 import java.util.UUID
 import android.widget.Toast
@@ -49,6 +56,14 @@ fun NovoRelatorioScreen(
             contatoRepository = (LocalContext.current.applicationContext as AprimortechApplication).contatoRepository,
             setorRepository = (LocalContext.current.applicationContext as AprimortechApplication).setorRepository
         )
+    ),
+    clienteViewModel: ClienteViewModel = viewModel(
+        factory = ClienteViewModelFactory(
+            buscarClientesUseCase = (LocalContext.current.applicationContext as AprimortechApplication).buscarClientesUseCase,
+            salvarClienteUseCase = (LocalContext.current.applicationContext as AprimortechApplication).salvarClienteUseCase,
+            excluirClienteUseCase = (LocalContext.current.applicationContext as AprimortechApplication).excluirClienteUseCase,
+            sincronizarClientesUseCase = (LocalContext.current.applicationContext as AprimortechApplication).sincronizarClientesUseCase
+        )
     )
 ) {
     val context = LocalContext.current
@@ -64,6 +79,7 @@ fun NovoRelatorioScreen(
     var debouncedClienteBusca by remember { mutableStateOf("") }
 
     // Estados para dialogs
+    var showNovoClienteDialog by remember { mutableStateOf(false) }
     var showNovoContatoDialog by remember { mutableStateOf(false) }
     var showNovoSetorDialog by remember { mutableStateOf(false) }
 
@@ -74,11 +90,22 @@ fun NovoRelatorioScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
 
+    // Observar mensagem do ClienteViewModel para feedback de criação de cliente
+    val mensagemCliente by clienteViewModel.mensagemOperacao.collectAsState()
+
     // Feedback toast
     LaunchedEffect(mensagemOperacao) {
         mensagemOperacao?.let { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             viewModel.limparMensagem()
+        }
+    }
+
+    // Feedback toast para criação de cliente
+    LaunchedEffect(mensagemCliente) {
+        mensagemCliente?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            clienteViewModel.limparMensagem()
         }
     }
 
@@ -154,7 +181,16 @@ fun NovoRelatorioScreen(
 
                 // SEÇÃO CLIENTE
                 SectionCard {
-                    Text("Cliente", style = MaterialTheme.typography.titleMedium, color = Brand)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Cliente", style = MaterialTheme.typography.titleMedium, color = Brand)
+                        IconButton(onClick = { showNovoClienteDialog = true }) {
+                            Icon(Icons.Default.Add, contentDescription = "Novo Cliente", tint = Brand)
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
 
                     var clienteExpanded by remember { mutableStateOf(false) }
@@ -415,12 +451,37 @@ fun NovoRelatorioScreen(
         }
     }
 
+    // Dialog para novo cliente - usando o modal completo do ClientesScreen
+    if (showNovoClienteDialog) {
+        AddEditClienteDialog(
+            initial = Cliente(
+                id = UUID.randomUUID().toString(),
+                nome = "",
+                cnpjCpf = "",
+                contatos = emptyList(),
+                endereco = "",
+                cidade = "",
+                estado = "",
+                telefone = "",
+                celular = "",
+                latitude = null,
+                longitude = null
+            ),
+            onDismiss = { showNovoClienteDialog = false },
+            onConfirm = { novoCliente ->
+                clienteViewModel.salvarCliente(novoCliente)
+                clienteSelecionado = novoCliente
+                showNovoClienteDialog = false
+            }
+        )
+    }
+
     // Dialog para novo contato
     if (showNovoContatoDialog && clienteSelecionado != null) {
         NovoContatoDialog(
             clienteId = clienteSelecionado!!.id,
             onDismiss = { showNovoContatoDialog = false },
-            onConfirm = { novoContato ->
+            onConfirm = { novoContato: Contato ->
                 viewModel.salvarContato(novoContato)
                 contatoSelecionado = novoContato
                 showNovoContatoDialog = false
@@ -433,7 +494,7 @@ fun NovoRelatorioScreen(
         NovoSetorDialog(
             clienteId = clienteSelecionado!!.id,
             onDismiss = { showNovoSetorDialog = false },
-            onConfirm = { novoSetor ->
+            onConfirm = { novoSetor: Setor ->
                 viewModel.salvarSetor(novoSetor)
                 setorSelecionado = novoSetor
                 showNovoSetorDialog = false
@@ -510,7 +571,6 @@ private fun NovoContatoDialog(
                     colors = textFieldColors()
                 )
 
-                // Informação sobre campos obrigatórios
                 Text(
                     "* Apenas o nome é obrigatório",
                     style = MaterialTheme.typography.bodySmall,
@@ -533,7 +593,7 @@ private fun NovoContatoDialog(
                         )
                     )
                 },
-                enabled = nome.isNotBlank(), // Apenas nome é obrigatório
+                enabled = nome.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White)
             ) { Text("Criar") }
         },
@@ -607,4 +667,391 @@ fun NovoRelatorioScreenPreview() {
     AprimortechTheme {
         NovoRelatorioScreen(navController = rememberNavController())
     }
+}
+
+// Modal completo de adicionar/editar cliente (reutilizado do ClientesScreen)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddEditClienteDialog(
+    initial: Cliente,
+    onDismiss: () -> Unit,
+    onConfirm: (Cliente) -> Unit
+) {
+    var nome by remember { mutableStateOf(initial.nome) }
+    var telefone by remember { mutableStateOf(initial.telefone) }
+    var celular by remember { mutableStateOf(initial.celular) }
+    var contatos by remember { mutableStateOf(initial.contatos) }
+    var endereco by remember { mutableStateOf(initial.endereco) }
+    var cidade by remember { mutableStateOf(initial.cidade) }
+    var estado by remember { mutableStateOf(initial.estado) }
+    var latitude by remember { mutableStateOf(initial.latitude) }
+    var longitude by remember { mutableStateOf(initial.longitude) }
+
+    var enderecoPreenchido by remember { mutableStateOf(false) }
+    var showAddContactDialog by remember { mutableStateOf(false) }
+    var editingContactIndex by remember { mutableStateOf<Int?>(null) }
+
+    val salvarHabilitado = nome.isNotBlank() && endereco.isNotBlank() && cidade.isNotBlank() && estado.isNotBlank()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initial.nome.isBlank()) "Novo Cliente" else "Editar Cliente") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 600.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                OutlinedTextField(
+                    value = nome,
+                    onValueChange = { nome = it },
+                    label = { Text("Nome *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
+                AutoCompleteEnderecoField(
+                    endereco = endereco,
+                    onEnderecoChange = { enderecoCompleto ->
+                        endereco = enderecoCompleto.endereco
+                        // Somente atualizar cidade e estado se vieram preenchidos do Google Places
+                        if (enderecoCompleto.cidade.isNotBlank()) {
+                            cidade = enderecoCompleto.cidade
+                        }
+                        if (enderecoCompleto.estado.isNotBlank()) {
+                            estado = enderecoCompleto.estado
+                        }
+                        if (enderecoCompleto.latitude != null) {
+                            latitude = enderecoCompleto.latitude
+                        }
+                        if (enderecoCompleto.longitude != null) {
+                            longitude = enderecoCompleto.longitude
+                        }
+                        // Marcar que o endereço foi preenchido pelo Google Places
+                        enderecoPreenchido = enderecoCompleto.cidade.isNotBlank() && enderecoCompleto.estado.isNotBlank()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = "Digite o nome da rua ou avenida"
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = cidade,
+                        onValueChange = { cidade = it },
+                        label = { Text("Cidade *") },
+                        modifier = Modifier.weight(1f),
+                        colors = textFieldColors(),
+                        enabled = !enderecoPreenchido // Bloqueia se veio do Google Places
+                    )
+                    OutlinedTextField(
+                        value = estado,
+                        onValueChange = { estado = it },
+                        label = { Text("Estado *") },
+                        modifier = Modifier.weight(1f),
+                        colors = textFieldColors(),
+                        enabled = !enderecoPreenchido // Bloqueia se veio do Google Places
+                    )
+                }
+                OutlinedTextField(
+                    value = telefone,
+                    onValueChange = { telefone = it },
+                    label = { Text("Telefone do cliente (opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    colors = textFieldColors()
+                )
+                OutlinedTextField(
+                    value = celular,
+                    onValueChange = { celular = it },
+                    label = { Text("Celular do cliente (opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    colors = textFieldColors()
+                )
+
+                // Nova seção de contatos simplificada
+                ContatosSectionSimplificada(
+                    contatos = contatos,
+                    onAddClick = {
+                        editingContactIndex = null
+                        showAddContactDialog = true
+                    },
+                    onEditContact = { index ->
+                        editingContactIndex = index
+                        showAddContactDialog = true
+                    },
+                    onRemoveContact = { index ->
+                        contatos = contatos.toMutableList().apply { removeAt(index) }
+                    }
+                )
+
+                Text(
+                    "* Campos obrigatórios",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(
+                        initial.copy(
+                            nome = nome.trim(),
+                            telefone = telefone.trim(),
+                            celular = celular.trim(),
+                            contatos = contatos,
+                            endereco = endereco.trim(),
+                            cidade = cidade.trim(),
+                            estado = estado.trim(),
+                            latitude = latitude,
+                            longitude = longitude
+                        )
+                    )
+                },
+                enabled = salvarHabilitado,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Brand,
+                    contentColor = Color.White,
+                    disabledContainerColor = Brand.copy(alpha = 0.4f),
+                    disabledContentColor = Color.White.copy(alpha = 0.8f)
+                ),
+                shape = RoundedCornerShape(6.dp)
+            ) { Text("Salvar") }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, shape = RoundedCornerShape(6.dp)) {
+                Text("Cancelar", color = Brand)
+            }
+        }
+    )
+
+    // Modal para adicionar ou editar contato
+    if (showAddContactDialog) {
+        val contatoParaEditar = editingContactIndex?.let { contatos.getOrNull(it) }
+        AddEditContatoDialog(
+            contatoInicial = contatoParaEditar,
+            onDismiss = {
+                showAddContactDialog = false
+                editingContactIndex = null
+            },
+            onConfirm = { novoContato ->
+                contatos = if (editingContactIndex != null) {
+                    // Editando contato existente
+                    contatos.toMutableList().apply {
+                        set(editingContactIndex!!, novoContato)
+                    }
+                } else {
+                    // Adicionando novo contato
+                    contatos + novoContato
+                }
+                showAddContactDialog = false
+                editingContactIndex = null
+            }
+        )
+    }
+}
+
+// Nova seção de contatos simplificada
+@Composable
+private fun ContatosSectionSimplificada(
+    contatos: List<ContatoCliente>,
+    onAddClick: () -> Unit,
+    onEditContact: (Int) -> Unit,
+    onRemoveContact: (Int) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Contatos do cliente",
+                style = MaterialTheme.typography.titleSmall,
+                color = Brand
+            )
+            IconButton(
+                onClick = onAddClick,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "Adicionar Contato",
+                    tint = Brand,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        if (contatos.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    contatos.forEachIndexed { index, contato ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    contato.nome,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF2C3E50)
+                                )
+                                if (!contato.setor.isNullOrBlank()) {
+                                    Text(
+                                        "Setor: ${contato.setor}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray
+                                    )
+                                }
+                                if (!contato.celular.isNullOrBlank()) {
+                                    Text(
+                                        "Celular: ${contato.celular}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                            Row {
+                                IconButton(
+                                    onClick = { onEditContact(index) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Edit,
+                                        contentDescription = "Editar Contato",
+                                        tint = Brand,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { onRemoveContact(index) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "Remover Contato",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                        if (index < contatos.size - 1) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                color = Color.LightGray.copy(alpha = 0.5f)
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            Text(
+                "Nenhum contato adicionado",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+        }
+    }
+}
+
+// Novo modal dedicado para adicionar/editar contatos do cliente
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddEditContatoDialog(
+    contatoInicial: ContatoCliente?,
+    onDismiss: () -> Unit,
+    onConfirm: (ContatoCliente) -> Unit
+) {
+    var nome by remember { mutableStateOf(contatoInicial?.nome ?: "") }
+    var setor by remember { mutableStateOf(contatoInicial?.setor ?: "") }
+    var celular by remember { mutableStateOf(contatoInicial?.celular ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (contatoInicial == null) "Novo Contato" else "Editar Contato") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = nome,
+                    onValueChange = { nome = it },
+                    label = { Text("Nome do contato *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = setor,
+                    onValueChange = { setor = it },
+                    label = { Text("Setor (opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = celular,
+                    onValueChange = { celular = it },
+                    label = { Text("Celular (opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    colors = textFieldColors(),
+                    singleLine = true
+                )
+                Text(
+                    "* Campos obrigatórios",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (nome.isNotBlank()) {
+                        onConfirm(
+                            ContatoCliente(
+                                nome = nome.trim(),
+                                setor = setor.trim().ifBlank { null },
+                                celular = celular.trim().ifBlank { null }
+                            )
+                        )
+                    }
+                },
+                enabled = nome.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Brand,
+                    contentColor = Color.White,
+                    disabledContainerColor = Brand.copy(alpha = 0.4f),
+                    disabledContentColor = Color.White.copy(alpha = 0.8f)
+                ),
+                shape = RoundedCornerShape(6.dp)
+            ) { Text("Salvar") }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text("Cancelar", color = Brand)
+            }
+        }
+    )
 }
