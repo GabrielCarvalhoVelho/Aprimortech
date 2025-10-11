@@ -147,101 +147,83 @@ fun RelatorioAssinaturaScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Botões de navegação
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                OutlinedButton(
-                    onClick = { navController.popBackStack() },
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.height(46.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White,
-                        contentColor = Color(0xFF1A4A5C)
-                    ),
-                    border = BorderStroke(0.dp, Color.Transparent),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
-                    enabled = !isLoading
-                ) {
-                    Text("Anterior")
-                }
+            // Botão de finalização
+            Button(
+                onClick = {
+                    android.util.Log.d("RelatorioAssinatura", "=== BOTÃO FINALIZAR CLICADO ===")
+                    android.util.Log.d("RelatorioAssinatura", "relatorioFinal é null? ${relatorioFinal == null}")
+                    android.util.Log.d("RelatorioAssinatura", "Cliente tem assinatura? ${clienteSignature.hasSignature()}")
+                    android.util.Log.d("RelatorioAssinatura", "Técnico tem assinatura? ${tecnicoSignature.hasSignature()}")
+                    android.util.Log.d("RelatorioAssinatura", "isLoading atual: $isLoading")
 
-                Button(
-                    onClick = {
-                        android.util.Log.d("RelatorioAssinatura", "=== BOTÃO FINALIZAR CLICADO ===")
-                        android.util.Log.d("RelatorioAssinatura", "relatorioFinal é null? ${relatorioFinal == null}")
-                        android.util.Log.d("RelatorioAssinatura", "Cliente tem assinatura? ${clienteSignature.hasSignature()}")
-                        android.util.Log.d("RelatorioAssinatura", "Técnico tem assinatura? ${tecnicoSignature.hasSignature()}")
-                        android.util.Log.d("RelatorioAssinatura", "isLoading atual: $isLoading")
+                    if (relatorioFinal != null) {
+                        android.util.Log.d("RelatorioAssinatura", "RelatorioFinal encontrado, iniciando processamento...")
+                        android.util.Log.d("RelatorioAssinatura", "Relatório ID: ${relatorioFinal.id}")
+                        android.util.Log.d("RelatorioAssinatura", "Cliente ID: ${relatorioFinal.clienteId}")
+                        android.util.Log.d("RelatorioAssinatura", "Máquina ID: ${relatorioFinal.maquinaId}")
 
-                        if (relatorioFinal != null) {
-                            android.util.Log.d("RelatorioAssinatura", "RelatorioFinal encontrado, iniciando processamento...")
-                            android.util.Log.d("RelatorioAssinatura", "Relatório ID: ${relatorioFinal.id}")
-                            android.util.Log.d("RelatorioAssinatura", "Cliente ID: ${relatorioFinal.clienteId}")
-                            android.util.Log.d("RelatorioAssinatura", "Máquina ID: ${relatorioFinal.maquinaId}")
+                        isLoading = true
+                        android.util.Log.d("RelatorioAssinatura", "Loading definido como true")
 
-                            isLoading = true
-                            android.util.Log.d("RelatorioAssinatura", "Loading definido como true")
-
-                            // Converte assinaturas para Bitmap usando SignatureUtils
-                            android.util.Log.d("RelatorioAssinatura", "Convertendo assinatura do cliente...")
-                            val bitmapAssinaturaCliente = if (clienteSignature.hasSignature()) {
-                                android.util.Log.d("RelatorioAssinatura", "Cliente tem assinatura, convertendo para bitmap...")
-                                val bitmap = SignatureUtils.signatureToBitmap(clienteSignature.paths)
-                                android.util.Log.d("RelatorioAssinatura", "Bitmap cliente criado: ${bitmap != null}")
-                                bitmap
-                            } else {
-                                android.util.Log.d("RelatorioAssinatura", "Cliente não tem assinatura")
-                                null
-                            }
-
-                            android.util.Log.d("RelatorioAssinatura", "Convertendo assinatura do técnico...")
-                            val bitmapAssinaturaTecnico = if (tecnicoSignature.hasSignature()) {
-                                android.util.Log.d("RelatorioAssinatura", "Técnico tem assinatura, convertendo para bitmap...")
-                                val bitmap = SignatureUtils.signatureToBitmap(tecnicoSignature.paths)
-                                android.util.Log.d("RelatorioAssinatura", "Bitmap técnico criado: ${bitmap != null}")
-                                bitmap
-                            } else {
-                                android.util.Log.d("RelatorioAssinatura", "Técnico não tem assinatura")
-                                null
-                            }
-
-                            android.util.Log.d("RelatorioAssinatura", "Chamando viewModel.salvarRelatorioComAssinaturas...")
-                            // Usa o método simplificado que converte para Base64
-                            viewModel.salvarRelatorioComAssinaturas(
-                                relatorio = relatorioFinal.copy(syncPending = false),
-                                assinaturaCliente = bitmapAssinaturaCliente,
-                                assinaturaTecnico = bitmapAssinaturaTecnico
-                            )
-                            android.util.Log.d("RelatorioAssinatura", "Método do ViewModel chamado com sucesso")
+                        // Converte assinaturas para Bitmap usando SignatureUtils
+                        android.util.Log.d("RelatorioAssinatura", "Convertendo assinatura do cliente...")
+                        val bitmapAssinaturaCliente = if (clienteSignature.hasSignature()) {
+                            android.util.Log.d("RelatorioAssinatura", "Cliente tem assinatura, convertendo para bitmap...")
+                            val bitmap = SignatureUtils.signatureToBitmap(clienteSignature.paths)
+                            android.util.Log.d("RelatorioAssinatura", "Bitmap cliente criado: ${bitmap != null}")
+                            bitmap
                         } else {
-                            android.util.Log.e("RelatorioAssinatura", "RelatorioFinal é NULL! Não é possível salvar.")
+                            android.util.Log.d("RelatorioAssinatura", "Cliente não tem assinatura")
+                            null
                         }
-                    },
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.height(46.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1A4A5C),
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
-                    enabled = clienteSignature.hasSignature() && tecnicoSignature.hasSignature() && !isLoading
-                ) {
-                    if (isLoading) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = Color.White
-                            )
-                            Text("Salvando...")
+
+                        android.util.Log.d("RelatorioAssinatura", "Convertendo assinatura do técnico...")
+                        val bitmapAssinaturaTecnico = if (tecnicoSignature.hasSignature()) {
+                            android.util.Log.d("RelatorioAssinatura", "Técnico tem assinatura, convertendo para bitmap...")
+                            val bitmap = SignatureUtils.signatureToBitmap(tecnicoSignature.paths)
+                            android.util.Log.d("RelatorioAssinatura", "Bitmap técnico criado: ${bitmap != null}")
+                            bitmap
+                        } else {
+                            android.util.Log.d("RelatorioAssinatura", "Técnico não tem assinatura")
+                            null
                         }
+
+                        android.util.Log.d("RelatorioAssinatura", "Chamando viewModel.salvarRelatorioComAssinaturas...")
+                        // Usa o método simplificado que converte para Base64
+                        viewModel.salvarRelatorioComAssinaturas(
+                            relatorio = relatorioFinal.copy(syncPending = false),
+                            assinaturaCliente = bitmapAssinaturaCliente,
+                            assinaturaTecnico = bitmapAssinaturaTecnico
+                        )
+                        android.util.Log.d("RelatorioAssinatura", "Método do ViewModel chamado com sucesso")
                     } else {
-                        Text("Finalizar Relatório")
+                        android.util.Log.e("RelatorioAssinatura", "RelatorioFinal é NULL! Não é possível salvar.")
                     }
+                },
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier
+                    .height(46.dp)
+                    .fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF1A4A5C),
+                    contentColor = Color.White
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
+                enabled = clienteSignature.hasSignature() && tecnicoSignature.hasSignature() && !isLoading
+            ) {
+                if (isLoading) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White
+                        )
+                        Text("Salvando...")
+                    }
+                } else {
+                    Text("Finalizar Relatório")
                 }
             }
         }

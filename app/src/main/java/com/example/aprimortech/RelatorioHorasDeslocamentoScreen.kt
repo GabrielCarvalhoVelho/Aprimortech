@@ -545,52 +545,35 @@ fun RelatorioHorasDeslocamentoScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botões de navegação
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+            // Botão de navegação
+            Button(
+                onClick = {
+                    // Validar se os horários foram preenchidos
+                    if (horarioEntrada.isEmpty() || horarioSaida.isEmpty()) {
+                        Toast.makeText(context, "Por favor, preencha os horários de entrada e saída", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    // Passar dados para próxima etapa incluindo horas e deslocamento
+                    val defeitosString = defeitos
+                    val servicosString = servicos
+                    val observacoesEncoded = java.net.URLEncoder.encode(observacoesDecodificadas, "UTF-8")
+                    val pecasString = pecas
+                    val horasData = "${horarioEntrada};${horarioSaida};${distanciaKm};${valorPorKm};${valorPedagios};${valorDeslocamentoTotal}"
+
+                    navController.navigate("relatorioEtapa6?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&pecas=$pecasString&horas=$horasData&clienteId=$clienteId")
+                },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF1A4A5C),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(8.dp)
             ) {
-                OutlinedButton(
-                    onClick = { navController.popBackStack() },
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.height(46.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White,
-                        contentColor = Color(0xFF1A4A5C)
-                    ),
-                    border = BorderStroke(0.dp, Color.Transparent),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                ) {
-                    Text("Anterior")
-                }
-                Button(
-                    onClick = {
-                        // Validar se os horários foram preenchidos
-                        if (horarioEntrada.isEmpty() || horarioSaida.isEmpty()) {
-                            Toast.makeText(context, "Por favor, preencha os horários de entrada e saída", Toast.LENGTH_SHORT).show()
-                            return@Button
-                        }
-
-                        // Passar dados para próxima etapa incluindo horas e deslocamento
-                        val defeitosString = defeitos
-                        val servicosString = servicos
-                        val observacoesEncoded = java.net.URLEncoder.encode(observacoesDecodificadas, "UTF-8")
-                        val pecasString = pecas
-                        val horasData = "${horarioEntrada};${horarioSaida};${distanciaKm};${valorPorKm};${valorPedagios};${valorDeslocamentoTotal}"
-
-                        navController.navigate("relatorioEtapa6?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&pecas=$pecasString&horas=$horasData&clienteId=$clienteId")
-                    },
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.height(46.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1A4A5C),
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                ) {
-                    Text("Próximo")
-                }
+                Text("Próximo", style = MaterialTheme.typography.titleMedium)
             }
+
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
