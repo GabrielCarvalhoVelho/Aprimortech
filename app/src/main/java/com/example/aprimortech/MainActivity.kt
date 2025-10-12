@@ -233,15 +233,27 @@ fun AppNavigation() {
             val horasParts = horasData.split(";")
             val horarioEntrada = if (horasParts.size > 0) horasParts[0] else null
             val horarioSaida = if (horasParts.size > 1) horasParts[1] else null
-            val distanciaKm = if (horasParts.size > 2) horasParts[2].toDoubleOrNull() else null
-            val valorPorKm = if (horasParts.size > 3) horasParts[3].toDoubleOrNull() else null
-            val valorPedagios = if (horasParts.size > 4) horasParts[4].toDoubleOrNull() else null
+            // ⭐ CORREÇÃO: distanciaKm está como String com vírgula, precisa substituir por ponto
+            val distanciaKm = if (horasParts.size > 2) {
+                horasParts[2].replace(",", ".").toDoubleOrNull()
+            } else null
+            // ⭐ CORREÇÃO: valorPorKm vem em centavos como String, precisa converter para Double e dividir por 100
+            val valorPorKm = if (horasParts.size > 3) {
+                horasParts[3].toLongOrNull()?.toDouble()?.div(100.0)
+            } else null
+            // ⭐ CORREÇÃO: valorPedagios vem em centavos como String, precisa converter para Double e dividir por 100
+            val valorPedagios = if (horasParts.size > 4) {
+                horasParts[4].toLongOrNull()?.toDouble()?.div(100.0)
+            } else null
             val valorDeslocamentoTotal = if (horasParts.size > 5) horasParts[5].toDoubleOrNull() else null
             // ⭐ CORREÇÃO CRÍTICA: Fazer parse do valorHoraTecnica que agora está na posição 6
             val valorHoraTecnicaParsed = if (horasParts.size > 6) horasParts[6].toDoubleOrNull() else null
 
             android.util.Log.d("MainActivity", "=== PARSE DOS DADOS DE HORAS ===")
             android.util.Log.d("MainActivity", "horasData recebido: $horasData")
+            android.util.Log.d("MainActivity", "⭐ distanciaKm parseado: $distanciaKm")
+            android.util.Log.d("MainActivity", "⭐ valorPorKm parseado: $valorPorKm")
+            android.util.Log.d("MainActivity", "⭐ valorPedagios parseado: $valorPedagios")
             android.util.Log.d("MainActivity", "⭐⭐⭐ valorHoraTecnica parseado: $valorHoraTecnicaParsed")
 
             // ⭐ CORREÇÃO: Construir o RelatorioCompleto ANTES de criar o Relatorio

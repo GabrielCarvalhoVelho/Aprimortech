@@ -574,7 +574,7 @@ fun RelatorioHorasDeslocamentoScreen(
                         horarioSaida = horarioSaida,
                         valorHoraTecnica = valorHoraTec,
                         totalHoras = totalHoras,
-                        quantidadeKm = distanciaKm.toDoubleOrNull() ?: 0.0,
+                        quantidadeKm = distanciaKm.replace(",", ".").toDoubleOrNull() ?: 0.0,
                         valorPorKm = valorPorKm.toLongOrNull()?.toDouble()?.div(100.0) ?: 0.0,
                         valorPedagios = valorPedagios.toLongOrNull()?.toDouble()?.div(100.0) ?: 0.0,
                         valorTotalDeslocamento = valorDeslocamentoTotal
