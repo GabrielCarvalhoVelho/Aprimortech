@@ -18,8 +18,10 @@ data class Relatorio(
     val valorPedagios: Double? = null,                    // Manual
     val custoPecas: Double? = null,                       // Manual ou calculado externamente
     val observacoes: String? = null,
-    val assinaturaCliente: String? = null,                // Base64 da imagem da assinatura
-    val assinaturaTecnico: String? = null,                // Base64 da imagem da assinatura
+    val assinaturaCliente1: String? = null,                // Base64 da imagem da assinatura
+    val assinaturaCliente2: String? = null,                // Base64 da imagem da assinatura
+    val assinaturaTecnico1: String? = null,                // Base64 da imagem da assinatura
+    val assinaturaTecnico2: String? = null,                // Base64 da imagem da assinatura
     val tintaId: String? = null,                          // ID da tinta na collection tintas
     val solventeId: String? = null,                       // ID do solvente na collection solventes
     val codigoTinta: String? = null,                      // Código da tinta (cache para exibição)

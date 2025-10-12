@@ -38,9 +38,11 @@ class RelatorioRepository @Inject constructor(
                 .whereEqualTo("clienteId", clienteId)
                 .get()
                 .await()
-            snapshot.documents.mapNotNull { document ->
+            val result = snapshot.documents.mapNotNull { document ->
                 document.toObject(Relatorio::class.java)?.copy(id = document.id)
             }
+            android.util.Log.d("RelatorioRepository", "buscarRelatoriosPorCliente($clienteId) retornou ${result.size} relatórios")
+            result
         } catch (e: Exception) {
             emptyList()
         }
@@ -52,9 +54,11 @@ class RelatorioRepository @Inject constructor(
                 .whereEqualTo("maquinaId", maquinaId)
                 .get()
                 .await()
-            snapshot.documents.mapNotNull { document ->
+            val result = snapshot.documents.mapNotNull { document ->
                 document.toObject(Relatorio::class.java)?.copy(id = document.id)
             }
+            android.util.Log.d("RelatorioRepository", "buscarRelatoriosPorMaquina($maquinaId) retornou ${result.size} relatórios")
+            result
         } catch (e: Exception) {
             emptyList()
         }
@@ -88,8 +92,10 @@ class RelatorioRepository @Inject constructor(
                     "valorPedagios" to relatorio.valorPedagios,
                     "custoPecas" to relatorio.custoPecas,
                     "observacoes" to relatorio.observacoes,
-                    "assinaturaCliente" to relatorio.assinaturaCliente,
-                    "assinaturaTecnico" to relatorio.assinaturaTecnico,
+                    "assinaturaCliente1" to relatorio.assinaturaCliente1,
+                    "assinaturaCliente2" to relatorio.assinaturaCliente2,
+                    "assinaturaTecnico1" to relatorio.assinaturaTecnico1,
+                    "assinaturaTecnico2" to relatorio.assinaturaTecnico2,
                     "tintaId" to relatorio.tintaId,
                     "solventeId" to relatorio.solventeId,
                     "codigoTinta" to relatorio.codigoTinta,
@@ -130,8 +136,10 @@ class RelatorioRepository @Inject constructor(
                     "valorPedagios" to relatorio.valorPedagios,
                     "custoPecas" to relatorio.custoPecas,
                     "observacoes" to relatorio.observacoes,
-                    "assinaturaCliente" to relatorio.assinaturaCliente,
-                    "assinaturaTecnico" to relatorio.assinaturaTecnico,
+                    "assinaturaCliente1" to relatorio.assinaturaCliente1,
+                    "assinaturaCliente2" to relatorio.assinaturaCliente2,
+                    "assinaturaTecnico1" to relatorio.assinaturaTecnico1,
+                    "assinaturaTecnico2" to relatorio.assinaturaTecnico2,
                     "tintaId" to relatorio.tintaId,
                     "solventeId" to relatorio.solventeId,
                     "codigoTinta" to relatorio.codigoTinta,

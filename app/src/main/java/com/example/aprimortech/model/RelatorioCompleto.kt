@@ -56,8 +56,10 @@ data class RelatorioCompleto(
     val valorTotalDeslocamento: Double = 0.0,
 
     // Assinaturas (Base64)
-    val assinaturaTecnico: String? = null,
-    val assinaturaCliente: String? = null,
+    val assinaturaTecnico1: String? = null,
+    val assinaturaTecnico2: String? = null,
+    val assinaturaCliente1: String? = null,
+    val assinaturaCliente2: String? = null,
 
     // Observações adicionais
     val observacoes: String = "",
@@ -77,4 +79,3 @@ data class PecaInfo(
     val descricao: String = "",
     val quantidade: Int = 0
 ) : Parcelable
-

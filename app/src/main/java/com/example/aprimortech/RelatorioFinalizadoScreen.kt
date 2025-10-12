@@ -6,7 +6,6 @@ import android.util.Base64
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -236,8 +235,10 @@ private suspend fun carregarRelatorioCompleto(
         valorPorKm = relatorio.valorDeslocamentoPorKm ?: 0.0,
         valorPedagios = relatorio.valorPedagios ?: 0.0,
         valorTotalDeslocamento = relatorio.valorDeslocamentoTotal ?: 0.0,
-        assinaturaTecnico = relatorio.assinaturaTecnico,
-        assinaturaCliente = relatorio.assinaturaCliente,
+        assinaturaTecnico1 = relatorio.assinaturaTecnico1,
+        assinaturaCliente1 = relatorio.assinaturaCliente1,
+        assinaturaTecnico2 = relatorio.assinaturaTecnico2,
+        assinaturaCliente2 = relatorio.assinaturaCliente2,
         observacoes = observacoesFinais,
         nomeTecnico = "Técnico Aprimortech"
     )
@@ -359,12 +360,8 @@ private fun EquipamentoSection(relatorio: RelatorioCompleto) {
         InfoRow(label = "Ano Fabricação", value = relatorio.equipamentoAnoFabricacao)
         InfoRow(label = "Código Tinta", value = relatorio.equipamentoCodigoTinta)
         InfoRow(label = "Código Solvente", value = relatorio.equipamentoCodigoSolvente)
-        if (relatorio.equipamentoDataProximaPreventiva.isNotEmpty()) {
-            InfoRow(label = "Próxima Preventiva", value = relatorio.equipamentoDataProximaPreventiva)
-        }
-        if (relatorio.equipamentoHoraProximaPreventiva.isNotEmpty()) {
-            InfoRow(label = "Hora Próxima Preventiva", value = relatorio.equipamentoHoraProximaPreventiva)
-        }
+        InfoRow(label = "Data Próxima Preventiva", value = relatorio.equipamentoDataProximaPreventiva)
+        InfoRow(label = "Horas até Próxima Preventiva", value = relatorio.equipamentoHoraProximaPreventiva)
     }
 }
 
@@ -447,68 +444,73 @@ private fun ObservacoesSection(observacoes: String) {
 
 @Composable
 private fun AssinaturasSection(relatorio: RelatorioCompleto) {
-    val bitmapTecnico = remember(relatorio.assinaturaTecnico) {
-        relatorio.assinaturaTecnico?.let { assinatura ->
-            try {
-                val imageBytes = Base64.decode(assinatura, Base64.DEFAULT)
-                BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-            } catch (e: Exception) {
-                null
-            }
-        }
-    }
-
-    val bitmapCliente = remember(relatorio.assinaturaCliente) {
-        relatorio.assinaturaCliente?.let { assinatura ->
-            try {
-                val imageBytes = Base64.decode(assinatura, Base64.DEFAULT)
-                BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-            } catch (e: Exception) {
-                null
-            }
-        }
-    }
-
     SectionCard(title = "ASSINATURAS") {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                Text(text = "Técnico", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(8.dp))
-                if (bitmapTecnico != null) {
-                    Image(
-                        bitmap = bitmapTecnico.asImageBitmap(),
-                        contentDescription = "Assinatura do Técnico",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 100.dp, max = 200.dp)
-                            .border(1.dp, Color.Gray, RoundedCornerShape(4.dp)),
-                        contentScale = ContentScale.Fit
-                    )
-                } else {
-                    Box(modifier = Modifier.fillMaxWidth().height(100.dp).border(1.dp, Color.Gray, RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
-                        Text("Sem assinatura", fontSize = 10.sp, color = Color.Gray)
+        // Exibir assinaturas dos técnicos
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Assinatura Técnico 1", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                val bitmapTecnico1 = remember(relatorio.assinaturaTecnico1) {
+                    relatorio.assinaturaTecnico1?.let { assinatura ->
+                        val imageBytes = Base64.decode(assinatura, Base64.DEFAULT)
+                        BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)?.asImageBitmap()
                     }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(text = relatorio.nomeTecnico, fontSize = 10.sp, color = Color.Gray)
-            }
-            Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                Text(text = "Cliente", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(8.dp))
-                if (bitmapCliente != null) {
-                    Image(
-                        bitmap = bitmapCliente.asImageBitmap(),
-                        contentDescription = "Assinatura do Cliente",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 100.dp, max = 200.dp)
-                            .border(1.dp, Color.Gray, RoundedCornerShape(4.dp)),
-                        contentScale = ContentScale.Fit
-                    )
+                if (bitmapTecnico1 != null) {
+                    Image(bitmapTecnico1, contentDescription = "Assinatura Técnico 1", modifier = Modifier.size(120.dp), contentScale = ContentScale.Fit)
                 } else {
-                    Box(modifier = Modifier.fillMaxWidth().height(100.dp).border(1.dp, Color.Gray, RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
-                        Text("Sem assinatura", fontSize = 10.sp, color = Color.Gray)
+                    Text("Sem assinatura", fontSize = 10.sp, color = Color.Gray)
+                }
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Assinatura Técnico 2", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                val bitmapTecnico2 = remember(relatorio.assinaturaTecnico2) {
+                    relatorio.assinaturaTecnico2?.let { assinatura ->
+                        val imageBytes = Base64.decode(assinatura, Base64.DEFAULT)
+                        BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)?.asImageBitmap()
                     }
+                }
+                if (bitmapTecnico2 != null) {
+                    Image(bitmapTecnico2, contentDescription = "Assinatura Técnico 2", modifier = Modifier.size(120.dp), contentScale = ContentScale.Fit)
+                } else {
+                    Text("Sem assinatura", fontSize = 10.sp, color = Color.Gray)
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        // Exibir assinaturas dos clientes
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Assinatura Cliente 1", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                val bitmapCliente1 = remember(relatorio.assinaturaCliente1) {
+                    relatorio.assinaturaCliente1?.let { assinatura ->
+                        val imageBytes = Base64.decode(assinatura, Base64.DEFAULT)
+                        BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)?.asImageBitmap()
+                    }
+                }
+                if (bitmapCliente1 != null) {
+                    Image(bitmapCliente1, contentDescription = "Assinatura Cliente 1", modifier = Modifier.size(120.dp), contentScale = ContentScale.Fit)
+                } else {
+                    Text("Sem assinatura", fontSize = 10.sp, color = Color.Gray)
+                }
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Assinatura Cliente 2", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                val bitmapCliente2 = remember(relatorio.assinaturaCliente2) {
+                    relatorio.assinaturaCliente2?.let { assinatura ->
+                        val imageBytes = Base64.decode(assinatura, Base64.DEFAULT)
+                        BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)?.asImageBitmap()
+                    }
+                }
+                if (bitmapCliente2 != null) {
+                    Image(bitmapCliente2, contentDescription = "Assinatura Cliente 2", modifier = Modifier.size(120.dp), contentScale = ContentScale.Fit)
+                } else {
+                    Text("Sem assinatura", fontSize = 10.sp, color = Color.Gray)
                 }
             }
         }

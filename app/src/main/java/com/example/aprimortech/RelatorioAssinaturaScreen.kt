@@ -69,17 +69,36 @@ fun RelatorioAssinaturaScreen(
     sharedViewModel: RelatorioSharedViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    val clienteSignature = remember { SignatureState() }
-    val tecnicoSignature = remember { SignatureState() }
+    val clienteSignature1 = remember { SignatureState() }
+    val clienteSignature2 = remember { SignatureState() }
+    val tecnicoSignature1 = remember { SignatureState() }
+    val tecnicoSignature2 = remember { SignatureState() }
     var isLoading by remember { mutableStateOf(false) }
 
     // Usa o relatório passado como parâmetro ou tenta recuperar do savedStateHandle
-    val relatorioFinal = relatorioInicial ?: navController.currentBackStackEntryAsState().value
-        ?.savedStateHandle
-        ?.get<Relatorio>("relatorioFinal")
+    val backStackEntry = navController.currentBackStackEntryAsState().value
+    val relatorioFinalState = remember {
+        mutableStateOf(relatorioInicial ?: backStackEntry?.savedStateHandle?.get<Relatorio>("relatorioFinal"))
+    }
+    val relatorioFinal = relatorioFinalState.value
 
-    // Buscar dados do equipamento do SharedViewModel
-    val relatorioCompleto by sharedViewModel.relatorioCompleto.collectAsState()
+    // Se relatorioFinal estiver nulo ou sem dados de cliente/maquina, buscar e preencher
+    val clienteId = relatorioFinal?.clienteId ?: ""
+    val maquinaId = relatorioFinal?.maquinaId ?: ""
+    val clienteList by viewModel.buscarRelatoriosPorCliente(clienteId).collectAsState(initial = emptyList())
+    val maquinaList by viewModel.buscarRelatoriosPorMaquina(maquinaId).collectAsState(initial = emptyList())
+    LaunchedEffect(relatorioFinal, clienteList, maquinaList) {
+        if (relatorioFinal == null || relatorioFinal.clienteId.isEmpty() || relatorioFinal.maquinaId.isEmpty()) {
+            val cliente = clienteList.firstOrNull()
+            val maquina = maquinaList.firstOrNull()
+            if (cliente != null && maquina != null) {
+                relatorioFinalState.value = relatorioFinal?.copy(
+                    clienteId = cliente.clienteId,
+                    maquinaId = maquina.maquinaId
+                )
+            }
+        }
+    }
 
     // Estados do ViewModel
     val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
@@ -92,12 +111,6 @@ fun RelatorioAssinaturaScreen(
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             viewModel.limparMensagem()
             if (msg.contains("sucesso") && relatorioSalvoId != null) {
-                // Construir e salvar o RelatorioCompleto no ViewModel compartilhado
-                val relatorioCompletoFinal = sharedViewModel.buildRelatorioCompleto(
-                    relatorioId = relatorioSalvoId!!,
-                    dataRelatorio = getCurrentDate()
-                )
-
                 // Navegar para tela finalizada passando o ID do relatório
                 navController.navigate("relatorioFinalizado?relatorioId=$relatorioSalvoId") {
                     popUpTo("relatorios") { inclusive = false }
@@ -144,29 +157,55 @@ fun RelatorioAssinaturaScreen(
                     color = Color(0xFF1A4A5C)
                 )
 
-                // Assinatura do Cliente
-                Text("Assinatura do Cliente", style = MaterialTheme.typography.titleMedium)
-                var clienteCanvasWidth by remember { mutableStateOf(400) }
-                var clienteCanvasHeight by remember { mutableStateOf(200) }
+                // Assinatura do Cliente 1
+                Text("Assinatura do Cliente 1", style = MaterialTheme.typography.titleMedium)
+                var clienteCanvasWidth1 by remember { mutableStateOf(400) }
+                var clienteCanvasHeight1 by remember { mutableStateOf(200) }
                 SignaturePad(
-                    state = clienteSignature,
-                    onClear = { clienteSignature.clear() },
+                    state = clienteSignature1,
+                    onClear = { clienteSignature1.clear() },
                     onSizeChanged = { w, h ->
-                        clienteCanvasWidth = w
-                        clienteCanvasHeight = h
+                        clienteCanvasWidth1 = w
+                        clienteCanvasHeight1 = h
                     }
                 )
 
-                // Assinatura do Técnico
-                Text("Assinatura do Técnico", style = MaterialTheme.typography.titleMedium)
-                var tecnicoCanvasWidth by remember { mutableStateOf(400) }
-                var tecnicoCanvasHeight by remember { mutableStateOf(200) }
+                // Assinatura do Cliente 2
+                Text("Assinatura do Cliente 2", style = MaterialTheme.typography.titleMedium)
+                var clienteCanvasWidth2 by remember { mutableStateOf(400) }
+                var clienteCanvasHeight2 by remember { mutableStateOf(200) }
                 SignaturePad(
-                    state = tecnicoSignature,
-                    onClear = { tecnicoSignature.clear() },
+                    state = clienteSignature2,
+                    onClear = { clienteSignature2.clear() },
                     onSizeChanged = { w, h ->
-                        tecnicoCanvasWidth = w
-                        tecnicoCanvasHeight = h
+                        clienteCanvasWidth2 = w
+                        clienteCanvasHeight2 = h
+                    }
+                )
+
+                // Assinatura do Técnico 1
+                Text("Assinatura do Técnico 1", style = MaterialTheme.typography.titleMedium)
+                var tecnicoCanvasWidth1 by remember { mutableStateOf(400) }
+                var tecnicoCanvasHeight1 by remember { mutableStateOf(200) }
+                SignaturePad(
+                    state = tecnicoSignature1,
+                    onClear = { tecnicoSignature1.clear() },
+                    onSizeChanged = { w, h ->
+                        tecnicoCanvasWidth1 = w
+                        tecnicoCanvasHeight1 = h
+                    }
+                )
+
+                // Assinatura do Técnico 2
+                Text("Assinatura do Técnico 2", style = MaterialTheme.typography.titleMedium)
+                var tecnicoCanvasWidth2 by remember { mutableStateOf(400) }
+                var tecnicoCanvasHeight2 by remember { mutableStateOf(200) }
+                SignaturePad(
+                    state = tecnicoSignature2,
+                    onClear = { tecnicoSignature2.clear() },
+                    onSizeChanged = { w, h ->
+                        tecnicoCanvasWidth2 = w
+                        tecnicoCanvasHeight2 = h
                     }
                 )
 
@@ -177,27 +216,27 @@ fun RelatorioAssinaturaScreen(
                     onClick = {
                         if (relatorioFinal != null) {
                             isLoading = true
-
-                            // Converte assinaturas para Bitmap usando tamanho real do canvas
-                            val bitmapAssinaturaCliente = if (clienteSignature.hasSignature()) {
-                                SignatureUtils.convertSignatureToBitmap(clienteSignature.paths, clienteCanvasWidth, clienteCanvasHeight)
+                            val bitmapAssinaturaCliente1 = if (clienteSignature1.hasSignature()) {
+                                SignatureUtils.convertSignatureToBitmap(clienteSignature1.paths, clienteCanvasWidth1, clienteCanvasHeight1)
                             } else null
-
-                            val bitmapAssinaturaTecnico = if (tecnicoSignature.hasSignature()) {
-                                SignatureUtils.convertSignatureToBitmap(tecnicoSignature.paths, tecnicoCanvasWidth, tecnicoCanvasHeight)
+                            val bitmapAssinaturaCliente2 = if (clienteSignature2.hasSignature()) {
+                                SignatureUtils.convertSignatureToBitmap(clienteSignature2.paths, clienteCanvasWidth2, clienteCanvasHeight2)
                             } else null
-
-                            // Salvar assinaturas no ViewModel compartilhado
-                            val assinaturaClienteBase64 = bitmapAssinaturaCliente?.let {
-                                SignatureUtils.bitmapToBase64(it)
-                            }
-                            val assinaturaTecnicoBase64 = bitmapAssinaturaTecnico?.let {
-                                SignatureUtils.bitmapToBase64(it)
-                            }
-
+                            val bitmapAssinaturaTecnico1 = if (tecnicoSignature1.hasSignature()) {
+                                SignatureUtils.convertSignatureToBitmap(tecnicoSignature1.paths, tecnicoCanvasWidth1, tecnicoCanvasHeight1)
+                            } else null
+                            val bitmapAssinaturaTecnico2 = if (tecnicoSignature2.hasSignature()) {
+                                SignatureUtils.convertSignatureToBitmap(tecnicoSignature2.paths, tecnicoCanvasWidth2, tecnicoCanvasHeight2)
+                            } else null
+                            val assinaturaClienteBase64_1 = bitmapAssinaturaCliente1?.let { SignatureUtils.bitmapToBase64(it) }
+                            val assinaturaClienteBase64_2 = bitmapAssinaturaCliente2?.let { SignatureUtils.bitmapToBase64(it) }
+                            val assinaturaTecnicoBase64_1 = bitmapAssinaturaTecnico1?.let { SignatureUtils.bitmapToBase64(it) }
+                            val assinaturaTecnicoBase64_2 = bitmapAssinaturaTecnico2?.let { SignatureUtils.bitmapToBase64(it) }
                             sharedViewModel.setAssinaturas(
-                                assinaturaTecnico = assinaturaTecnicoBase64,
-                                assinaturaCliente = assinaturaClienteBase64,
+                                assinaturaTecnico1 = assinaturaTecnicoBase64_1,
+                                assinaturaTecnico2 = assinaturaTecnicoBase64_2,
+                                assinaturaCliente1 = assinaturaClienteBase64_1,
+                                assinaturaCliente2 = assinaturaClienteBase64_2,
                                 nomeTecnico = "Técnico Aprimortech"
                             )
 
@@ -224,8 +263,10 @@ fun RelatorioAssinaturaScreen(
                             // O relatório já vem com os códigos do MainActivity, apenas salvar
                             viewModel.salvarRelatorioComAssinaturas(
                                 relatorio = relatorioParaSalvar,
-                                assinaturaCliente = bitmapAssinaturaCliente,
-                                assinaturaTecnico = bitmapAssinaturaTecnico
+                                assinaturaCliente1 = bitmapAssinaturaCliente1,
+                                assinaturaCliente2 = bitmapAssinaturaCliente2,
+                                assinaturaTecnico1 = bitmapAssinaturaTecnico1,
+                                assinaturaTecnico2 = bitmapAssinaturaTecnico2
                             )
                         } else {
                             android.util.Log.e("RelatorioAssinatura", "RelatorioFinal é NULL! Não é possível salvar.")
@@ -240,7 +281,7 @@ fun RelatorioAssinaturaScreen(
                         contentColor = Color.White
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
-                    enabled = clienteSignature.hasSignature() && tecnicoSignature.hasSignature() && !isLoading
+                    enabled = clienteSignature1.hasSignature() && clienteSignature2.hasSignature() && tecnicoSignature1.hasSignature() && tecnicoSignature2.hasSignature() && !isLoading
                 ) {
                     if (isLoading) {
                         Row(
@@ -349,5 +390,5 @@ private fun getCurrentDate(): String {
     val year = calendar.get(java.util.Calendar.YEAR)
     val month = calendar.get(java.util.Calendar.MONTH) + 1
     val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
-    return String.format("%02d/%02d/%04d", day, month, year)
+    return String.format(java.util.Locale.getDefault(), "%02d/%02d/%04d", day, month, year)
 }

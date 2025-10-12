@@ -88,8 +88,10 @@ class RelatorioViewModel @Inject constructor(
 
     fun salvarRelatorioComAssinaturas(
         relatorio: Relatorio,
-        assinaturaCliente: android.graphics.Bitmap?,
-        assinaturaTecnico: android.graphics.Bitmap?
+        assinaturaCliente1: android.graphics.Bitmap?,
+        assinaturaCliente2: android.graphics.Bitmap?,
+        assinaturaTecnico1: android.graphics.Bitmap?,
+        assinaturaTecnico2: android.graphics.Bitmap?
     ) {
         android.util.Log.d("RelatorioViewModel", "=== MÉTODO salvarRelatorioComAssinaturas CHAMADO ===")
         android.util.Log.d("RelatorioViewModel", "Iniciando viewModelScope.launch...")
@@ -103,37 +105,46 @@ class RelatorioViewModel @Inject constructor(
                 android.util.Log.d("RelatorioViewModel", "Horário Entrada: ${relatorio.horarioEntrada}")
                 android.util.Log.d("RelatorioViewModel", "Horário Saída: ${relatorio.horarioSaida}")
                 android.util.Log.d("RelatorioViewModel", "⭐⭐⭐ VALOR HORA TÉCNICA: ${relatorio.valorHoraTecnica}")
-                android.util.Log.d("RelatorioViewModel", "Tem assinatura cliente: ${assinaturaCliente != null}")
-                android.util.Log.d("RelatorioViewModel", "Tem assinatura técnico: ${assinaturaTecnico != null}")
+                android.util.Log.d("RelatorioViewModel", "Tem assinatura cliente 1: ${assinaturaCliente1 != null}")
+                android.util.Log.d("RelatorioViewModel", "Tem assinatura cliente 2: ${assinaturaCliente2 != null}")
+                android.util.Log.d("RelatorioViewModel", "Tem assinatura técnico 1: ${assinaturaTecnico1 != null}")
+                android.util.Log.d("RelatorioViewModel", "Tem assinatura técnico 2: ${assinaturaTecnico2 != null}")
 
                 android.util.Log.d("RelatorioViewModel", "Iniciando conversão para Base64...")
 
                 // Converte bitmaps para Base64
-                val assinaturaClienteBase64 = assinaturaCliente?.let { bitmap ->
-                    android.util.Log.d("RelatorioViewModel", "Convertendo bitmap cliente para Base64...")
+                val assinaturaCliente1Base64 = assinaturaCliente1?.let { bitmap ->
                     val byteArrayOutputStream = java.io.ByteArrayOutputStream()
                     bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
                     val byteArray = byteArrayOutputStream.toByteArray()
-                    val base64String = android.util.Base64.encodeToString(byteArray, android.util.Base64.DEFAULT)
-                    android.util.Log.d("RelatorioViewModel", "Base64 cliente criado, tamanho: ${base64String.length}")
-                    base64String
+                    android.util.Base64.encodeToString(byteArray, android.util.Base64.DEFAULT)
                 }
-
-                val assinaturaTecnicoBase64 = assinaturaTecnico?.let { bitmap ->
-                    android.util.Log.d("RelatorioViewModel", "Convertendo bitmap técnico para Base64...")
+                val assinaturaCliente2Base64 = assinaturaCliente2?.let { bitmap ->
                     val byteArrayOutputStream = java.io.ByteArrayOutputStream()
                     bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
                     val byteArray = byteArrayOutputStream.toByteArray()
-                    val base64String = android.util.Base64.encodeToString(byteArray, android.util.Base64.DEFAULT)
-                    android.util.Log.d("RelatorioViewModel", "Base64 técnico criado, tamanho: ${base64String.length}")
-                    base64String
+                    android.util.Base64.encodeToString(byteArray, android.util.Base64.DEFAULT)
+                }
+                val assinaturaTecnico1Base64 = assinaturaTecnico1?.let { bitmap ->
+                    val byteArrayOutputStream = java.io.ByteArrayOutputStream()
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
+                    val byteArray = byteArrayOutputStream.toByteArray()
+                    android.util.Base64.encodeToString(byteArray, android.util.Base64.DEFAULT)
+                }
+                val assinaturaTecnico2Base64 = assinaturaTecnico2?.let { bitmap ->
+                    val byteArrayOutputStream = java.io.ByteArrayOutputStream()
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
+                    val byteArray = byteArrayOutputStream.toByteArray()
+                    android.util.Base64.encodeToString(byteArray, android.util.Base64.DEFAULT)
                 }
 
                 android.util.Log.d("RelatorioViewModel", "Criando relatório completo...")
                 // Atualiza o relatório com as assinaturas em Base64
                 val relatorioCompleto = relatorio.copy(
-                    assinaturaCliente = assinaturaClienteBase64,
-                    assinaturaTecnico = assinaturaTecnicoBase64
+                    assinaturaCliente1 = assinaturaCliente1Base64,
+                    assinaturaCliente2 = assinaturaCliente2Base64,
+                    assinaturaTecnico1 = assinaturaTecnico1Base64,
+                    assinaturaTecnico2 = assinaturaTecnico2Base64
                 )
 
                 android.util.Log.d("RelatorioViewModel", "=== RELATÓRIO COMPLETO CRIADO ===")

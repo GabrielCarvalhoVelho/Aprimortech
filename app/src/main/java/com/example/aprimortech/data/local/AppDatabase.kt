@@ -35,7 +35,7 @@ import com.example.aprimortech.data.local.entity.RelatorioEntity
         PecaEntity::class,
         RelatorioEntity::class
     ],
-    version = 11,
+    version = 12, // Atualizado para forçar recriação
     exportSchema = false
 )
 @TypeConverters(
@@ -150,13 +150,11 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "aprimortech.db"
+                    "aprimortech_database"
                 )
-                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
-                    .fallbackToDestructiveMigration()
-                    .build()
-
-                Log.d(TAG, "✅ Banco de dados inicializado")
+                .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                .fallbackToDestructiveMigration() // Força recriação do banco se houver incompatibilidade
+                .build()
                 INSTANCE = instance
                 instance
             }

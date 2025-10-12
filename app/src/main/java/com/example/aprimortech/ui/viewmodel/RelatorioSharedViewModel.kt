@@ -80,8 +80,20 @@ class RelatorioSharedViewModel : ViewModel() {
         deslocamentoData = DeslocamentoData(quantidadeKm, valorPorKm, valorPedagios, valorTotalDeslocamento)
     }
 
-    fun setAssinaturas(assinaturaTecnico: String?, assinaturaCliente: String?, nomeTecnico: String) {
-        assinaturasData = AssinaturasData(assinaturaTecnico, assinaturaCliente, nomeTecnico)
+    fun setAssinaturas(
+        assinaturaTecnico1: String?,
+        assinaturaTecnico2: String?,
+        assinaturaCliente1: String?,
+        assinaturaCliente2: String?,
+        nomeTecnico: String
+    ) {
+        assinaturasData = AssinaturasData(
+            assinaturaTecnico1,
+            assinaturaTecnico2,
+            assinaturaCliente1,
+            assinaturaCliente2,
+            nomeTecnico
+        )
     }
 
     fun buildRelatorioCompleto(relatorioId: String = "", dataRelatorio: String = getCurrentDate()): RelatorioCompleto {
@@ -130,8 +142,10 @@ class RelatorioSharedViewModel : ViewModel() {
             valorTotalDeslocamento = deslocamentoData?.valorTotalDeslocamento ?: 0.0,
 
             // Assinaturas
-            assinaturaTecnico = assinaturasData?.assinaturaTecnico,
-            assinaturaCliente = assinaturasData?.assinaturaCliente,
+            assinaturaTecnico1 = assinaturasData?.assinaturaTecnico1,
+            assinaturaTecnico2 = assinaturasData?.assinaturaTecnico2,
+            assinaturaCliente1 = assinaturasData?.assinaturaCliente1,
+            assinaturaCliente2 = assinaturasData?.assinaturaCliente2,
             nomeTecnico = assinaturasData?.nomeTecnico ?: "",
 
             // Observações
@@ -209,7 +223,9 @@ private data class DeslocamentoData(
 )
 
 private data class AssinaturasData(
-    val assinaturaTecnico: String?,
-    val assinaturaCliente: String?,
+    val assinaturaTecnico1: String?,
+    val assinaturaTecnico2: String?,
+    val assinaturaCliente1: String?,
+    val assinaturaCliente2: String?,
     val nomeTecnico: String
 )

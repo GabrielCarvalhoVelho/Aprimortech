@@ -206,14 +206,13 @@ object PdfExporter {
         // Seção Assinaturas
         drawSection("ASSINATURAS")
 
-        // Assinatura do Técnico
+        // Assinaturas dos Técnicos
         checkNewPage(150)
-        canvas.drawText("Técnico: ${relatorio.nomeTecnico}", margin.toFloat(), y.toFloat(), labelPaint)
+        canvas.drawText("Técnico 1: ${relatorio.nomeTecnico}", margin.toFloat(), y.toFloat(), labelPaint)
         y += 20
-
-        relatorio.assinaturaTecnico?.let { base64 ->
+        if (!relatorio.assinaturaTecnico1.isNullOrEmpty()) {
             try {
-                val imageBytes = Base64.decode(base64, Base64.DEFAULT)
+                val imageBytes = Base64.decode(relatorio.assinaturaTecnico1, Base64.DEFAULT)
                 val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
                 val destRect = RectF(margin.toFloat(), y.toFloat(), (margin + 200).toFloat(), (y + 80).toFloat())
                 canvas.drawBitmap(bitmap, null, destRect, null)
@@ -222,27 +221,65 @@ object PdfExporter {
                 canvas.drawText("Erro ao carregar assinatura", margin.toFloat(), y.toFloat(), smallTextPaint)
                 y += 90
             }
-        } ?: run {
+        } else {
+            canvas.drawText("__________________________", margin.toFloat(), y.toFloat(), textPaint)
+            y += 90
+        }
+        checkNewPage(150)
+        canvas.drawText("Técnico 2", margin.toFloat(), y.toFloat(), labelPaint)
+        y += 20
+        if (!relatorio.assinaturaTecnico2.isNullOrEmpty()) {
+            try {
+                val imageBytes = Base64.decode(relatorio.assinaturaTecnico2, Base64.DEFAULT)
+                val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                val destRect = RectF(margin.toFloat(), y.toFloat(), (margin + 200).toFloat(), (y + 80).toFloat())
+                canvas.drawBitmap(bitmap, null, destRect, null)
+                y += 90
+            } catch (_: Exception) {
+                canvas.drawText("Erro ao carregar assinatura", margin.toFloat(), y.toFloat(), smallTextPaint)
+                y += 90
+            }
+        } else {
             canvas.drawText("__________________________", margin.toFloat(), y.toFloat(), textPaint)
             y += 90
         }
 
-        // Assinatura do Cliente
+        // Assinaturas dos Clientes
         checkNewPage(150)
-        canvas.drawText("Cliente", margin.toFloat(), y.toFloat(), labelPaint)
+        canvas.drawText("Cliente 1", margin.toFloat(), y.toFloat(), labelPaint)
         y += 20
-
-        relatorio.assinaturaCliente?.let { base64 ->
+        if (!relatorio.assinaturaCliente1.isNullOrEmpty()) {
             try {
-                val imageBytes = Base64.decode(base64, Base64.DEFAULT)
+                val imageBytes = Base64.decode(relatorio.assinaturaCliente1, Base64.DEFAULT)
                 val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
                 val destRect = RectF(margin.toFloat(), y.toFloat(), (margin + 200).toFloat(), (y + 80).toFloat())
                 canvas.drawBitmap(bitmap, null, destRect, null)
+                y += 90
             } catch (_: Exception) {
                 canvas.drawText("Erro ao carregar assinatura", margin.toFloat(), y.toFloat(), smallTextPaint)
+                y += 90
             }
-        } ?: run {
+        } else {
             canvas.drawText("__________________________", margin.toFloat(), y.toFloat(), textPaint)
+            y += 90
+        }
+        checkNewPage(150)
+        canvas.drawText("Cliente 2", margin.toFloat(), y.toFloat(), labelPaint)
+        y += 20
+        if (!relatorio.assinaturaCliente2.isNullOrEmpty()) {
+            try {
+                val imageBytes = Base64.decode(relatorio.assinaturaCliente2, Base64.DEFAULT)
+                val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                val destRect = RectF(margin.toFloat(), y.toFloat(), (margin + 200).toFloat(), (y + 80).toFloat())
+                canvas.drawBitmap(bitmap, null, destRect, null)
+                y += 90
+            } catch (_: Exception) {
+                canvas.drawText("Erro ao carregar assinatura", margin.toFloat(), y.toFloat(), smallTextPaint)
+                y += 90
+            }
+        } else {
+            canvas.drawText("__________________________", margin.toFloat(), y.toFloat(), textPaint)
+            y += 90
         }
 
         document.finishPage(page)
