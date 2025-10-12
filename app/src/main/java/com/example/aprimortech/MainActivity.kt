@@ -272,12 +272,17 @@ fun AppNavigation() {
                 // ⭐ CÓDIGOS PREENCHIDOS MANUALMENTE PELO USUÁRIO - Agora virão do RelatorioCompleto
                 codigoTinta = relatorioCompleto?.equipamentoCodigoTinta,
                 codigoSolvente = relatorioCompleto?.equipamentoCodigoSolvente,
+                // ⭐ DATA E HORA DA PRÓXIMA MANUTENÇÃO PREVENTIVA
+                dataProximaPreventiva = relatorioCompleto?.equipamentoDataProximaPreventiva,
+                horasProximaPreventiva = relatorioCompleto?.equipamentoHoraProximaPreventiva,
                 syncPending = true
             )
 
             android.util.Log.d("MainActivity", "=== RELATÓRIO FINAL CRIADO ===")
             android.util.Log.d("MainActivity", "Código Tinta (relatorioFinal): ${relatorioFinal.codigoTinta}")
             android.util.Log.d("MainActivity", "Código Solvente (relatorioFinal): ${relatorioFinal.codigoSolvente}")
+            android.util.Log.d("MainActivity", "Data Próxima Preventiva: ${relatorioFinal.dataProximaPreventiva}")
+            android.util.Log.d("MainActivity", "Horas Próxima Preventiva: ${relatorioFinal.horasProximaPreventiva}")
 
             // Passa o relatório para a tela de assinaturas COM O SHAREDVIEWMODEL COMPARTILHADO
             RelatorioAssinaturaScreen(
