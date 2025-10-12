@@ -1,8 +1,5 @@
 package com.example.aprimortech.model
 
-import java.time.LocalDate
-import java.time.LocalTime
-
 data class Relatorio(
     val id: String = "",
     val clienteId: String = "",
@@ -28,14 +25,9 @@ data class Relatorio(
 )
 
 private fun getCurrentDate(): String {
-    return try {
-        LocalDate.now().toString()
-    } catch (e: Exception) {
-        // Fallback para dispositivos que não suportam java.time
-        val calendar = java.util.Calendar.getInstance()
-        val year = calendar.get(java.util.Calendar.YEAR)
-        val month = calendar.get(java.util.Calendar.MONTH) + 1
-        val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
-        String.format("%04d-%02d-%02d", year, month, day)
-    }
+    val calendar = java.util.Calendar.getInstance()
+    val year = calendar.get(java.util.Calendar.YEAR)
+    val month = calendar.get(java.util.Calendar.MONTH) + 1
+    val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
+    return String.format("%04d-%02d-%02d", year, month, day)
 }

@@ -82,15 +82,17 @@ fun RelatorioAssinaturaScreen(
 
     // Estados do ViewModel
     val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
+    val relatorioSalvoId by viewModel.relatorioSalvoId.collectAsState()
 
-    // Feedback toast
-    LaunchedEffect(mensagemOperacao) {
+    // Feedback toast e navegação
+    LaunchedEffect(mensagemOperacao, relatorioSalvoId) {
         mensagemOperacao?.let { msg ->
             isLoading = false
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             viewModel.limparMensagem()
-            if (msg.contains("sucesso")) {
-                navController.navigate("relatorioFinalizado") {
+            if (msg.contains("sucesso") && relatorioSalvoId != null) {
+                // Navegar para tela finalizada passando o ID do relatório
+                navController.navigate("relatorioFinalizado?relatorioId=$relatorioSalvoId") {
                     popUpTo("relatorios") { inclusive = false }
                 }
             }

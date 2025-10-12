@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -68,12 +69,14 @@ fun AppNavigation() {
         )
     }
     val navController = rememberNavController()
+
     LaunchedEffect(initialRoute) {
         if (initialRoute == "dashboard") {
             // Renovar a sessão no auto-skip
             offlineAuth.refreshSessionTimestamp()
         }
     }
+
     NavHost(navController = navController, startDestination = initialRoute) {
         composable("login") { LoginScreen(navController = navController) }
         composable("dashboard") {
@@ -83,7 +86,6 @@ fun AppNavigation() {
             RelatoriosScreen(navController = navController)
         }
         composable("novoRelatorio") {
-            // Agora não precisa mais de parâmetro extra
             NovoRelatorioScreen(navController = navController)
         }
         composable(
@@ -94,7 +96,7 @@ fun AppNavigation() {
             )
         ) { backStackEntry ->
             val clienteId = backStackEntry.arguments?.getString("clienteId") ?: ""
-            val contatoNome = backStackEntry.arguments?.getString("contatoNome") ?: ""
+
             RelatorioEquipamentoScreen(
                 navController = navController,
                 clienteId = clienteId
@@ -255,8 +257,21 @@ fun AppNavigation() {
                 relatorioInicial = relatorioFinal
             )
         }
-        composable("relatorioFinalizado") {
-            RelatorioFinalizadoScreen(navController = navController)
+        composable(
+            "relatorioFinalizado?relatorioId={relatorioId}",
+            arguments = listOf(
+                navArgument("relatorioId") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                    nullable = true
+                }
+            )
+        ) { backStackEntry ->
+            val relatorioId = backStackEntry.arguments?.getString("relatorioId")
+            RelatorioFinalizadoScreen(
+                navController = navController,
+                relatorioId = relatorioId
+            )
         }
         // 🚀 NOVAS ROTAS
         composable("clientes") {

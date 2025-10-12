@@ -1,71 +1,228 @@
 package com.example.aprimortech
 
-import android.content.Intent
-import android.os.Parcelable
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.*
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.aprimortech.model.RelatorioCompleto
+import com.example.aprimortech.model.ContatoInfo
 import com.example.aprimortech.ui.theme.AprimortechTheme
-import kotlinx.parcelize.Parcelize
-
-@Parcelize
-data class RelatorioUiModel(
-    val id: Int = 0,
-    val cliente: String,
-    val data: String,
-    val endereco: String,
-    val tecnico: String,
-    val setor: String,
-    val contato: String,
-    val equipamento: String,
-    val pecasUtilizadas: String,
-    val horasTrabalhadas: String,
-    val deslocamento: String,
-    val descricao: String
-) : Parcelable
+import com.example.aprimortech.ui.viewmodel.RelatorioSharedViewModel
+import kotlinx.coroutines.tasks.await
+import java.text.NumberFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RelatorioFinalizadoScreen(
     navController: NavController,
-    relatorio: RelatorioUiModel = RelatorioUiModel(
-        id = 1,
-        cliente = "Indústrias TechFlow",
-        data = "13/09/2025",
-        endereco = "Rua das Máquinas, 123",
-        tecnico = "Alan Silva",
-        setor = "Manutenção",
-        contato = "Marina Souza",
-        equipamento = "Impressora Industrial X200",
-        pecasUtilizadas = "Filtro de ar, Correia, Parafusos",
-        horasTrabalhadas = "05:30",
-        deslocamento = "120km • R$ 250,00",
-        descricao = "Manutenção preventiva realizada, troca de filtro e testes de funcionamento. Máquina liberada para uso imediato."
-    ),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    relatorioId: String? = null,
+    sharedViewModel: RelatorioSharedViewModel = viewModel()
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showConfirmDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val ptBrLocale = Locale.forLanguageTag("pt-BR")
+
+    val relatorio by sharedViewModel.relatorioCompleto.collectAsState()
+    var relatorioFromFirebase by remember { mutableStateOf<RelatorioCompleto?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(relatorioId) {
+        android.util.Log.d("RelatorioFinalizado", "=== INICIANDO CARREGAMENTO ===")
+        android.util.Log.d("RelatorioFinalizado", "relatorioId recebido: $relatorioId")
+        android.util.Log.d("RelatorioFinalizado", "relatorio do ViewModel: $relatorio")
+
+        if (relatorioId != null && relatorioId.isNotEmpty()) {
+            isLoading = true
+            android.util.Log.d("RelatorioFinalizado", "Buscando relatório no Firebase com ID: $relatorioId")
+            try {
+                val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val doc = firestore.collection("relatorios").document(relatorioId).get().await()
+
+                android.util.Log.d("RelatorioFinalizado", "Documento existe: ${doc.exists()}")
+
+                if (doc.exists()) {
+                    android.util.Log.d("RelatorioFinalizado", "Dados do documento: ${doc.data}")
+
+                    val clienteId = doc.getString("clienteId") ?: ""
+                    android.util.Log.d("RelatorioFinalizado", "Buscando cliente com ID: $clienteId")
+                    val clienteDoc = firestore.collection("clientes").document(clienteId).get().await()
+                    android.util.Log.d("RelatorioFinalizado", "Cliente existe: ${clienteDoc.exists()}")
+
+                    val maquinaId = doc.getString("maquinaId") ?: ""
+                    android.util.Log.d("RelatorioFinalizado", "Buscando máquina com ID: $maquinaId")
+                    val maquinaDoc = if (maquinaId.isNotEmpty()) {
+                        firestore.collection("maquinas").document(maquinaId).get().await()
+                    } else null
+                    android.util.Log.d("RelatorioFinalizado", "Máquina existe: ${maquinaDoc?.exists()}")
+
+                    relatorioFromFirebase = RelatorioCompleto(
+                        id = doc.id,
+                        dataRelatorio = doc.getString("dataRelatorio") ?: "",
+                        clienteNome = clienteDoc.getString("nome") ?: "",
+                        clienteEndereco = clienteDoc.getString("endereco") ?: "",
+                        clienteCidade = clienteDoc.getString("cidade") ?: "",
+                        clienteEstado = clienteDoc.getString("estado") ?: "",
+                        clienteTelefone = clienteDoc.getString("telefone") ?: "",
+                        clienteCelular = clienteDoc.getString("celular") ?: "",
+                        clienteContatos = (clienteDoc.get("contatos") as? List<*>)?.mapNotNull { item ->
+                            (item as? Map<*, *>)?.let {
+                                ContatoInfo(
+                                    nome = it["nome"] as? String ?: "",
+                                    setor = it["setor"] as? String ?: "",
+                                    celular = it["celular"] as? String ?: ""
+                                )
+                            }
+                        } ?: emptyList(),
+                        equipamentoFabricante = maquinaDoc?.getString("fabricante") ?: "",
+                        equipamentoNumeroSerie = maquinaDoc?.getString("numeroSerie") ?: "",
+                        equipamentoCodigoConfiguracao = maquinaDoc?.getString("codigoConfiguracao") ?: "",
+                        equipamentoModelo = maquinaDoc?.getString("modelo") ?: "",
+                        equipamentoIdentificacao = maquinaDoc?.getString("identificacao") ?: "",
+                        equipamentoAnoFabricacao = maquinaDoc?.getString("anoFabricacao") ?: "",
+                        equipamentoCodigoTinta = doc.getString("codigoTinta") ?: maquinaDoc?.getString("codigoTinta") ?: "",
+                        equipamentoCodigoSolvente = doc.getString("codigoSolvente") ?: maquinaDoc?.getString("codigoSolvente") ?: "",
+                        equipamentoDataProximaPreventiva = maquinaDoc?.getString("dataProximaPreventiva") ?: "",
+                        equipamentoHoraProximaPreventiva = maquinaDoc?.getString("horasProximaPreventiva") ?: "",
+                        defeitos = (doc.getString("descricaoServico") ?: "").split(",").filter { it.isNotBlank() },
+                        servicos = (doc.getString("descricaoServico") ?: "").split(";").filter { it.isNotBlank() },
+                        pecas = emptyList(),
+                        horarioEntrada = doc.getString("horarioEntrada") ?: "",
+                        horarioSaida = doc.getString("horarioSaida") ?: "",
+                        valorHoraTecnica = 150.0,
+                        totalHorasTecnicas = 0.0,
+                        quantidadeKm = doc.getDouble("distanciaKm") ?: 0.0,
+                        valorPorKm = doc.getDouble("valorDeslocamentoPorKm") ?: 0.0,
+                        valorPedagios = doc.getDouble("valorPedagios") ?: 0.0,
+                        valorTotalDeslocamento = doc.getDouble("valorDeslocamentoTotal") ?: 0.0,
+                        assinaturaTecnico = doc.getString("assinaturaTecnico"),
+                        assinaturaCliente = doc.getString("assinaturaCliente"),
+                        nomeTecnico = "Técnico Aprimortech",
+                        observacoes = doc.getString("observacoes") ?: ""
+                    )
+
+                    android.util.Log.d("RelatorioFinalizado", "RelatorioCompleto construído com sucesso")
+                    android.util.Log.d("RelatorioFinalizado", "Cliente: ${relatorioFromFirebase?.clienteNome}")
+                } else {
+                    android.util.Log.w("RelatorioFinalizado", "Documento não encontrado no Firebase")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("RelatorioFinalizado", "Erro ao carregar relatório", e)
+                Toast.makeText(context, "Erro ao carregar relatório: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                isLoading = false
+                android.util.Log.d("RelatorioFinalizado", "isLoading = false")
+            }
+        } else {
+            android.util.Log.d("RelatorioFinalizado", "Nenhum relatorioId fornecido, usando ViewModel")
+        }
+
+        android.util.Log.d("RelatorioFinalizado", "relatorioFinal será: ${relatorioFromFirebase ?: relatorio}")
+    }
+
+    val relatorioFinal = relatorioFromFirebase ?: relatorio
+
+    android.util.Log.d("RelatorioFinalizado", "Renderizando tela - relatorioFinal: $relatorioFinal, isLoading: $isLoading")
+
+    if (relatorioFinal == null && !isLoading) {
+        android.util.Log.d("RelatorioFinalizado", "Exibindo mensagem de 'Nenhum relatório encontrado'")
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Image(
+                            painter = painterResource(id = R.drawable.logo_aprimortech),
+                            contentDescription = "Logo Aprimortech",
+                            modifier = Modifier.height(40.dp)
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                        }
+                    }
+                )
+            }
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        "Nenhum relatório encontrado",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.Gray
+                    )
+                    Button(
+                        onClick = { navController.navigate("novoRelatorio") },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1A4A5C)
+                        )
+                    ) {
+                        Text("Criar Novo Relatório")
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    if (isLoading) {
+        android.util.Log.d("RelatorioFinalizado", "Exibindo loading")
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Image(
+                            painter = painterResource(id = R.drawable.logo_aprimortech),
+                            contentDescription = "Logo Aprimortech",
+                            modifier = Modifier.height(40.dp)
+                        )
+                    }
+                )
+            }
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+        return
+    }
+
+    android.util.Log.d("RelatorioFinalizado", "Exibindo conteúdo do relatório")
 
     Scaffold(
         topBar = {
@@ -81,190 +238,121 @@ fun RelatorioFinalizadoScreen(
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color(0xFF1A4A5C),
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
             )
         }
     ) { innerPadding ->
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .background(Color(0xFFF5F5F5))
-                .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
         ) {
             Text(
                 text = "Relatório Finalizado",
                 style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
                 color = Color(0xFF1A4A5C)
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Text(
-                text = "Resumo do relatório salvo no sistema",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = "Data: ${relatorioFinal?.dataRelatorio ?: ""}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.Gray
             )
 
-            HorizontalDivider()
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Card de resumo
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Cliente: ${relatorio.cliente}", style = MaterialTheme.typography.bodyLarge)
-                    Text("Data: ${relatorio.data}", style = MaterialTheme.typography.bodyLarge)
-                    Text("Técnico: ${relatorio.tecnico}", style = MaterialTheme.typography.bodyLarge)
-                    Text("Setor: ${relatorio.setor}", style = MaterialTheme.typography.bodyLarge)
-                    Text("Contato: ${relatorio.contato}", style = MaterialTheme.typography.bodyLarge)
-                    Text("Endereço: ${relatorio.endereco}", style = MaterialTheme.typography.bodyLarge)
-                    Text("Equipamento: ${relatorio.equipamento}", style = MaterialTheme.typography.bodyLarge)
-                    Text("Peças Utilizadas: ${relatorio.pecasUtilizadas}", style = MaterialTheme.typography.bodyLarge)
-                    Text("Horas Trabalhadas: ${relatorio.horasTrabalhadas}", style = MaterialTheme.typography.bodyLarge)
-                    Text("Deslocamento: ${relatorio.deslocamento}", style = MaterialTheme.typography.bodyLarge)
-
-                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
-
-                    Text("Descrição do Serviço:", style = MaterialTheme.typography.titleSmall)
-                    Text(relatorio.descricao, style = MaterialTheme.typography.bodyMedium)
+            SecaoRelatorio(titulo = "Dados do Cliente") {
+                relatorioFinal?.let { rel ->
+                    CampoRelatorio("Nome", rel.clienteNome)
+                    CampoRelatorio("Endereço", rel.clienteEndereco)
+                    CampoRelatorio("Cidade", rel.clienteCidade)
+                    CampoRelatorio("Estado", rel.clienteEstado)
+                    CampoRelatorio("Telefone", rel.clienteTelefone)
+                    CampoRelatorio("Celular", rel.clienteCelular)
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(
-                    onClick = {
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle
-                            ?.set("relatorioEdit", relatorio)
-                        navController.navigate("novoRelatorio")
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp),
-                    shape = RoundedCornerShape(6.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White,
-                        contentColor = Color(0xFF1A4A5C)
-                    ),
-                    border = BorderStroke(0.dp, Color.Transparent),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                ) {
-                    Text("Editar Relatório")
+            SecaoRelatorio(titulo = "Dados do Equipamento") {
+                relatorioFinal?.let { rel ->
+                    CampoRelatorio("Fabricante", rel.equipamentoFabricante)
+                    CampoRelatorio("Modelo", rel.equipamentoModelo)
+                    CampoRelatorio("Número de Série", rel.equipamentoNumeroSerie)
                 }
+            }
 
-                OutlinedButton(
-                    onClick = { showDeleteDialog = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp),
-                    shape = RoundedCornerShape(6.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White,
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    border = BorderStroke(0.dp, Color.Transparent),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                ) {
-                    Text("Deletar Relatório")
-                }
+            Spacer(modifier = Modifier.height(16.dp))
 
-                Button(
-                    onClick = { showConfirmDialog = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp),
-                    shape = RoundedCornerShape(6.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1A4A5C),
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                ) {
-                    Text("Confirmar Relatório")
-                }
+            Button(
+                onClick = { navController.navigate("home") },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Voltar ao Início")
             }
         }
     }
+}
 
-    // Dialogo de exclusão
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Excluir Relatório") },
-            text = { Text("Tem certeza que deseja excluir este relatório?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDeleteDialog = false
-                        navController.navigate("dashboard")
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = Color.White
-                    )
-                ) { Text("Excluir") }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") }
-            }
+@Composable
+fun SecaoRelatorio(
+    titulo: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFF5F5F5)
         )
-    }
-
-    // Dialogo de confirmação + compartilhamento
-    if (showConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showConfirmDialog = false },
-            title = { Text("Relatório confirmado") },
-            text = { Text("O relatório foi confirmado com sucesso.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showConfirmDialog = false
-                        navController.navigate("dashboard")
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1A4A5C),
-                        contentColor = Color.White
-                    )
-                ) { Text("OK") }
-            },
-            dismissButton = {
-                // Botão discreto só com ícone PDF
-                IconButton(
-                    onClick = {
-                        runCatching {
-                            val uri = PdfExporter.exportRelatorio(context, relatorio)
-                            val share = Intent(Intent.ACTION_SEND).apply {
-                                type = "application/pdf"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(Intent.createChooser(share, "Compartilhar relatório PDF"))
-                        }.onFailure {
-                            Toast.makeText(context, "Erro ao gerar PDF", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                ) {
-                    Icon(
-                        Icons.Default.PictureAsPdf,
-                        contentDescription = "Compartilhar PDF",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = titulo,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1A4A5C),
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            content()
+        }
     }
 }
 
-@Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
+@Composable
+fun CampoRelatorio(label: String, valor: String) {
+    if (valor.isNotBlank()) {
+        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
+            )
+            Text(
+                text = valor,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
 @Composable
 fun RelatorioFinalizadoPreview() {
     AprimortechTheme {
-        RelatorioFinalizadoScreen(navController = rememberNavController())
+        RelatorioFinalizadoScreen(
+            navController = rememberNavController()
+        )
     }
 }
+

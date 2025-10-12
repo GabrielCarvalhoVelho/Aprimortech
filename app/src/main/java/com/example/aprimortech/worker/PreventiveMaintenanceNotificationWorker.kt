@@ -11,8 +11,7 @@ import com.example.aprimortech.R
 import com.example.aprimortech.data.repository.MaquinaRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
-import java.time.format.DateTimeParseException
+import java.util.Calendar
 
 class PreventiveMaintenanceNotificationWorker(
     context: Context,
@@ -100,23 +99,16 @@ class PreventiveMaintenanceNotificationWorker(
     }
 
     private fun getCurrentDate(): String {
-        return try {
-            LocalDate.now().toString()
-        } catch (e: Exception) {
-            // Fallback para dispositivos que não suportam java.time
-            val calendar = java.util.Calendar.getInstance()
-            val year = calendar.get(java.util.Calendar.YEAR)
-            val month = calendar.get(java.util.Calendar.MONTH) + 1
-            val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
-            String.format("%04d-%02d-%02d", year, month, day)
-        }
+        val calendar = java.util.Calendar.getInstance()
+        val year = calendar.get(java.util.Calendar.YEAR)
+        val month = calendar.get(java.util.Calendar.MONTH) + 1
+        val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
+        return String.format("%04d-%02d-%02d", year, month, day)
     }
 
     private fun addMonthsToDate(dateString: String, months: Int): String {
         return try {
-            LocalDate.parse(dateString).plusMonths(months.toLong()).toString()
-        } catch (e: Exception) {
-            // Fallback usando Calendar
+            // Usando Calendar para compatibilidade com API 24
             val parts = dateString.split("-")
             if (parts.size == 3) {
                 val calendar = java.util.Calendar.getInstance()
@@ -130,6 +122,8 @@ class PreventiveMaintenanceNotificationWorker(
             } else {
                 dateString
             }
+        } catch (e: Exception) {
+            dateString
         }
     }
 

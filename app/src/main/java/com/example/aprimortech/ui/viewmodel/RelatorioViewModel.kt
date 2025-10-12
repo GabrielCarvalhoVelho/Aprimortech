@@ -32,6 +32,12 @@ class RelatorioViewModel @Inject constructor(
     private val _proximasManutencoes = MutableStateFlow<List<Maquina>>(emptyList())
     val proximasManutencoes: StateFlow<List<Maquina>> = _proximasManutencoes.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _relatorioSalvoId = MutableStateFlow<String?>(null)
+    val relatorioSalvoId: StateFlow<String?> = _relatorioSalvoId.asStateFlow()
+
     init {
         carregarRelatorios()
         carregarProximasManutencoes()
@@ -70,6 +76,7 @@ class RelatorioViewModel @Inject constructor(
                 salvarRelatorioUseCase(relatorio)
                 android.util.Log.d("RelatorioViewModel", "Use case executado com sucesso")
                 _mensagemOperacao.value = "Relatório salvo com sucesso!"
+                _relatorioSalvoId.value = relatorio.id // Armazena o ID do relatório salvo
                 carregarRelatorios() // Recarrega a lista
                 android.util.Log.d("RelatorioViewModel", "=== SALVAMENTO CONCLUÍDO COM SUCESSO ===")
             } catch (e: Exception) {
@@ -129,12 +136,16 @@ class RelatorioViewModel @Inject constructor(
                 android.util.Log.d("RelatorioViewModel", "Relatório completo criado, chamando salvarRelatorioUseCase...")
                 android.util.Log.d("RelatorioViewModel", "Use case disponível: ${salvarRelatorioUseCase != null}")
 
-                salvarRelatorioUseCase(relatorioCompleto)
+                // Captura o ID retornado pelo salvarRelatorioUseCase
+                val idRelatorioSalvo = salvarRelatorioUseCase(relatorioCompleto)
                 android.util.Log.d("RelatorioViewModel", "Use case executado com sucesso!")
+                android.util.Log.d("RelatorioViewModel", "ID retornado pelo repository: $idRelatorioSalvo")
 
                 android.util.Log.d("RelatorioViewModel", "Definindo mensagem de sucesso...")
                 _mensagemOperacao.value = "Relatório finalizado com sucesso!"
+                _relatorioSalvoId.value = idRelatorioSalvo // Usa o ID retornado pelo repository
                 android.util.Log.d("RelatorioViewModel", "Mensagem definida: ${_mensagemOperacao.value}")
+                android.util.Log.d("RelatorioViewModel", "ID do relatório salvo: $idRelatorioSalvo")
 
                 android.util.Log.d("RelatorioViewModel", "Recarregando lista de relatórios...")
                 carregarRelatorios() // Recarrega a lista
