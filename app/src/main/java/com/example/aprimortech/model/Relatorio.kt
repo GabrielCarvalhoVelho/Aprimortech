@@ -29,6 +29,7 @@ data class Relatorio(
     val defeitosIdentificados: List<String> = emptyList(), // Lista de defeitos selecionados
     val servicosRealizados: List<String> = emptyList(),    // Lista de serviços realizados
     val observacoesDefeitosServicos: String = "",          // Observações da tela DefeitoServicosScreen
+    val pecasUtilizadas: List<Map<String, Any>> = emptyList(), // [{"codigo": "ABC", "descricao": "Peça X", "quantidade": 2}]
     val syncPending: Boolean = true
 )
 

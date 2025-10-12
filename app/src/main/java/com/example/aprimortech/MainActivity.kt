@@ -256,6 +256,33 @@ fun AppNavigation() {
             android.util.Log.d("MainActivity", "⭐ valorPedagios parseado: $valorPedagios")
             android.util.Log.d("MainActivity", "⭐⭐⭐ valorHoraTecnica parseado: $valorHoraTecnicaParsed")
 
+            // ⭐⭐⭐ CORREÇÃO CRÍTICA: Parse correto das peças que vêm no formato JSON
+            // Formato: "codigo;descricao;quantidade;valorUnit" separados por "|"
+            val pecasParsed = if (pecas.isNotEmpty() && pecas != "null") {
+                pecas.split("|").mapNotNull { pecaStr ->
+                    val parts = pecaStr.split(";")
+                    if (parts.size >= 3) {
+                        com.example.aprimortech.ui.viewmodel.PecaData(
+                            codigo = parts[0],
+                            descricao = parts[1],
+                            quantidade = parts[2].toIntOrNull() ?: 0
+                        )
+                    } else null
+                }
+            } else emptyList()
+
+            android.util.Log.d("MainActivity", "=== PARSE DAS PEÇAS ===")
+            android.util.Log.d("MainActivity", "String de peças recebida: $pecas")
+            android.util.Log.d("MainActivity", "Peças parseadas: ${pecasParsed.size} itens")
+            pecasParsed.forEach { peca ->
+                android.util.Log.d("MainActivity", "  - ${peca.codigo}: ${peca.descricao} (Qtd: ${peca.quantidade})")
+            }
+
+            // Salvar as peças no SharedViewModel ANTES de construir o relatório completo
+            if (pecasParsed.isNotEmpty()) {
+                sharedViewModel.setPecas(pecasParsed)
+            }
+
             // ⭐ CORREÇÃO: Construir o RelatorioCompleto ANTES de criar o Relatorio
             // Isso garante que todos os dados do SharedViewModel sejam consolidados
             LaunchedEffect(Unit) {
@@ -272,14 +299,16 @@ fun AppNavigation() {
             android.util.Log.d("MainActivity", "Código Solvente (SharedViewModel): ${relatorioCompleto?.equipamentoCodigoSolvente}")
             android.util.Log.d("MainActivity", "Valor Hora Técnica (SharedViewModel): ${relatorioCompleto?.valorHoraTecnica}")
             android.util.Log.d("MainActivity", "Valor Hora Técnica (parseado da URL): $valorHoraTecnicaParsed")
+            android.util.Log.d("MainActivity", "Peças no SharedViewModel: ${relatorioCompleto?.pecas?.size ?: 0}")
 
             // ⭐ IMPORTANTE: Reconstrói o relatório preservando os códigos de tinta e solvente
             // que o usuário preencheu manualmente na tela de equipamento
+            // ⭐⭐⭐ AGORA COM AS PEÇAS CORRETAS DO SHAREDVIEWMODEL
             val relatorioFinal = Relatorio(
                 id = "", // Será gerado quando salvar
                 clienteId = clienteId,
                 maquinaId = "", // Por enquanto vazio, será necessário adicionar nas etapas anteriores
-                pecaIds = pecas.split(",").filter { it.isNotEmpty() },
+                pecaIds = emptyList(), // ⭐ IMPORTANTE: pecaIds fica vazio, as peças vêm do RelatorioCompleto
                 descricaoServico = servicos, // Mantém para compatibilidade
                 recomendacoes = observacoes, // Mantém para compatibilidade
                 horarioEntrada = horarioEntrada,
@@ -301,6 +330,14 @@ fun AppNavigation() {
                 // ⭐ DATA E HORA DA PRÓXIMA MANUTENÇÃO PREVENTIVA
                 dataProximaPreventiva = relatorioCompleto?.equipamentoDataProximaPreventiva,
                 horasProximaPreventiva = relatorioCompleto?.equipamentoHoraProximaPreventiva,
+                // ⭐⭐⭐ NOVO CAMPO: Peças utilizadas com informações completas
+                pecasUtilizadas = pecasParsed.map { peca ->
+                    mapOf(
+                        "codigo" to peca.codigo,
+                        "descricao" to peca.descricao,
+                        "quantidade" to peca.quantidade
+                    )
+                },
                 syncPending = true
             )
 
@@ -310,6 +347,8 @@ fun AppNavigation() {
             android.util.Log.d("MainActivity", "⭐⭐⭐ Valor Hora Técnica (relatorioFinal): ${relatorioFinal.valorHoraTecnica}")
             android.util.Log.d("MainActivity", "Data Próxima Preventiva: ${relatorioFinal.dataProximaPreventiva}")
             android.util.Log.d("MainActivity", "Horas Próxima Preventiva: ${relatorioFinal.horasProximaPreventiva}")
+            android.util.Log.d("MainActivity", "⭐⭐⭐ Peças no RelatorioCompleto: ${relatorioCompleto?.pecas?.size ?: 0}")
+            android.util.Log.d("MainActivity", "⭐⭐⭐ Peças Utilizadas salvas: ${relatorioFinal.pecasUtilizadas.size}")
 
             // Passa o relatório para a tela de assinaturas COM O SHAREDVIEWMODEL COMPARTILHADO
             RelatorioAssinaturaScreen(

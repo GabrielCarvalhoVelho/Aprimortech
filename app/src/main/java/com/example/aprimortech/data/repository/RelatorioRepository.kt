@@ -99,10 +99,12 @@ class RelatorioRepository @Inject constructor(
                     "defeitosIdentificados" to relatorio.defeitosIdentificados,
                     "servicosRealizados" to relatorio.servicosRealizados,
                     "observacoesDefeitosServicos" to relatorio.observacoesDefeitosServicos,
+                    "pecasUtilizadas" to relatorio.pecasUtilizadas, // ⭐ NOVO CAMPO
                     "syncPending" to relatorio.syncPending
                 )
 
                 android.util.Log.d("RelatorioRepository", "valorHoraTecnica no mapa: ${relatorioMap["valorHoraTecnica"]}")
+                android.util.Log.d("RelatorioRepository", "⭐ pecasUtilizadas no mapa: ${relatorioMap["pecasUtilizadas"]}")
 
                 val documentRef = collection.add(relatorioMap).await()
                 android.util.Log.d("RelatorioRepository", "✅ Relatório criado com ID: ${documentRef.id}")
@@ -139,6 +141,7 @@ class RelatorioRepository @Inject constructor(
                     "defeitosIdentificados" to relatorio.defeitosIdentificados,
                     "servicosRealizados" to relatorio.servicosRealizados,
                     "observacoesDefeitosServicos" to relatorio.observacoesDefeitosServicos,
+                    "pecasUtilizadas" to relatorio.pecasUtilizadas, // ⭐ NOVO CAMPO
                     "syncPending" to relatorio.syncPending
                 )
 

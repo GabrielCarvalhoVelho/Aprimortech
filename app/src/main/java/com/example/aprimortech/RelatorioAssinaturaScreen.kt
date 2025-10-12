@@ -35,6 +35,7 @@ import com.example.aprimortech.ui.viewmodel.RelatorioSharedViewModel
 import com.example.aprimortech.model.Relatorio
 import com.example.aprimortech.util.SignatureUtils
 import android.widget.Toast
+import androidx.compose.ui.layout.onSizeChanged
 
 // Estado da assinatura: cada assinatura é composta por uma lista de linhas (paths).
 data class SignatureState(
@@ -145,16 +146,28 @@ fun RelatorioAssinaturaScreen(
 
                 // Assinatura do Cliente
                 Text("Assinatura do Cliente", style = MaterialTheme.typography.titleMedium)
+                var clienteCanvasWidth by remember { mutableStateOf(400) }
+                var clienteCanvasHeight by remember { mutableStateOf(200) }
                 SignaturePad(
                     state = clienteSignature,
-                    onClear = { clienteSignature.clear() }
+                    onClear = { clienteSignature.clear() },
+                    onSizeChanged = { w, h ->
+                        clienteCanvasWidth = w
+                        clienteCanvasHeight = h
+                    }
                 )
 
                 // Assinatura do Técnico
                 Text("Assinatura do Técnico", style = MaterialTheme.typography.titleMedium)
+                var tecnicoCanvasWidth by remember { mutableStateOf(400) }
+                var tecnicoCanvasHeight by remember { mutableStateOf(200) }
                 SignaturePad(
                     state = tecnicoSignature,
-                    onClear = { tecnicoSignature.clear() }
+                    onClear = { tecnicoSignature.clear() },
+                    onSizeChanged = { w, h ->
+                        tecnicoCanvasWidth = w
+                        tecnicoCanvasHeight = h
+                    }
                 )
 
                 Spacer(Modifier.height(24.dp))
@@ -165,13 +178,13 @@ fun RelatorioAssinaturaScreen(
                         if (relatorioFinal != null) {
                             isLoading = true
 
-                            // Converte assinaturas para Bitmap
+                            // Converte assinaturas para Bitmap usando tamanho real do canvas
                             val bitmapAssinaturaCliente = if (clienteSignature.hasSignature()) {
-                                SignatureUtils.signatureToBitmap(clienteSignature.paths)
+                                SignatureUtils.convertSignatureToBitmap(clienteSignature.paths, clienteCanvasWidth, clienteCanvasHeight)
                             } else null
 
                             val bitmapAssinaturaTecnico = if (tecnicoSignature.hasSignature()) {
-                                SignatureUtils.signatureToBitmap(tecnicoSignature.paths)
+                                SignatureUtils.convertSignatureToBitmap(tecnicoSignature.paths, tecnicoCanvasWidth, tecnicoCanvasHeight)
                             } else null
 
                             // Salvar assinaturas no ViewModel compartilhado
@@ -250,7 +263,11 @@ fun RelatorioAssinaturaScreen(
 }
 
 @Composable
-fun SignaturePad(state: SignatureState, onClear: () -> Unit) {
+fun SignaturePad(
+    state: SignatureState,
+    onClear: () -> Unit,
+    onSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -267,6 +284,9 @@ fun SignaturePad(state: SignatureState, onClear: () -> Unit) {
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()
+                    .onSizeChanged { size ->
+                        onSizeChanged(size.width, size.height)
+                    }
                     .pointerInput(Unit) {
                         detectDragGestures(
                             onDragStart = { offset ->
