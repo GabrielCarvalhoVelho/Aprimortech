@@ -11,6 +11,7 @@ data class Relatorio(
     val dataRelatorio: String = getCurrentDate(),         // Auto preenchida (editável)
     val horarioEntrada: String? = null,                   // HH:mm
     val horarioSaida: String? = null,                     // HH:mm
+    val valorHoraTecnica: Double? = null,                 // Valor da hora técnica
     val distanciaKm: Double? = null,                      // Calculada (rota)
     val valorDeslocamentoPorKm: Double? = null,           // Inserido manual
     val valorDeslocamentoTotal: Double? = null,           // distanciaKm * valorDeslocamentoPorKm
@@ -25,6 +26,9 @@ data class Relatorio(
     val codigoSolvente: String? = null,                   // Código do solvente (cache para exibição)
     val dataProximaPreventiva: String? = null,            // Data da próxima manutenção preventiva
     val horasProximaPreventiva: String? = null,           // Horas da próxima manutenção preventiva
+    val defeitosIdentificados: List<String> = emptyList(), // Lista de defeitos selecionados
+    val servicosRealizados: List<String> = emptyList(),    // Lista de serviços realizados
+    val observacoesDefeitosServicos: String = "",          // Observações da tela DefeitoServicosScreen
     val syncPending: Boolean = true
 )
 

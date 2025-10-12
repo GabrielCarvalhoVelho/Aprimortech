@@ -21,6 +21,8 @@ import com.example.aprimortech.data.local.entity.RelatorioEntity
 
 /**
  * Banco de dados Room local para operação offline
+ * Versão 11: Adicionado campo valorHoraTecnica em RelatorioEntity
+ * Versão 10: Adicionados campos defeitosIdentificados, servicosRealizados e observacoesDefeitosServicos em RelatorioEntity
  * Versão 9: Correção da migração 7→8 (sintaxe SQL corrigida)
  * Versão 8: Adicionados campos tintaId e solventeId em RelatorioEntity
  * Versão 7: Removidos campos codigoTinta e codigoSolvente da tabela MaquinaEntity
@@ -33,7 +35,7 @@ import com.example.aprimortech.data.local.entity.RelatorioEntity
         PecaEntity::class,
         RelatorioEntity::class
     ],
-    version = 9,
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(
@@ -107,6 +109,42 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Migração da versão 8 para 9: Corrige sintaxe da migração anterior (7→8)
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Sem alterações na estrutura do banco, apenas correção da sintaxe SQL
+                database.execSQL("PRAGMA foreign_keys=OFF;")
+                database.execSQL("BEGIN TRANSACTION;")
+                database.execSQL("CREATE TABLE IF NOT EXISTS `relatorios_new` (`id` TEXT NOT NULL, `clienteId` TEXT NOT NULL, `maquinaId` TEXT NOT NULL, `data` TEXT NOT NULL, `hora` TEXT NOT NULL, `tempoGasto` INTEGER NOT NULL, `tipoServico` TEXT NOT NULL, `defeitosIdentificados` TEXT, `servicosRealizados` TEXT, `observacoesDefeitosServicos` TEXT, `tintaId` TEXT, `solventeId` TEXT, PRIMARY KEY(`id`))")
+                database.execSQL("INSERT INTO relatorios_new (id, clienteId, maquinaId, data, hora, tempoGasto, tipoServico, defeitosIdentificados, servicosRealizados, observacoesDefeitosServicos, tintaId, solventeId) SELECT id, clienteId, maquinaId, data, hora, tempoGasto, tipoServico, defeitosIdentificados, servicosRealizados, observacoesDefeitosServicos, tintaId, solventeId FROM relatorios")
+                database.execSQL("DROP TABLE relatorios")
+                database.execSQL("ALTER TABLE relatorios_new RENAME TO relatorios")
+                database.execSQL("COMMIT;")
+                database.execSQL("PRAGMA foreign_keys=ON;")
+                Log.d(TAG, "✅ Migração 8→9 concluída com sucesso")
+            }
+        }
+
+        // Migração da versão 9 para 10: Adiciona campos defeitosIdentificados, servicosRealizados e observacoesDefeitosServicos
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Adicionar os novos campos na tabela relatorios
+                database.execSQL("ALTER TABLE relatorios ADD COLUMN defeitosIdentificados TEXT NOT NULL DEFAULT ''")
+                database.execSQL("ALTER TABLE relatorios ADD COLUMN servicosRealizados TEXT NOT NULL DEFAULT ''")
+                database.execSQL("ALTER TABLE relatorios ADD COLUMN observacoesDefeitosServicos TEXT NOT NULL DEFAULT ''")
+                Log.d(TAG, "✅ Migração 9→10 concluída com sucesso - Campos de defeitos e serviços adicionados")
+            }
+        }
+
+        // Migração da versão 10 para 11: Adiciona campo valorHoraTecnica
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Adicionar o campo valorHoraTecnica na tabela relatorios
+                database.execSQL("ALTER TABLE relatorios ADD COLUMN valorHoraTecnica REAL")
+                Log.d(TAG, "✅ Migração 10→11 concluída com sucesso - Campo valorHoraTecnica adicionado")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -114,7 +152,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "aprimortech.db"
                 )
-                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                     .fallbackToDestructiveMigration()
                     .build()
 

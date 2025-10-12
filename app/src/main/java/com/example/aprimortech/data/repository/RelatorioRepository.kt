@@ -62,16 +62,92 @@ class RelatorioRepository @Inject constructor(
 
     suspend fun salvarRelatorio(relatorio: Relatorio): String {
         return try {
+            android.util.Log.d("RelatorioRepository", "=== SALVANDO RELATÓRIO ===")
+            android.util.Log.d("RelatorioRepository", "ID: ${relatorio.id}")
+            android.util.Log.d("RelatorioRepository", "⭐ Valor Hora Técnica: ${relatorio.valorHoraTecnica}")
+
             if (relatorio.id.isEmpty()) {
                 // Novo relatório
-                val documentRef = collection.add(relatorio).await()
+                android.util.Log.d("RelatorioRepository", "Criando NOVO relatório no Firestore...")
+
+                // Criar mapa explícito para garantir que todos os campos sejam salvos
+                val relatorioMap = hashMapOf<String, Any?>(
+                    "clienteId" to relatorio.clienteId,
+                    "maquinaId" to relatorio.maquinaId,
+                    "pecaIds" to relatorio.pecaIds,
+                    "descricaoServico" to relatorio.descricaoServico,
+                    "recomendacoes" to relatorio.recomendacoes,
+                    "numeroNotaFiscal" to relatorio.numeroNotaFiscal,
+                    "dataRelatorio" to relatorio.dataRelatorio,
+                    "horarioEntrada" to relatorio.horarioEntrada,
+                    "horarioSaida" to relatorio.horarioSaida,
+                    "valorHoraTecnica" to relatorio.valorHoraTecnica,
+                    "distanciaKm" to relatorio.distanciaKm,
+                    "valorDeslocamentoPorKm" to relatorio.valorDeslocamentoPorKm,
+                    "valorDeslocamentoTotal" to relatorio.valorDeslocamentoTotal,
+                    "valorPedagios" to relatorio.valorPedagios,
+                    "custoPecas" to relatorio.custoPecas,
+                    "observacoes" to relatorio.observacoes,
+                    "assinaturaCliente" to relatorio.assinaturaCliente,
+                    "assinaturaTecnico" to relatorio.assinaturaTecnico,
+                    "tintaId" to relatorio.tintaId,
+                    "solventeId" to relatorio.solventeId,
+                    "codigoTinta" to relatorio.codigoTinta,
+                    "codigoSolvente" to relatorio.codigoSolvente,
+                    "dataProximaPreventiva" to relatorio.dataProximaPreventiva,
+                    "horasProximaPreventiva" to relatorio.horasProximaPreventiva,
+                    "defeitosIdentificados" to relatorio.defeitosIdentificados,
+                    "servicosRealizados" to relatorio.servicosRealizados,
+                    "observacoesDefeitosServicos" to relatorio.observacoesDefeitosServicos,
+                    "syncPending" to relatorio.syncPending
+                )
+
+                android.util.Log.d("RelatorioRepository", "valorHoraTecnica no mapa: ${relatorioMap["valorHoraTecnica"]}")
+
+                val documentRef = collection.add(relatorioMap).await()
+                android.util.Log.d("RelatorioRepository", "✅ Relatório criado com ID: ${documentRef.id}")
                 documentRef.id
             } else {
                 // Atualizar relatório existente
-                collection.document(relatorio.id).set(relatorio).await()
+                android.util.Log.d("RelatorioRepository", "Atualizando relatório existente: ${relatorio.id}")
+
+                val relatorioMap = hashMapOf<String, Any?>(
+                    "clienteId" to relatorio.clienteId,
+                    "maquinaId" to relatorio.maquinaId,
+                    "pecaIds" to relatorio.pecaIds,
+                    "descricaoServico" to relatorio.descricaoServico,
+                    "recomendacoes" to relatorio.recomendacoes,
+                    "numeroNotaFiscal" to relatorio.numeroNotaFiscal,
+                    "dataRelatorio" to relatorio.dataRelatorio,
+                    "horarioEntrada" to relatorio.horarioEntrada,
+                    "horarioSaida" to relatorio.horarioSaida,
+                    "valorHoraTecnica" to relatorio.valorHoraTecnica,
+                    "distanciaKm" to relatorio.distanciaKm,
+                    "valorDeslocamentoPorKm" to relatorio.valorDeslocamentoPorKm,
+                    "valorDeslocamentoTotal" to relatorio.valorDeslocamentoTotal,
+                    "valorPedagios" to relatorio.valorPedagios,
+                    "custoPecas" to relatorio.custoPecas,
+                    "observacoes" to relatorio.observacoes,
+                    "assinaturaCliente" to relatorio.assinaturaCliente,
+                    "assinaturaTecnico" to relatorio.assinaturaTecnico,
+                    "tintaId" to relatorio.tintaId,
+                    "solventeId" to relatorio.solventeId,
+                    "codigoTinta" to relatorio.codigoTinta,
+                    "codigoSolvente" to relatorio.codigoSolvente,
+                    "dataProximaPreventiva" to relatorio.dataProximaPreventiva,
+                    "horasProximaPreventiva" to relatorio.horasProximaPreventiva,
+                    "defeitosIdentificados" to relatorio.defeitosIdentificados,
+                    "servicosRealizados" to relatorio.servicosRealizados,
+                    "observacoesDefeitosServicos" to relatorio.observacoesDefeitosServicos,
+                    "syncPending" to relatorio.syncPending
+                )
+
+                collection.document(relatorio.id).set(relatorioMap).await()
+                android.util.Log.d("RelatorioRepository", "✅ Relatório atualizado com sucesso")
                 relatorio.id
             }
         } catch (e: Exception) {
+            android.util.Log.e("RelatorioRepository", "❌ Erro ao salvar relatório: ${e.message}", e)
             throw Exception("Erro ao salvar relatório: ${e.message}")
         }
     }

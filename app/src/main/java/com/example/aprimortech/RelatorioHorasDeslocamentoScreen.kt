@@ -561,6 +561,13 @@ fun RelatorioHorasDeslocamentoScreen(
                     val totalHoras = calcularTotalHoras(horarioEntrada, horarioSaida)
                     val valorHoraTec = valorHoraTecnica.toLongOrNull()?.toDouble()?.div(100.0) ?: 150.0
 
+                    android.util.Log.d("RelatorioHorasDeslocamento", "=== SALVANDO DADOS ===")
+                    android.util.Log.d("RelatorioHorasDeslocamento", "Horário Entrada: $horarioEntrada")
+                    android.util.Log.d("RelatorioHorasDeslocamento", "Horário Saída: $horarioSaida")
+                    android.util.Log.d("RelatorioHorasDeslocamento", "⭐⭐⭐ Valor Hora Técnica (centavos): $valorHoraTecnica")
+                    android.util.Log.d("RelatorioHorasDeslocamento", "⭐⭐⭐ Valor Hora Técnica (reais): $valorHoraTec")
+                    android.util.Log.d("RelatorioHorasDeslocamento", "Total Horas: $totalHoras")
+
                     // Salvar dados de horas e deslocamento no ViewModel compartilhado
                     sharedViewModel.setHorasDeslocamento(
                         horarioEntrada = horarioEntrada,
@@ -578,7 +585,10 @@ fun RelatorioHorasDeslocamentoScreen(
                     val servicosString = servicos
                     val observacoesEncoded = java.net.URLEncoder.encode(observacoesDecodificadas, "UTF-8")
                     val pecasString = pecas
-                    val horasData = "${horarioEntrada};${horarioSaida};${distanciaKm};${valorPorKm};${valorPedagios};${valorDeslocamentoTotal}"
+                    // ⭐ CORREÇÃO CRÍTICA: Incluir valorHoraTec na string horasData
+                    val horasData = "${horarioEntrada};${horarioSaida};${distanciaKm};${valorPorKm};${valorPedagios};${valorDeslocamentoTotal};${valorHoraTec}"
+
+                    android.util.Log.d("RelatorioHorasDeslocamento", "String horasData: $horasData")
 
                     navController.navigate("relatorioEtapa6?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&pecas=$pecasString&horas=$horasData&clienteId=$clienteId")
                 },

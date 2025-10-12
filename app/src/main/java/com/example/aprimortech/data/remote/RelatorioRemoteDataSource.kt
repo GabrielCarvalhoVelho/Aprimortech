@@ -15,11 +15,55 @@ class RelatorioRemoteDataSource @Inject constructor() {
         try {
             android.util.Log.d("RelatorioRemoteDataSource", "=== SALVANDO RELATÓRIO NO FIREBASE ===")
             android.util.Log.d("RelatorioRemoteDataSource", "ID: ${relatorio.id}")
+            android.util.Log.d("RelatorioRemoteDataSource", "Cliente ID: ${relatorio.clienteId}")
+            android.util.Log.d("RelatorioRemoteDataSource", "Máquina ID: ${relatorio.maquinaId}")
+            android.util.Log.d("RelatorioRemoteDataSource", "Horário Entrada: ${relatorio.horarioEntrada}")
+            android.util.Log.d("RelatorioRemoteDataSource", "Horário Saída: ${relatorio.horarioSaida}")
+            android.util.Log.d("RelatorioRemoteDataSource", "⭐ Valor Hora Técnica: ${relatorio.valorHoraTecnica}")
+            android.util.Log.d("RelatorioRemoteDataSource", "Distância KM: ${relatorio.distanciaKm}")
+            android.util.Log.d("RelatorioRemoteDataSource", "Valor por KM: ${relatorio.valorDeslocamentoPorKm}")
+            android.util.Log.d("RelatorioRemoteDataSource", "Código Tinta: ${relatorio.codigoTinta}")
+            android.util.Log.d("RelatorioRemoteDataSource", "Código Solvente: ${relatorio.codigoSolvente}")
 
-            collection.document(relatorio.id).set(relatorio).await()
-            android.util.Log.d("RelatorioRemoteDataSource", "Relatório salvo no Firebase com sucesso")
+            // Criar um mapa explícito para garantir que todos os campos sejam salvos
+            val relatorioMap = hashMapOf<String, Any?>(
+                "clienteId" to relatorio.clienteId,
+                "maquinaId" to relatorio.maquinaId,
+                "pecaIds" to relatorio.pecaIds,
+                "descricaoServico" to relatorio.descricaoServico,
+                "recomendacoes" to relatorio.recomendacoes,
+                "numeroNotaFiscal" to relatorio.numeroNotaFiscal,
+                "dataRelatorio" to relatorio.dataRelatorio,
+                "horarioEntrada" to relatorio.horarioEntrada,
+                "horarioSaida" to relatorio.horarioSaida,
+                "valorHoraTecnica" to relatorio.valorHoraTecnica,
+                "distanciaKm" to relatorio.distanciaKm,
+                "valorDeslocamentoPorKm" to relatorio.valorDeslocamentoPorKm,
+                "valorDeslocamentoTotal" to relatorio.valorDeslocamentoTotal,
+                "valorPedagios" to relatorio.valorPedagios,
+                "custoPecas" to relatorio.custoPecas,
+                "observacoes" to relatorio.observacoes,
+                "assinaturaCliente" to relatorio.assinaturaCliente,
+                "assinaturaTecnico" to relatorio.assinaturaTecnico,
+                "tintaId" to relatorio.tintaId,
+                "solventeId" to relatorio.solventeId,
+                "codigoTinta" to relatorio.codigoTinta,
+                "codigoSolvente" to relatorio.codigoSolvente,
+                "dataProximaPreventiva" to relatorio.dataProximaPreventiva,
+                "horasProximaPreventiva" to relatorio.horasProximaPreventiva,
+                "defeitosIdentificados" to relatorio.defeitosIdentificados,
+                "servicosRealizados" to relatorio.servicosRealizados,
+                "observacoesDefeitosServicos" to relatorio.observacoesDefeitosServicos,
+                "syncPending" to relatorio.syncPending
+            )
+
+            android.util.Log.d("RelatorioRemoteDataSource", "Mapa completo criado com ${relatorioMap.size} campos")
+            android.util.Log.d("RelatorioRemoteDataSource", "valorHoraTecnica no mapa: ${relatorioMap["valorHoraTecnica"]}")
+
+            collection.document(relatorio.id).set(relatorioMap).await()
+            android.util.Log.d("RelatorioRemoteDataSource", "✅ Relatório salvo no Firebase com sucesso")
         } catch (e: Exception) {
-            android.util.Log.e("RelatorioRemoteDataSource", "Erro ao salvar relatório no Firebase", e)
+            android.util.Log.e("RelatorioRemoteDataSource", "❌ Erro ao salvar relatório no Firebase", e)
             throw e
         }
     }

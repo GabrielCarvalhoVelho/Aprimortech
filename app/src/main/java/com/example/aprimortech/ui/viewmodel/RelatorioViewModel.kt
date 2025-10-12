@@ -100,6 +100,9 @@ class RelatorioViewModel @Inject constructor(
                 android.util.Log.d("RelatorioViewModel", "Cliente ID: ${relatorio.clienteId}")
                 android.util.Log.d("RelatorioViewModel", "Máquina ID: ${relatorio.maquinaId}")
                 android.util.Log.d("RelatorioViewModel", "Relatório ID: ${relatorio.id}")
+                android.util.Log.d("RelatorioViewModel", "Horário Entrada: ${relatorio.horarioEntrada}")
+                android.util.Log.d("RelatorioViewModel", "Horário Saída: ${relatorio.horarioSaida}")
+                android.util.Log.d("RelatorioViewModel", "⭐⭐⭐ VALOR HORA TÉCNICA: ${relatorio.valorHoraTecnica}")
                 android.util.Log.d("RelatorioViewModel", "Tem assinatura cliente: ${assinaturaCliente != null}")
                 android.util.Log.d("RelatorioViewModel", "Tem assinatura técnico: ${assinaturaTecnico != null}")
 
@@ -133,6 +136,8 @@ class RelatorioViewModel @Inject constructor(
                     assinaturaTecnico = assinaturaTecnicoBase64
                 )
 
+                android.util.Log.d("RelatorioViewModel", "=== RELATÓRIO COMPLETO CRIADO ===")
+                android.util.Log.d("RelatorioViewModel", "⭐⭐⭐ VALOR HORA TÉCNICA (após copy): ${relatorioCompleto.valorHoraTecnica}")
                 android.util.Log.d("RelatorioViewModel", "Relatório completo criado, chamando salvarRelatorioUseCase...")
                 android.util.Log.d("RelatorioViewModel", "Use case disponível: ${salvarRelatorioUseCase != null}")
 

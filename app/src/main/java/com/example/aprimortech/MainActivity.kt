@@ -237,6 +237,12 @@ fun AppNavigation() {
             val valorPorKm = if (horasParts.size > 3) horasParts[3].toDoubleOrNull() else null
             val valorPedagios = if (horasParts.size > 4) horasParts[4].toDoubleOrNull() else null
             val valorDeslocamentoTotal = if (horasParts.size > 5) horasParts[5].toDoubleOrNull() else null
+            // ⭐ CORREÇÃO CRÍTICA: Fazer parse do valorHoraTecnica que agora está na posição 6
+            val valorHoraTecnicaParsed = if (horasParts.size > 6) horasParts[6].toDoubleOrNull() else null
+
+            android.util.Log.d("MainActivity", "=== PARSE DOS DADOS DE HORAS ===")
+            android.util.Log.d("MainActivity", "horasData recebido: $horasData")
+            android.util.Log.d("MainActivity", "⭐⭐⭐ valorHoraTecnica parseado: $valorHoraTecnicaParsed")
 
             // ⭐ CORREÇÃO: Construir o RelatorioCompleto ANTES de criar o Relatorio
             // Isso garante que todos os dados do SharedViewModel sejam consolidados
@@ -252,6 +258,8 @@ fun AppNavigation() {
             android.util.Log.d("MainActivity", "RelatorioCompleto do SharedViewModel: $relatorioCompleto")
             android.util.Log.d("MainActivity", "Código Tinta (SharedViewModel): ${relatorioCompleto?.equipamentoCodigoTinta}")
             android.util.Log.d("MainActivity", "Código Solvente (SharedViewModel): ${relatorioCompleto?.equipamentoCodigoSolvente}")
+            android.util.Log.d("MainActivity", "Valor Hora Técnica (SharedViewModel): ${relatorioCompleto?.valorHoraTecnica}")
+            android.util.Log.d("MainActivity", "Valor Hora Técnica (parseado da URL): $valorHoraTecnicaParsed")
 
             // ⭐ IMPORTANTE: Reconstrói o relatório preservando os códigos de tinta e solvente
             // que o usuário preencheu manualmente na tela de equipamento
@@ -260,15 +268,21 @@ fun AppNavigation() {
                 clienteId = clienteId,
                 maquinaId = "", // Por enquanto vazio, será necessário adicionar nas etapas anteriores
                 pecaIds = pecas.split(",").filter { it.isNotEmpty() },
-                descricaoServico = servicos,
-                recomendacoes = observacoes,
+                descricaoServico = servicos, // Mantém para compatibilidade
+                recomendacoes = observacoes, // Mantém para compatibilidade
                 horarioEntrada = horarioEntrada,
                 horarioSaida = horarioSaida,
+                // ⭐ PRIORIDADE: Usa o valor parseado da URL, se não tiver usa o do SharedViewModel
+                valorHoraTecnica = valorHoraTecnicaParsed ?: relatorioCompleto?.valorHoraTecnica ?: 0.0,
                 distanciaKm = distanciaKm,
                 valorDeslocamentoPorKm = valorPorKm,
                 valorDeslocamentoTotal = valorDeslocamentoTotal,
                 valorPedagios = valorPedagios,
                 observacoes = observacoes,
+                // ⭐ NOVOS CAMPOS: Defeitos e Serviços estruturados
+                defeitosIdentificados = defeitos.split(",").filter { it.isNotEmpty() },
+                servicosRealizados = servicos.split(",").filter { it.isNotEmpty() },
+                observacoesDefeitosServicos = observacoes,
                 // ⭐ CÓDIGOS PREENCHIDOS MANUALMENTE PELO USUÁRIO - Agora virão do RelatorioCompleto
                 codigoTinta = relatorioCompleto?.equipamentoCodigoTinta,
                 codigoSolvente = relatorioCompleto?.equipamentoCodigoSolvente,
@@ -281,6 +295,7 @@ fun AppNavigation() {
             android.util.Log.d("MainActivity", "=== RELATÓRIO FINAL CRIADO ===")
             android.util.Log.d("MainActivity", "Código Tinta (relatorioFinal): ${relatorioFinal.codigoTinta}")
             android.util.Log.d("MainActivity", "Código Solvente (relatorioFinal): ${relatorioFinal.codigoSolvente}")
+            android.util.Log.d("MainActivity", "⭐⭐⭐ Valor Hora Técnica (relatorioFinal): ${relatorioFinal.valorHoraTecnica}")
             android.util.Log.d("MainActivity", "Data Próxima Preventiva: ${relatorioFinal.dataProximaPreventiva}")
             android.util.Log.d("MainActivity", "Horas Próxima Preventiva: ${relatorioFinal.horasProximaPreventiva}")
 

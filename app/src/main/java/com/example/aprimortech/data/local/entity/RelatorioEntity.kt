@@ -16,6 +16,7 @@ data class RelatorioEntity(
     val dataRelatorio: String,
     val horarioEntrada: String?,
     val horarioSaida: String?,
+    val valorHoraTecnica: Double?,
     val distanciaKm: Double?,
     val valorDeslocamentoPorKm: Double?,
     val valorDeslocamentoTotal: Double?,
@@ -30,6 +31,9 @@ data class RelatorioEntity(
     val codigoSolvente: String?,
     val dataProximaPreventiva: String?,
     val horasProximaPreventiva: String?,
+    val defeitosIdentificados: String = "", // CSV format
+    val servicosRealizados: String = "", // CSV format
+    val observacoesDefeitosServicos: String = "",
     val syncPending: Boolean
 )
 
@@ -46,6 +50,7 @@ fun RelatorioEntity.toRelatorio(): Relatorio {
         dataRelatorio = dataRelatorio,
         horarioEntrada = horarioEntrada,
         horarioSaida = horarioSaida,
+        valorHoraTecnica = valorHoraTecnica,
         distanciaKm = distanciaKm,
         valorDeslocamentoPorKm = valorDeslocamentoPorKm,
         valorDeslocamentoTotal = valorDeslocamentoTotal,
@@ -60,6 +65,9 @@ fun RelatorioEntity.toRelatorio(): Relatorio {
         codigoSolvente = codigoSolvente,
         dataProximaPreventiva = dataProximaPreventiva,
         horasProximaPreventiva = horasProximaPreventiva,
+        defeitosIdentificados = if (defeitosIdentificados.isBlank()) emptyList() else defeitosIdentificados.split(","),
+        servicosRealizados = if (servicosRealizados.isBlank()) emptyList() else servicosRealizados.split(","),
+        observacoesDefeitosServicos = observacoesDefeitosServicos,
         syncPending = syncPending
     )
 }
@@ -76,6 +84,7 @@ fun Relatorio.toRelatorioEntity(): RelatorioEntity {
         dataRelatorio = dataRelatorio,
         horarioEntrada = horarioEntrada,
         horarioSaida = horarioSaida,
+        valorHoraTecnica = valorHoraTecnica,
         distanciaKm = distanciaKm,
         valorDeslocamentoPorKm = valorDeslocamentoPorKm,
         valorDeslocamentoTotal = valorDeslocamentoTotal,
@@ -90,6 +99,9 @@ fun Relatorio.toRelatorioEntity(): RelatorioEntity {
         codigoSolvente = codigoSolvente,
         dataProximaPreventiva = dataProximaPreventiva,
         horasProximaPreventiva = horasProximaPreventiva,
+        defeitosIdentificados = defeitosIdentificados.joinToString(","),
+        servicosRealizados = servicosRealizados.joinToString(","),
+        observacoesDefeitosServicos = observacoesDefeitosServicos,
         syncPending = syncPending
     )
 }

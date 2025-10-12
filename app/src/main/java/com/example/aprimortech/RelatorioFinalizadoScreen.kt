@@ -233,16 +233,33 @@ private suspend fun carregarRelatorioCompleto(
     }
 
     // 5. Processar defeitos (separados por vírgula)
-    val defeitos = relatorio.descricaoServico
-        .split(",")
-        .map { it.trim() }
-        .filter { it.isNotEmpty() }
+    val defeitos = if (relatorio.defeitosIdentificados.isNotEmpty()) {
+        // Usa os novos campos estruturados
+        relatorio.defeitosIdentificados
+    } else {
+        // Fallback para compatibilidade com relatórios antigos
+        relatorio.descricaoServico
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+    }
 
     // 6. Processar serviços (separados por vírgula das recomendações)
-    val servicos = relatorio.recomendacoes
-        .split(",")
-        .map { it.trim() }
-        .filter { it.isNotEmpty() }
+    val servicos = if (relatorio.servicosRealizados.isNotEmpty()) {
+        // Usa os novos campos estruturados
+        relatorio.servicosRealizados
+    } else {
+        // Fallback para compatibilidade com relatórios antigos
+        relatorio.recomendacoes
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+    }
+
+    // 6a. Observações - prioriza o campo novo
+    val observacoesFinais = relatorio.observacoesDefeitosServicos.ifEmpty {
+        relatorio.observacoes ?: ""
+    }
 
     // 7. Calcular horas técnicas
     val totalHoras = calcularHorasTecnicas(
@@ -312,7 +329,7 @@ private suspend fun carregarRelatorioCompleto(
         // Horas Técnicas
         horarioEntrada = relatorio.horarioEntrada ?: "",
         horarioSaida = relatorio.horarioSaida ?: "",
-        valorHoraTecnica = 0.0,
+        valorHoraTecnica = relatorio.valorHoraTecnica ?: 0.0,
         totalHorasTecnicas = totalHoras,
 
         // Deslocamento
@@ -326,7 +343,7 @@ private suspend fun carregarRelatorioCompleto(
         assinaturaCliente = relatorio.assinaturaCliente,
 
         // Observações
-        observacoes = relatorio.observacoes ?: "",
+        observacoes = observacoesFinais,
         nomeTecnico = "Técnico Aprimortech"
     )
 }
@@ -665,6 +682,9 @@ private fun PecasSection(pecas: List<PecaInfo>) {
 
 @Composable
 private fun HorasTecnicasSection(relatorio: RelatorioCompleto) {
+    val numberFormat = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
+    val valorTotalHorasTecnicas = relatorio.totalHorasTecnicas * relatorio.valorHoraTecnica
+
     SectionCard(title = "HORAS TÉCNICAS") {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -683,6 +703,21 @@ private fun HorasTecnicasSection(relatorio: RelatorioCompleto) {
         InfoRow(
             label = "Total de Horas",
             value = String.format("%.2f horas", relatorio.totalHorasTecnicas)
+        )
+
+        InfoRow(
+            label = "Valor Hora Técnica",
+            value = numberFormat.format(relatorio.valorHoraTecnica)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Divider()
+        Spacer(modifier = Modifier.height(8.dp))
+
+        InfoRow(
+            label = "Total Hora Técnica",
+            value = numberFormat.format(valorTotalHorasTecnicas),
+            valueFontWeight = FontWeight.Bold
         )
     }
 }
