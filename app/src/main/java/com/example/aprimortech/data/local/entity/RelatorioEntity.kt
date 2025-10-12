@@ -28,6 +28,8 @@ data class RelatorioEntity(
     val solventeId: String?,
     val codigoTinta: String?,
     val codigoSolvente: String?,
+    val dataProximaPreventiva: String?,
+    val horasProximaPreventiva: String?,
     val syncPending: Boolean
 )
 
@@ -56,6 +58,8 @@ fun RelatorioEntity.toRelatorio(): Relatorio {
         solventeId = solventeId,
         codigoTinta = codigoTinta,
         codigoSolvente = codigoSolvente,
+        dataProximaPreventiva = dataProximaPreventiva,
+        horasProximaPreventiva = horasProximaPreventiva,
         syncPending = syncPending
     )
 }
@@ -84,6 +88,8 @@ fun Relatorio.toRelatorioEntity(): RelatorioEntity {
         solventeId = solventeId,
         codigoTinta = codigoTinta,
         codigoSolvente = codigoSolvente,
+        dataProximaPreventiva = dataProximaPreventiva,
+        horasProximaPreventiva = horasProximaPreventiva,
         syncPending = syncPending
     )
 }

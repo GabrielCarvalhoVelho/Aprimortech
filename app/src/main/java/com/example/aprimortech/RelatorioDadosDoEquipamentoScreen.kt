@@ -190,8 +190,8 @@ fun RelatorioEquipamentoScreen(
                                         },
                                         onClick = {
                                             maquinaSelecionada = maquina
-                                            dataProximaPreventiva = maquina.dataProximaPreventiva
-                                            horasProximaPreventiva = maquina.horasProximaPreventiva
+                                            // ✅ Removido: campos dataProximaPreventiva e horasProximaPreventiva não existem mais na máquina
+                                            // Os valores serão preenchidos manualmente pelo usuário
                                             maquinaExpanded = false
                                         }
                                     )

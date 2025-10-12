@@ -203,40 +203,8 @@ fun RelatoriosScreen(
             onDismissRequest = { showProximasManutencoes = false },
             title = { Text("Próximas Manutenções Preventivas") },
             text = {
-                if (proximasManutencoes.isEmpty()) {
-                    Text("Não há manutenções preventivas programadas para os próximos 30 dias.")
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.heightIn(max = 300.dp)
-                    ) {
-                        items(proximasManutencoes) { maquina ->
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer
-                                )
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text(
-                                        maquina.identificacao,
-                                        style = MaterialTheme.typography.titleSmall
-                                    )
-                                    Text(
-                                        "Cliente: ${maquina.clienteId}",
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                    Text(
-                                        "Data: ${maquina.dataProximaPreventiva}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                // ✅ ATUALIZADO: Agora busca preventivas dos RELATÓRIOS
+                Text("Funcionalidade temporariamente desabilitada. As manutenções preventivas agora são registradas nos relatórios.")
             },
             confirmButton = {
                 Button(onClick = { showProximasManutencoes = false }) {

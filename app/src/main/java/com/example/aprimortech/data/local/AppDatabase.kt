@@ -1,6 +1,7 @@
 package com.example.aprimortech.data.local
 
 import android.content.Context
+import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -20,6 +21,7 @@ import com.example.aprimortech.data.local.entity.RelatorioEntity
 
 /**
  * Banco de dados Room local para operação offline
+ * Versão 9: Correção da migração 7→8 (sintaxe SQL corrigida)
  * Versão 8: Adicionados campos tintaId e solventeId em RelatorioEntity
  * Versão 7: Removidos campos codigoTinta e codigoSolvente da tabela MaquinaEntity
  * Versão 6: Adicionados campos codigoTinta e codigoSolvente em RelatorioEntity
@@ -31,7 +33,7 @@ import com.example.aprimortech.data.local.entity.RelatorioEntity
         PecaEntity::class,
         RelatorioEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(
@@ -46,6 +48,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun relatorioDao(): RelatorioDao
 
     companion object {
+        private const val TAG = "AppDatabase"
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -96,11 +100,10 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 // Adicionar novos campos tintaId e solventeId na tabela relatorios
-                database.execSQL("""
-                    ALTER TABLE relatorios 
-                    ADD COLUMN tintaId TEXT,
-                    ADD COLUMN solventeId TEXT
-                """.trimIndent())
+                // CORRIGIDO: SQL não permite múltiplos ADD COLUMN separados por vírgula
+                database.execSQL("ALTER TABLE relatorios ADD COLUMN tintaId TEXT")
+                database.execSQL("ALTER TABLE relatorios ADD COLUMN solventeId TEXT")
+                Log.d(TAG, "✅ Migração 7→8 concluída com sucesso")
             }
         }
 
@@ -112,8 +115,10 @@ abstract class AppDatabase : RoomDatabase() {
                     "aprimortech.db"
                 )
                     .addMigrations(MIGRATION_6_7, MIGRATION_7_8)
-                    .fallbackToDestructiveMigration() // Em produção, use migrations apropriadas
+                    .fallbackToDestructiveMigration()
                     .build()
+
+                Log.d(TAG, "✅ Banco de dados inicializado")
                 INSTANCE = instance
                 instance
             }

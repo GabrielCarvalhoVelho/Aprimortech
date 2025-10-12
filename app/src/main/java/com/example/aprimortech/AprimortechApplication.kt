@@ -1,7 +1,6 @@
 package com.example.aprimortech
 
 import android.app.Application
-import androidx.room.Room
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.example.aprimortech.data.local.AppDatabase
@@ -22,6 +21,7 @@ import com.example.aprimortech.worker.MaquinaSyncWorker
 import com.example.aprimortech.worker.PecaSyncWorker
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreSettings
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import android.util.Log
@@ -32,15 +32,23 @@ class AprimortechApplication : Application() {
         private const val TAG = "AprimortechApp"
     }
 
-    // Inicialização lazy das dependências
-    private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
+    // Inicialização eager do Firestore para garantir configuração correta
+    private val firestore: FirebaseFirestore by lazy {
+        FirebaseFirestore.getInstance().apply {
+            // Configurar Firestore com cache persistente habilitado
+            firestoreSettings = FirebaseFirestoreSettings.Builder()
+                .setPersistenceEnabled(true)
+                .setCacheSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                .build()
+
+            Log.d(TAG, "✅ FirebaseFirestore inicializado com cache persistente")
+        }
+    }
 
     private val database: AppDatabase by lazy {
-        Room.databaseBuilder(
-            this,
-            AppDatabase::class.java,
-            "aprimortech.db"
-        ).fallbackToDestructiveMigration().build()
+        AppDatabase.getDatabase(this).also {
+            Log.d(TAG, "✅ AppDatabase Room inicializado")
+        }
     }
 
     // Monitor de conectividade
@@ -50,19 +58,27 @@ class AprimortechApplication : Application() {
 
     // Repositories
     val maquinaRepository: MaquinaRepository by lazy {
-        MaquinaRepository(firestore, database.maquinaDao())
+        MaquinaRepository(firestore, database.maquinaDao()).also {
+            Log.d(TAG, "✅ MaquinaRepository inicializado")
+        }
     }
 
     val relatorioRepository: RelatorioRepository by lazy {
-        RelatorioRepository(firestore)
+        RelatorioRepository(firestore).also {
+            Log.d(TAG, "✅ RelatorioRepository inicializado")
+        }
     }
 
     val clienteRepository: ClienteRepository by lazy {
-        ClienteRepository(firestore, database.clienteDao())
+        ClienteRepository(firestore, database.clienteDao()).also {
+            Log.d(TAG, "✅ ClienteRepository inicializado")
+        }
     }
 
     val pecaRepository: PecaRepository by lazy {
-        PecaRepository(firestore, database.pecaDao())
+        PecaRepository(firestore, database.pecaDao()).also {
+            Log.d(TAG, "✅ PecaRepository inicializado")
+        }
     }
 
     val contatoRepository: ContatoRepository by lazy {
@@ -108,19 +124,27 @@ class AprimortechApplication : Application() {
 
     // Use Cases para Clientes
     val buscarClientesUseCase: BuscarClientesUseCase by lazy {
-        BuscarClientesUseCase(clienteRepository)
+        BuscarClientesUseCase(clienteRepository).also {
+            Log.d(TAG, "✅ BuscarClientesUseCase inicializado")
+        }
     }
 
     val salvarClienteUseCase: SalvarClienteUseCase by lazy {
-        SalvarClienteUseCase(clienteRepository)
+        SalvarClienteUseCase(clienteRepository).also {
+            Log.d(TAG, "✅ SalvarClienteUseCase inicializado")
+        }
     }
 
     val excluirClienteUseCase: ExcluirClienteUseCase by lazy {
-        ExcluirClienteUseCase(clienteRepository)
+        ExcluirClienteUseCase(clienteRepository).also {
+            Log.d(TAG, "✅ ExcluirClienteUseCase inicializado")
+        }
     }
 
     val sincronizarClientesUseCase: SincronizarClientesUseCase by lazy {
-        SincronizarClientesUseCase(clienteRepository)
+        SincronizarClientesUseCase(clienteRepository).also {
+            Log.d(TAG, "✅ SincronizarClientesUseCase inicializado")
+        }
     }
 
     // Use Cases para Peças
@@ -158,7 +182,7 @@ class AprimortechApplication : Application() {
     }
 
     val buscarProximasManutencoesPreventivasUseCase: BuscarProximasManutencoesPreventivasUseCase by lazy {
-        BuscarProximasManutencoesPreventivasUseCase(maquinaRepository)
+        BuscarProximasManutencoesPreventivasUseCase(relatorioRepository)
     }
 
     val offlineAuthManager: OfflineAuthManager by lazy { OfflineAuthManager(this) }
@@ -166,36 +190,57 @@ class AprimortechApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Inicializar Firebase
-        FirebaseApp.initializeApp(this)
+        Log.d(TAG, "🚀 Iniciando AprimortechApplication...")
 
-        // Inicializar sincronização periódica em background
-        ClienteSyncWorker.schedulePeriodicSync(this)
-        MaquinaSyncWorker.schedulePeriodicSync(this)
-        PecaSyncWorker.schedulePeriodicSync(this)
-        Log.d(TAG, "✅ WorkManager para sincronização periódica iniciado (Clientes, Máquinas e Peças)")
+        try {
+            // Inicializar Firebase PRIMEIRO
+            FirebaseApp.initializeApp(this)
+            Log.d(TAG, "✅ Firebase inicializado")
 
-        // Observar conectividade e sincronizar quando online
-        observarConectividade()
+            // Forçar inicialização do Firestore
+            firestore
+
+            // Forçar inicialização do Database
+            database
+
+            // Forçar inicialização dos repositórios críticos
+            clienteRepository
+
+            Log.d(TAG, "✅ Todos os componentes essenciais inicializados")
+
+            // Inicializar sincronização periódica em background
+            ClienteSyncWorker.schedulePeriodicSync(this)
+            MaquinaSyncWorker.schedulePeriodicSync(this)
+            PecaSyncWorker.schedulePeriodicSync(this)
+            Log.d(TAG, "✅ WorkManager configurado")
+
+            // Observar conectividade
+            observarConectividade()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ ERRO CRÍTICO na inicialização: ${e.message}", e)
+            e.printStackTrace()
+        }
     }
 
-    /**
-     * Observa mudanças na conectividade e sincroniza automaticamente quando online
-     */
     private fun observarConectividade() {
         ProcessLifecycleOwner.get().lifecycleScope.launch {
-            networkObserver.observe()
-                .distinctUntilChanged() // Evita eventos duplicados
-                .collect { isOnline ->
-                    if (isOnline) {
-                        Log.d(TAG, "🌐 Conexão restaurada - Sincronizando dados...")
-                        ClienteSyncWorker.syncNow(this@AprimortechApplication)
-                        MaquinaSyncWorker.syncNow(this@AprimortechApplication)
-                        PecaSyncWorker.syncNow(this@AprimortechApplication)
-                    } else {
-                        Log.d(TAG, "📵 Modo offline - Dados serão salvos localmente")
+            try {
+                networkObserver.observe()
+                    .distinctUntilChanged()
+                    .collect { isOnline ->
+                        if (isOnline) {
+                            Log.d(TAG, "🌐 Conexão restaurada - Sincronizando dados...")
+                            ClienteSyncWorker.syncNow(this@AprimortechApplication)
+                            MaquinaSyncWorker.syncNow(this@AprimortechApplication)
+                            PecaSyncWorker.syncNow(this@AprimortechApplication)
+                        } else {
+                            Log.d(TAG, "📵 Modo offline - Dados serão salvos localmente")
+                        }
                     }
-                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Erro ao observar conectividade: ${e.message}", e)
+            }
         }
     }
 }

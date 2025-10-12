@@ -2,7 +2,8 @@ package com.example.aprimortech.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.aprimortech.data.repository.ClienteRepository
+import com.example.aprimortech.domain.usecase.BuscarClientesUseCase
+import com.example.aprimortech.domain.usecase.SincronizarClientesUseCase
 import com.example.aprimortech.data.repository.ContatoRepository
 import com.example.aprimortech.data.repository.SetorRepository
 import com.example.aprimortech.model.Cliente
@@ -14,7 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class NovoRelatorioViewModel(
-    private val clienteRepository: ClienteRepository,
+    private val buscarClientesUseCase: BuscarClientesUseCase,
+    private val sincronizarClientesUseCase: SincronizarClientesUseCase,
     private val contatoRepository: ContatoRepository,
     private val setorRepository: SetorRepository
 ) : ViewModel() {
@@ -34,23 +36,49 @@ class NovoRelatorioViewModel(
     private val _mensagemOperacao = MutableStateFlow<String?>(null)
     val mensagemOperacao: StateFlow<String?> = _mensagemOperacao.asStateFlow()
 
+    private val _sincronizacaoInicial = MutableStateFlow(false)
+    val sincronizacaoInicial: StateFlow<Boolean> = _sincronizacaoInicial.asStateFlow()
+
     init {
-        carregarClientes()
+        sincronizarDadosIniciais()
+    }
+
+    private fun sincronizarDadosIniciais() {
+        viewModelScope.launch {
+            try {
+                _sincronizacaoInicial.value = true
+                android.util.Log.d("NovoRelatorioViewModel", "🔄 Sincronizando dados iniciais...")
+
+                // Força sincronização com Firebase
+                sincronizarClientesUseCase()
+
+                // Carrega dados do cache atualizado
+                carregarClientes()
+
+                android.util.Log.d("NovoRelatorioViewModel", "✅ Sincronização inicial concluída")
+            } catch (e: Exception) {
+                android.util.Log.e("NovoRelatorioViewModel", "⚠️ Erro na sincronização inicial, carregando cache", e)
+                // Mesmo com erro, tenta carregar do cache
+                carregarClientes()
+            } finally {
+                _sincronizacaoInicial.value = false
+            }
+        }
     }
 
     fun carregarClientes() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                android.util.Log.d("NovoRelatorioViewModel", "Carregando clientes do Firebase...")
-                val clientesFirebase = clienteRepository.buscarClientes()
-                _clientes.value = clientesFirebase
-                android.util.Log.d("NovoRelatorioViewModel", "Clientes carregados: ${clientesFirebase.size}")
-                clientesFirebase.forEach { cliente ->
-                    android.util.Log.d("NovoRelatorioViewModel", "Cliente: ${cliente.nome} - ${cliente.cnpjCpf}")
+                android.util.Log.d("NovoRelatorioViewModel", "📂 Carregando clientes (cache local)...")
+                val clientesLocal = buscarClientesUseCase()
+                _clientes.value = clientesLocal
+                android.util.Log.d("NovoRelatorioViewModel", "✅ ${clientesLocal.size} clientes carregados")
+                clientesLocal.forEach { cliente ->
+                    android.util.Log.d("NovoRelatorioViewModel", "   - ${cliente.nome} (${cliente.cnpjCpf})")
                 }
             } catch (e: Exception) {
-                android.util.Log.e("NovoRelatorioViewModel", "Erro ao carregar clientes", e)
+                android.util.Log.e("NovoRelatorioViewModel", "❌ Erro ao carregar clientes", e)
                 _mensagemOperacao.value = "Erro ao carregar clientes: ${e.message}"
             } finally {
                 _isLoading.value = false

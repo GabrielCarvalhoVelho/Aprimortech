@@ -29,8 +29,8 @@ class RelatorioViewModel @Inject constructor(
     private val _relatorios = MutableStateFlow<List<Relatorio>>(emptyList())
     val relatorios: StateFlow<List<Relatorio>> = _relatorios.asStateFlow()
 
-    private val _proximasManutencoes = MutableStateFlow<List<Maquina>>(emptyList())
-    val proximasManutencoes: StateFlow<List<Maquina>> = _proximasManutencoes.asStateFlow()
+    private val _proximasManutencoes = MutableStateFlow<List<Relatorio>>(emptyList())
+    val proximasManutencoes: StateFlow<List<Relatorio>> = _proximasManutencoes.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()

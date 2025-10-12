@@ -23,6 +23,8 @@ data class Relatorio(
     val solventeId: String? = null,                       // ID do solvente na collection solventes
     val codigoTinta: String? = null,                      // Código da tinta (cache para exibição)
     val codigoSolvente: String? = null,                   // Código do solvente (cache para exibição)
+    val dataProximaPreventiva: String? = null,            // Data da próxima manutenção preventiva
+    val horasProximaPreventiva: String? = null,           // Horas da próxima manutenção preventiva
     val syncPending: Boolean = true
 )
 

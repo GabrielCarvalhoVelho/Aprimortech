@@ -298,9 +298,9 @@ private suspend fun carregarRelatorioCompleto(
         // ⭐ CÓDIGOS DE TINTA E SOLVENTE: Prioriza o que o usuário preencheu no relatório
         equipamentoCodigoTinta = codigoTintaFinal,
         equipamentoCodigoSolvente = codigosolventeFinal,
-        // Próxima manutenção preventiva - da máquina cadastrada
-        equipamentoDataProximaPreventiva = maquina?.dataProximaPreventiva ?: "",
-        equipamentoHoraProximaPreventiva = maquina?.horasProximaPreventiva ?: "",
+        // ✅ Próxima manutenção preventiva - AGORA VEM DO RELATÓRIO
+        equipamentoDataProximaPreventiva = relatorio.dataProximaPreventiva ?: "",
+        equipamentoHoraProximaPreventiva = relatorio.horasProximaPreventiva ?: "",
 
         // Defeitos e Serviços
         defeitos = defeitos,

@@ -149,9 +149,7 @@ fun MaquinasScreen(
                                     modelo = "",
                                     identificacao = "",
                                     anoFabricacao = "",
-                                    dataProximaPreventiva = "",
-                                    codigoConfiguracao = "",
-                                    horasProximaPreventiva = ""
+                                    codigoConfiguracao = ""
                                 )
                                 showAddEdit = true
                             },
@@ -185,7 +183,6 @@ fun MaquinasScreen(
                             Spacer(Modifier.height(4.dp))
                             Text("Cliente: $clienteNome", style = MaterialTheme.typography.bodySmall)
                             Text("Nº Série: ${maq.numeroSerie} • Identificação: ${maq.identificacao}", style = MaterialTheme.typography.bodySmall)
-                            Text("Próx. Preventiva: ${maq.dataProximaPreventiva} • ${maq.horasProximaPreventiva}h", style = MaterialTheme.typography.bodySmall)
 
                             Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
@@ -296,16 +293,12 @@ private fun AddEditMaquinaDialog(
     var modelo by remember { mutableStateOf(initial.modelo) }
     var identificacao by remember { mutableStateOf(initial.identificacao) }
     var anoFabricacao by remember { mutableStateOf(initial.anoFabricacao) }
-    var dataProximaPreventiva by remember { mutableStateOf(initial.dataProximaPreventiva) }
     var codigoConfiguracao by remember { mutableStateOf(initial.codigoConfiguracao) }
-    var horasProximaPreventiva by remember { mutableStateOf(initial.horasProximaPreventiva) }
-    // ⚠️ REMOVIDOS: codigoTinta e codigoSolvente
 
     val salvarHabilitado = clienteId.isNotBlank() && fabricante.isNotBlank() &&
             numeroSerie.isNotBlank() && modelo.isNotBlank() &&
             anoFabricacao.isNotBlank() && identificacao.isNotBlank() &&
-            dataProximaPreventiva.isNotBlank() &&
-            codigoConfiguracao.isNotBlank() && horasProximaPreventiva.isNotBlank()
+            codigoConfiguracao.isNotBlank()
     // ⚠️ REMOVIDOS das validações: codigoTinta e codigoSolvente
 
     AlertDialog(
@@ -479,24 +472,6 @@ private fun AddEditMaquinaDialog(
                     colors = textFieldColors()
                 )
 
-                // ⚠️ REMOVIDOS: Campos de Código da Tinta e Código do Solvente
-                // Esses campos agora são preenchidos apenas durante a criação do relatório
-
-                // Seção de Manutenção Preventiva com Interface Moderna
-                Text(
-                    "Manutenção Preventiva",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Brand,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-
-                ManutencaoPreventivaSection(
-                    dataProximaPreventiva = dataProximaPreventiva,
-                    horasProximaPreventiva = horasProximaPreventiva,
-                    onDataChange = { dataProximaPreventiva = it },
-                    onHorasChange = { horasProximaPreventiva = it }
-                )
-
                 Text(
                     "* Campos obrigatórios",
                     style = MaterialTheme.typography.bodySmall,
@@ -516,10 +491,7 @@ private fun AddEditMaquinaDialog(
                             modelo = modelo.trim(),
                             anoFabricacao = anoFabricacao.trim(),
                             identificacao = identificacao.trim(),
-                            dataProximaPreventiva = dataProximaPreventiva.trim(),
-                            codigoConfiguracao = codigoConfiguracao.trim(),
-                            horasProximaPreventiva = horasProximaPreventiva.trim()
-                            // ⚠️ REMOVIDOS: codigoTinta e codigoSolvente - não fazem mais parte da máquina
+                            codigoConfiguracao = codigoConfiguracao.trim()
                         )
                     )
                 },
@@ -718,9 +690,6 @@ private fun ViewMaquinaDialog(
                 Text("Identificação: ${maquina.identificacao}")
                 Text("Ano de Fabricação: ${maquina.anoFabricacao}")
                 Text("Código de Configuração: ${maquina.codigoConfiguracao}")
-                Text("Próxima Preventiva: ${maquina.dataProximaPreventiva}")
-                Text("Horas para Preventiva: ${maquina.horasProximaPreventiva}h")
-                // ⚠️ REMOVIDOS: Código da Tinta e Código do Solvente da visualização
             }
         },
         confirmButton = {

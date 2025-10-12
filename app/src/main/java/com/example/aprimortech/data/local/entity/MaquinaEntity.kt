@@ -14,9 +14,7 @@ data class MaquinaEntity(
     val modelo: String = "",
     val identificacao: String = "",
     val anoFabricacao: String = "",
-    val dataProximaPreventiva: String = "",
     val codigoConfiguracao: String = "",
-    val horasProximaPreventiva: String = "",
     val pendenteSincronizacao: Boolean = false, // Flag para indicar sincronização pendente
     val timestampAtualizacao: Long = System.currentTimeMillis() // Timestamp da última atualização
 )
@@ -33,9 +31,7 @@ fun MaquinaEntity.toModel(): Maquina {
         modelo = modelo,
         identificacao = identificacao,
         anoFabricacao = anoFabricacao,
-        dataProximaPreventiva = dataProximaPreventiva,
-        codigoConfiguracao = codigoConfiguracao,
-        horasProximaPreventiva = horasProximaPreventiva
+        codigoConfiguracao = codigoConfiguracao
     )
 }
 
@@ -51,9 +47,7 @@ fun Maquina.toEntity(pendenteSincronizacao: Boolean = false): MaquinaEntity {
         modelo = modelo,
         identificacao = identificacao,
         anoFabricacao = anoFabricacao,
-        dataProximaPreventiva = dataProximaPreventiva,
         codigoConfiguracao = codigoConfiguracao,
-        horasProximaPreventiva = horasProximaPreventiva,
         pendenteSincronizacao = pendenteSincronizacao,
         timestampAtualizacao = System.currentTimeMillis()
     )

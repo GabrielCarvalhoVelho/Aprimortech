@@ -52,7 +52,8 @@ fun NovoRelatorioScreen(
     modifier: Modifier = Modifier,
     viewModel: NovoRelatorioViewModel = viewModel(
         factory = NovoRelatorioViewModelFactory(
-            clienteRepository = (LocalContext.current.applicationContext as AprimortechApplication).clienteRepository,
+            buscarClientesUseCase = (LocalContext.current.applicationContext as AprimortechApplication).buscarClientesUseCase,
+            sincronizarClientesUseCase = (LocalContext.current.applicationContext as AprimortechApplication).sincronizarClientesUseCase,
             contatoRepository = (LocalContext.current.applicationContext as AprimortechApplication).contatoRepository,
             setorRepository = (LocalContext.current.applicationContext as AprimortechApplication).setorRepository
         )

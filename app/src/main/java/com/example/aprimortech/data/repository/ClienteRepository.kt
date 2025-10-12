@@ -37,23 +37,32 @@ class ClienteRepository(
             Log.d(TAG, "📂 Buscando clientes do cache local...")
             val clientesLocais = clienteDao.buscarTodosClientes()
 
-            Log.d(TAG, "📊 ${clientesLocais.size} clientes no cache local")
+            Log.d(TAG, "📊 ${clientesLocais.size} clientes encontrados no cache local")
 
             if (clientesLocais.isEmpty()) {
-                Log.d(TAG, "⚠️ Cache vazio, buscando do Firebase...")
-                // CORREÇÃO: Retornar os dados do Firebase
-                return buscarClientesDoFirebase()
+                Log.d(TAG, "⚠️ Cache vazio, tentando buscar do Firebase...")
+                // Busca do Firebase e retorna
+                val clientesFirebase = buscarClientesDoFirebase()
+                Log.d(TAG, "✅ Retornando ${clientesFirebase.size} clientes do Firebase")
+                return clientesFirebase
             } else {
                 Log.d(TAG, "✅ Retornando ${clientesLocais.size} clientes do cache local:")
                 clientesLocais.forEach {
                     Log.d(TAG, "   - ${it.nome} (ID: ${it.id}, Pendente: ${it.pendenteSincronizacao})")
                 }
-                clientesLocais.map { it.toModel() }
+                return clientesLocais.map { it.toModel() }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Erro ao buscar clientes", e)
+            Log.e(TAG, "❌ Erro ao buscar clientes: ${e.message}", e)
             // Retorna cache local mesmo em caso de erro
-            clienteDao.buscarTodosClientes().map { it.toModel() }
+            try {
+                val fallback = clienteDao.buscarTodosClientes().map { it.toModel() }
+                Log.w(TAG, "⚠️ Retornando ${fallback.size} clientes do cache após erro")
+                fallback
+            } catch (dbError: Exception) {
+                Log.e(TAG, "❌ Erro crítico ao acessar banco de dados: ${dbError.message}", dbError)
+                emptyList()
+            }
         }
     }
 
@@ -62,26 +71,36 @@ class ClienteRepository(
      */
     private suspend fun buscarClientesDoFirebase(): List<Cliente> {
         return try {
+            Log.d(TAG, "🔄 Conectando ao Firebase...")
             val snapshot = firestore.collection(COLLECTION_CLIENTES)
                 .get()
                 .await()
 
             val clientes = snapshot.documents.mapNotNull { doc ->
-                doc.toObject(Cliente::class.java)?.copy(id = doc.id)
+                try {
+                    doc.toObject(Cliente::class.java)?.copy(id = doc.id)
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Erro ao converter documento ${doc.id}: ${e.message}", e)
+                    null
+                }
             }
+
+            Log.d(TAG, "📥 ${clientes.size} clientes baixados do Firebase")
 
             // Atualiza cache local
             if (clientes.isNotEmpty()) {
                 val entities = clientes.map { it.toEntity(pendenteSincronizacao = false) }
                 clienteDao.inserirClientes(entities)
-                Log.d(TAG, "✅ Cache local atualizado com ${clientes.size} clientes do Firebase")
+                Log.d(TAG, "💾 Cache local atualizado com ${clientes.size} clientes do Firebase")
             }
 
             clientes
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Erro ao buscar clientes do Firebase", e)
+            Log.e(TAG, "❌ Erro ao buscar clientes do Firebase: ${e.message}", e)
             // Retorna cache local se Firebase falhar
-            clienteDao.buscarTodosClientes().map { it.toModel() }
+            val fallback = clienteDao.buscarTodosClientes().map { it.toModel() }
+            Log.w(TAG, "⚠️ Retornando ${fallback.size} clientes do cache após falha do Firebase")
+            fallback
         }
     }
 

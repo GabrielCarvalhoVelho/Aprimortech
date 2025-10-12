@@ -46,9 +46,7 @@ class MaquinaRemoteDataSource {
                         "modelo" to maquina.modelo,
                         "identificacao" to maquina.identificacao,
                         "anoFabricacao" to maquina.anoFabricacao,
-                        "dataProximaPreventiva" to maquina.dataProximaPreventiva,
                         "codigoConfiguracao" to maquina.codigoConfiguracao,
-                        "horasProximaPreventiva" to maquina.horasProximaPreventiva,
                         "criadoPor" to currentUser.uid,
                         "criadoEm" to com.google.firebase.Timestamp.now()
                     )
@@ -80,9 +78,7 @@ class MaquinaRemoteDataSource {
                 "modelo" to maquina.modelo,
                 "identificacao" to maquina.identificacao,
                 "anoFabricacao" to maquina.anoFabricacao,
-                "dataProximaPreventiva" to maquina.dataProximaPreventiva,
-                "codigoConfiguracao" to maquina.codigoConfiguracao,
-                "horasProximaPreventiva" to maquina.horasProximaPreventiva
+                "codigoConfiguracao" to maquina.codigoConfiguracao
             )
             Log.d(TAG, "Tentando atualizar máquina (id=${maquina.id}) no Firestore...")
             collection.document(maquina.id).set(data).await()
