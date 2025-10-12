@@ -89,7 +89,7 @@ fun AppNavigation() {
             RelatoriosScreen(navController = navController)
         }
         composable("novoRelatorio") {
-            NovoRelatorioScreen(navController = navController)
+            NovoRelatorioScreen(navController = navController, sharedViewModel = sharedViewModel)
         }
         composable(
             "dadosEquipamento/{clienteId}/{contatoNome}",
@@ -134,7 +134,8 @@ fun AppNavigation() {
             val clienteId = backStackEntry.arguments?.getString("clienteId") ?: ""
             RelatorioDefeitoServicosScreen(
                 navController = navController,
-                clienteId = clienteId
+                clienteId = clienteId,
+                sharedViewModel = sharedViewModel
             )
         }
         composable(
@@ -168,7 +169,8 @@ fun AppNavigation() {
                 defeitos = defeitos,
                 servicos = servicos,
                 observacoes = observacoes,
-                clienteId = clienteId
+                clienteId = clienteId,
+                sharedViewModel = sharedViewModel
             )
         }
         composable(
@@ -208,7 +210,8 @@ fun AppNavigation() {
                 servicos = servicos,
                 observacoes = observacoes,
                 pecas = pecas,
-                clienteId = clienteId
+                clienteId = clienteId,
+                sharedViewModel = sharedViewModel
             )
         }
         composable(
@@ -283,54 +286,46 @@ fun AppNavigation() {
                 sharedViewModel.setPecas(pecasParsed)
             }
 
-            // ⭐ CORREÇÃO: Construir o RelatorioCompleto ANTES de criar o Relatorio
-            // Isso garante que todos os dados do SharedViewModel sejam consolidados
-            LaunchedEffect(Unit) {
-                sharedViewModel.buildRelatorioCompleto()
-            }
+            // Construir o RelatorioCompleto de forma determinística ANTES de criar o Relatorio
+            // Chamamos a função diretamente e usamos o resultado para garantir que os campos
+            // de equipamento preenchidos anteriormente estejam presentes.
+            val relatorioCompletoBuilt = sharedViewModel.buildRelatorioCompleto()
 
-            // USAR A INSTÂNCIA COMPARTILHADA DO SHAREDVIEWMODEL
+            // USAR A INSTÂNCIA COMPARTILHADA DO SHAREDVIEWMODEL (estado observável também disponível)
             val relatorioCompleto by sharedViewModel.relatorioCompleto.collectAsState()
 
             // Debug log
             android.util.Log.d("MainActivity", "=== ETAPA 6 - CRIANDO RELATÓRIO ===")
-            android.util.Log.d("MainActivity", "RelatorioCompleto do SharedViewModel: $relatorioCompleto")
-            android.util.Log.d("MainActivity", "Código Tinta (SharedViewModel): ${relatorioCompleto?.equipamentoCodigoTinta}")
-            android.util.Log.d("MainActivity", "Código Solvente (SharedViewModel): ${relatorioCompleto?.equipamentoCodigoSolvente}")
-            android.util.Log.d("MainActivity", "Valor Hora Técnica (SharedViewModel): ${relatorioCompleto?.valorHoraTecnica}")
-            android.util.Log.d("MainActivity", "Valor Hora Técnica (parseado da URL): $valorHoraTecnicaParsed")
-            android.util.Log.d("MainActivity", "Peças no SharedViewModel: ${relatorioCompleto?.pecas?.size ?: 0}")
+            android.util.Log.d("MainActivity", "RelatorioCompleto do SharedViewModel (collectAsState): $relatorioCompleto")
+            android.util.Log.d("MainActivity", "RelatorioCompletoBuilt (direto): $relatorioCompletoBuilt")
+            android.util.Log.d("MainActivity", "Código Tinta (SharedViewModel): ${relatorioCompletoBuilt.equipamentoCodigoTinta}")
+            android.util.Log.d("MainActivity", "Código Solvente (SharedViewModel): ${relatorioCompletoBuilt.equipamentoCodigoSolvente}")
+            android.util.Log.d("MainActivity", "Valor Hora Técnica (SharedViewModel): ${relatorioCompletoBuilt.valorHoraTecnica}")
+            android.util.Log.d("MainActivity", "Peças no SharedViewModel: ${relatorioCompletoBuilt.pecas.size}")
 
-            // ⭐ IMPORTANTE: Reconstrói o relatório preservando os códigos de tinta e solvente
-            // que o usuário preencheu manualmente na tela de equipamento
-            // ⭐⭐⭐ AGORA COM AS PEÇAS CORRETAS DO SHAREDVIEWMODEL
+            // Reconstrói o relatório preservando os códigos de tinta e solvente
             val relatorioFinal = Relatorio(
                 id = "", // Será gerado quando salvar
                 clienteId = clienteId,
                 maquinaId = "", // Por enquanto vazio, será necessário adicionar nas etapas anteriores
-                pecaIds = emptyList(), // ⭐ IMPORTANTE: pecaIds fica vazio, as peças vêm do RelatorioCompleto
+                pecaIds = emptyList(), // pecaIds fica vazio, as peças vêm do RelatorioCompleto
                 descricaoServico = servicos, // Mantém para compatibilidade
                 recomendacoes = observacoes, // Mantém para compatibilidade
                 horarioEntrada = horarioEntrada,
                 horarioSaida = horarioSaida,
-                // ⭐ PRIORIDADE: Usa o valor parseado da URL, se não tiver usa o do SharedViewModel
-                valorHoraTecnica = valorHoraTecnicaParsed ?: relatorioCompleto?.valorHoraTecnica ?: 0.0,
+                valorHoraTecnica = valorHoraTecnicaParsed ?: relatorioCompletoBuilt.valorHoraTecnica ?: 0.0,
                 distanciaKm = distanciaKm,
                 valorDeslocamentoPorKm = valorPorKm,
                 valorDeslocamentoTotal = valorDeslocamentoTotal,
                 valorPedagios = valorPedagios,
                 observacoes = observacoes,
-                // ⭐ NOVOS CAMPOS: Defeitos e Serviços estruturados
                 defeitosIdentificados = defeitos.split(",").filter { it.isNotEmpty() },
                 servicosRealizados = servicos.split(",").filter { it.isNotEmpty() },
                 observacoesDefeitosServicos = observacoes,
-                // ⭐ CÓDIGOS PREENCHIDOS MANUALMENTE PELO USUÁRIO - Agora virão do RelatorioCompleto
-                codigoTinta = relatorioCompleto?.equipamentoCodigoTinta,
-                codigoSolvente = relatorioCompleto?.equipamentoCodigoSolvente,
-                // ⭐ DATA E HORA DA PRÓXIMA MANUTENÇÃO PREVENTIVA
-                dataProximaPreventiva = relatorioCompleto?.equipamentoDataProximaPreventiva,
-                horasProximaPreventiva = relatorioCompleto?.equipamentoHoraProximaPreventiva,
-                // ⭐⭐⭐ NOVO CAMPO: Peças utilizadas com informações completas
+                codigoTinta = relatorioCompletoBuilt.equipamentoCodigoTinta ?: "",
+                codigoSolvente = relatorioCompletoBuilt.equipamentoCodigoSolvente ?: "",
+                dataProximaPreventiva = relatorioCompletoBuilt.equipamentoDataProximaPreventiva ?: "",
+                horasProximaPreventiva = relatorioCompletoBuilt.equipamentoHoraProximaPreventiva ?: "",
                 pecasUtilizadas = pecasParsed.map { peca ->
                     mapOf(
                         "codigo" to peca.codigo,

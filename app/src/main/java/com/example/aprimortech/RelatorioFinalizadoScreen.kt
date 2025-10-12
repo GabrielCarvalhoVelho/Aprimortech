@@ -530,10 +530,11 @@ private fun SectionCard(title: String, content: @Composable ColumnScope.() -> Un
 
 @Composable
 private fun InfoRow(label: String, value: String, highlight: Boolean = false) {
+    val displayValue = if (value.isBlank()) "—" else value
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(text = "$label:", fontSize = 12.sp, fontWeight = if (highlight) FontWeight.Bold else FontWeight.Normal,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-        Text(text = value, fontSize = 12.sp, fontWeight = if (highlight) FontWeight.Bold else FontWeight.Normal,
+        Text(text = displayValue, fontSize = 12.sp, fontWeight = if (highlight) FontWeight.Bold else FontWeight.Normal,
             color = if (highlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
     }
 }

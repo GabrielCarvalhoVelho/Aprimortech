@@ -74,10 +74,11 @@ object PdfExporter {
 
         // Função para desenhar campo
         fun drawField(label: String, value: String, indent: Int = 0) {
+            val displayValue = if (value.isBlank()) "—" else value
             checkNewPage(40)
             canvas.drawText(label, (margin + indent).toFloat(), y.toFloat(), labelPaint)
             y += 14
-            val lines = breakTextIntoLines(value, textPaint, contentWidth - indent)
+            val lines = breakTextIntoLines(displayValue, textPaint, contentWidth - indent)
             for (line in lines) {
                 checkNewPage(14)
                 canvas.drawText(line, (margin + indent).toFloat(), y.toFloat(), textPaint)
@@ -217,7 +218,7 @@ object PdfExporter {
                 val destRect = RectF(margin.toFloat(), y.toFloat(), (margin + 200).toFloat(), (y + 80).toFloat())
                 canvas.drawBitmap(bitmap, null, destRect, null)
                 y += 90
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 canvas.drawText("Erro ao carregar assinatura", margin.toFloat(), y.toFloat(), smallTextPaint)
                 y += 90
             }
@@ -235,7 +236,7 @@ object PdfExporter {
                 val destRect = RectF(margin.toFloat(), y.toFloat(), (margin + 200).toFloat(), (y + 80).toFloat())
                 canvas.drawBitmap(bitmap, null, destRect, null)
                 y += 90
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 canvas.drawText("Erro ao carregar assinatura", margin.toFloat(), y.toFloat(), smallTextPaint)
                 y += 90
             }
@@ -243,7 +244,6 @@ object PdfExporter {
             canvas.drawText("__________________________", margin.toFloat(), y.toFloat(), textPaint)
             y += 90
         }
-
         // Assinaturas dos Clientes
         checkNewPage(150)
         canvas.drawText("Cliente 1", margin.toFloat(), y.toFloat(), labelPaint)
@@ -255,7 +255,7 @@ object PdfExporter {
                 val destRect = RectF(margin.toFloat(), y.toFloat(), (margin + 200).toFloat(), (y + 80).toFloat())
                 canvas.drawBitmap(bitmap, null, destRect, null)
                 y += 90
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 canvas.drawText("Erro ao carregar assinatura", margin.toFloat(), y.toFloat(), smallTextPaint)
                 y += 90
             }
@@ -273,7 +273,7 @@ object PdfExporter {
                 val destRect = RectF(margin.toFloat(), y.toFloat(), (margin + 200).toFloat(), (y + 80).toFloat())
                 canvas.drawBitmap(bitmap, null, destRect, null)
                 y += 90
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 canvas.drawText("Erro ao carregar assinatura", margin.toFloat(), y.toFloat(), smallTextPaint)
                 y += 90
             }
