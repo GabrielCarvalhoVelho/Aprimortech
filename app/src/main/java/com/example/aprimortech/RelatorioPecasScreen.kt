@@ -33,6 +33,7 @@ import com.example.aprimortech.model.Peca
 import com.example.aprimortech.ui.theme.AprimortechTheme
 import com.example.aprimortech.ui.viewmodel.PecaViewModel
 import com.example.aprimortech.ui.viewmodel.PecaViewModelFactory
+import com.example.aprimortech.ui.viewmodel.RelatorioSharedViewModel
 import kotlinx.coroutines.delay
 import android.widget.Toast
 import androidx.compose.material3.MenuAnchorType
@@ -58,7 +59,8 @@ fun RelatorioPecasScreen(
     defeitos: String = "",
     servicos: String = "",
     observacoes: String = "",
-    clienteId: String = ""
+    clienteId: String = "",
+    sharedViewModel: RelatorioSharedViewModel = viewModel()
 ) {
     val context = LocalContext.current
 
@@ -413,6 +415,17 @@ fun RelatorioPecasScreen(
             // Botão de navegação
             Button(
                 onClick = {
+                    // Salvar peças no ViewModel compartilhado
+                    sharedViewModel.setPecas(
+                        pecas.map { peca ->
+                            com.example.aprimortech.ui.viewmodel.PecaData(
+                                codigo = peca.codigo,
+                                descricao = peca.descricao,
+                                quantidade = peca.quantidade
+                            )
+                        }
+                    )
+
                     // Passar dados para próxima etapa incluindo as peças
                     val defeitosString = defeitos
                     val servicosString = servicos

@@ -13,6 +13,8 @@ import com.example.aprimortech.data.repository.ContatoRepository
 import com.example.aprimortech.data.repository.SetorRepository
 import com.example.aprimortech.data.repository.DefeitoRepository
 import com.example.aprimortech.data.repository.ServicoRepository
+import com.example.aprimortech.data.repository.TintaRepository
+import com.example.aprimortech.data.repository.SolventeRepository
 import com.example.aprimortech.domain.usecase.*
 import com.example.aprimortech.util.NetworkConnectivityObserver
 import com.example.aprimortech.worker.ClienteSyncWorker
@@ -77,6 +79,14 @@ class AprimortechApplication : Application() {
 
     val servicoRepository: ServicoRepository by lazy {
         ServicoRepository(firestore)
+    }
+
+    val tintaRepository: TintaRepository by lazy {
+        TintaRepository()
+    }
+
+    val solventeRepository: SolventeRepository by lazy {
+        SolventeRepository()
     }
 
     // Use Cases para Máquinas

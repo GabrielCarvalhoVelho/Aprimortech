@@ -25,6 +25,7 @@ import com.example.aprimortech.ui.viewmodel.DefeitoViewModel
 import com.example.aprimortech.ui.viewmodel.DefeitoViewModelFactory
 import com.example.aprimortech.ui.viewmodel.ServicoViewModel
 import com.example.aprimortech.ui.viewmodel.ServicoViewModelFactory
+import com.example.aprimortech.ui.viewmodel.RelatorioSharedViewModel
 import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,7 +33,8 @@ import android.widget.Toast
 fun RelatorioDefeitoServicosScreen(
     navController: NavController,
     modifier: Modifier = Modifier,
-    clienteId: String = ""
+    clienteId: String = "",
+    sharedViewModel: RelatorioSharedViewModel = viewModel()
 ) {
     val context = LocalContext.current
 
@@ -322,6 +324,13 @@ fun RelatorioDefeitoServicosScreen(
                         Toast.makeText(context, "Selecione pelo menos 1 serviço realizado", Toast.LENGTH_LONG).show()
                         return@Button
                     }
+
+                    // Salvar dados de defeitos e serviços no ViewModel compartilhado
+                    sharedViewModel.setDefeitosServicos(
+                        defeitos = defeitosSelecionados.toList(),
+                        servicos = servicosSelecionados.toList(),
+                        observacoes = observacoes
+                    )
 
                     // Passar dados para a próxima etapa
                     val defeitosString = defeitosSelecionados.joinToString(",")

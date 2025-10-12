@@ -8,8 +8,6 @@ data class Maquina(
     val modelo: String = "",
     val identificacao: String = "",
     val anoFabricacao: String = "",
-    val codigoTinta: String = "",
-    val codigoSolvente: String = "",
     val dataProximaPreventiva: String = "",
     val codigoConfiguracao: String = "",
     val horasProximaPreventiva: String = ""

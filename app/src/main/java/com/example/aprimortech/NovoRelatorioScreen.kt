@@ -33,8 +33,10 @@ import com.example.aprimortech.ui.viewmodel.NovoRelatorioViewModel
 import com.example.aprimortech.ui.viewmodel.NovoRelatorioViewModelFactory
 import com.example.aprimortech.ui.viewmodel.ClienteViewModel
 import com.example.aprimortech.ui.viewmodel.ClienteViewModelFactory
+import com.example.aprimortech.ui.viewmodel.RelatorioSharedViewModel
 import com.example.aprimortech.model.Cliente
 import com.example.aprimortech.model.ContatoCliente
+import com.example.aprimortech.model.ContatoInfo
 import com.example.aprimortech.ui.components.AutoCompleteEnderecoField
 import kotlinx.coroutines.delay
 import java.util.UUID
@@ -62,7 +64,8 @@ fun NovoRelatorioScreen(
             excluirClienteUseCase = (LocalContext.current.applicationContext as AprimortechApplication).excluirClienteUseCase,
             sincronizarClientesUseCase = (LocalContext.current.applicationContext as AprimortechApplication).sincronizarClientesUseCase
         )
-    )
+    ),
+    sharedViewModel: RelatorioSharedViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -369,6 +372,27 @@ fun NovoRelatorioScreen(
                 Spacer(Modifier.height(16.dp))
                 Button(
                     onClick = {
+                        // Salvar dados do cliente no ViewModel compartilhado
+                        clienteSelecionado?.let { cliente ->
+                            contatoSelecionado?.let { contato ->
+                                sharedViewModel.setClienteData(
+                                    nome = cliente.nome,
+                                    endereco = cliente.endereco,
+                                    cidade = cliente.cidade,
+                                    estado = cliente.estado,
+                                    telefone = cliente.telefone,
+                                    celular = cliente.celular,
+                                    contatos = listOf(
+                                        ContatoInfo(
+                                            nome = contato.nome,
+                                            setor = contato.setor ?: "",
+                                            celular = contato.celular ?: ""
+                                        )
+                                    )
+                                )
+                            }
+                        }
+
                         // Navegar para a página de Dados do Equipamento
                         navController.navigate("dadosEquipamento/${clienteSelecionado!!.id}/${contatoSelecionado!!.nome}")
                     },

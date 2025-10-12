@@ -70,6 +70,9 @@ fun AppNavigation() {
     }
     val navController = rememberNavController()
 
+    // CRIAR UMA ÚNICA INSTÂNCIA DO SHAREDVIEWMODEL PARA TODA A NAVEGAÇÃO
+    val sharedViewModel: com.example.aprimortech.ui.viewmodel.RelatorioSharedViewModel = viewModel()
+
     LaunchedEffect(initialRoute) {
         if (initialRoute == "dashboard") {
             // Renovar a sessão no auto-skip
@@ -99,7 +102,8 @@ fun AppNavigation() {
 
             RelatorioEquipamentoScreen(
                 navController = navController,
-                clienteId = clienteId
+                clienteId = clienteId,
+                sharedViewModel = sharedViewModel
             )
         }
         composable(
@@ -114,7 +118,8 @@ fun AppNavigation() {
             val clienteId = backStackEntry.arguments?.getString("clienteId") ?: ""
             RelatorioEquipamentoScreen(
                 navController = navController,
-                clienteId = clienteId
+                clienteId = clienteId,
+                sharedViewModel = sharedViewModel
             )
         }
         composable(
@@ -233,7 +238,23 @@ fun AppNavigation() {
             val valorPedagios = if (horasParts.size > 4) horasParts[4].toDoubleOrNull() else null
             val valorDeslocamentoTotal = if (horasParts.size > 5) horasParts[5].toDoubleOrNull() else null
 
-            // Reconstrói o relatório com todos os dados
+            // ⭐ CORREÇÃO: Construir o RelatorioCompleto ANTES de criar o Relatorio
+            // Isso garante que todos os dados do SharedViewModel sejam consolidados
+            LaunchedEffect(Unit) {
+                sharedViewModel.buildRelatorioCompleto()
+            }
+
+            // USAR A INSTÂNCIA COMPARTILHADA DO SHAREDVIEWMODEL
+            val relatorioCompleto by sharedViewModel.relatorioCompleto.collectAsState()
+
+            // Debug log
+            android.util.Log.d("MainActivity", "=== ETAPA 6 - CRIANDO RELATÓRIO ===")
+            android.util.Log.d("MainActivity", "RelatorioCompleto do SharedViewModel: $relatorioCompleto")
+            android.util.Log.d("MainActivity", "Código Tinta (SharedViewModel): ${relatorioCompleto?.equipamentoCodigoTinta}")
+            android.util.Log.d("MainActivity", "Código Solvente (SharedViewModel): ${relatorioCompleto?.equipamentoCodigoSolvente}")
+
+            // ⭐ IMPORTANTE: Reconstrói o relatório preservando os códigos de tinta e solvente
+            // que o usuário preencheu manualmente na tela de equipamento
             val relatorioFinal = Relatorio(
                 id = "", // Será gerado quando salvar
                 clienteId = clienteId,
@@ -248,13 +269,21 @@ fun AppNavigation() {
                 valorDeslocamentoTotal = valorDeslocamentoTotal,
                 valorPedagios = valorPedagios,
                 observacoes = observacoes,
+                // ⭐ CÓDIGOS PREENCHIDOS MANUALMENTE PELO USUÁRIO - Agora virão do RelatorioCompleto
+                codigoTinta = relatorioCompleto?.equipamentoCodigoTinta,
+                codigoSolvente = relatorioCompleto?.equipamentoCodigoSolvente,
                 syncPending = true
             )
 
-            // Passa o relatório para a tela de assinaturas
+            android.util.Log.d("MainActivity", "=== RELATÓRIO FINAL CRIADO ===")
+            android.util.Log.d("MainActivity", "Código Tinta (relatorioFinal): ${relatorioFinal.codigoTinta}")
+            android.util.Log.d("MainActivity", "Código Solvente (relatorioFinal): ${relatorioFinal.codigoSolvente}")
+
+            // Passa o relatório para a tela de assinaturas COM O SHAREDVIEWMODEL COMPARTILHADO
             RelatorioAssinaturaScreen(
                 navController = navController,
-                relatorioInicial = relatorioFinal
+                relatorioInicial = relatorioFinal,
+                sharedViewModel = sharedViewModel
             )
         }
         composable(

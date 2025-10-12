@@ -19,8 +19,10 @@ data class Relatorio(
     val observacoes: String? = null,
     val assinaturaCliente: String? = null,                // Base64 da imagem da assinatura
     val assinaturaTecnico: String? = null,                // Base64 da imagem da assinatura
-    val codigoTinta: String? = null,                      // Código da tinta utilizada
-    val codigoSolvente: String? = null,                   // Código do solvente utilizado
+    val tintaId: String? = null,                          // ID da tinta na collection tintas
+    val solventeId: String? = null,                       // ID do solvente na collection solventes
+    val codigoTinta: String? = null,                      // Código da tinta (cache para exibição)
+    val codigoSolvente: String? = null,                   // Código do solvente (cache para exibição)
     val syncPending: Boolean = true
 )
 

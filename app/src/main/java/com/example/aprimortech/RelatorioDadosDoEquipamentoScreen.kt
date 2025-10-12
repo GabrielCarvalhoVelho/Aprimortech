@@ -23,19 +23,19 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
-import com.example.aprimortech.ui.theme.AprimortechTheme
 import com.example.aprimortech.ui.viewmodel.MaquinaViewModel
 import com.example.aprimortech.ui.viewmodel.MaquinaViewModelFactory
+import com.example.aprimortech.ui.viewmodel.RelatorioSharedViewModel
 import com.example.aprimortech.data.local.entity.MaquinaEntity
+import com.example.aprimortech.model.Tinta
+import com.example.aprimortech.model.Solvente
 import androidx.compose.material3.MenuAnchorType
 import android.widget.Toast
-import java.util.UUID
+import android.app.DatePickerDialog
+import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
-import android.app.DatePickerDialog
 
 private val Brand = Color(0xFF1A4A5C)
 
@@ -53,9 +53,16 @@ fun RelatorioEquipamentoScreen(
             sincronizarMaquinasUseCase = (LocalContext.current.applicationContext as AprimortechApplication).sincronizarMaquinasUseCase,
             buscarClientesUseCase = (LocalContext.current.applicationContext as AprimortechApplication).buscarClientesUseCase
         )
-    )
+    ),
+    sharedViewModel: RelatorioSharedViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val app = context.applicationContext as AprimortechApplication
+    val scope = rememberCoroutineScope()
+
+    // Repositórios
+    val tintaRepository = remember { app.tintaRepository }
+    val solventeRepository = remember { app.solventeRepository }
 
     // Estados do formulário
     var maquinaSelecionada by remember { mutableStateOf<MaquinaEntity?>(null) }
@@ -64,28 +71,26 @@ fun RelatorioEquipamentoScreen(
     var dataProximaPreventiva by remember { mutableStateOf("") }
     var horasProximaPreventiva by remember { mutableStateOf("") }
 
-    // Estados para dialogs
-    var showNovaMaquinaDialog by remember { mutableStateOf(false) }
-    var showNovoCodigoTintaDialog by remember { mutableStateOf(false) }
-    var showNovoCodigoSolventeDialog by remember { mutableStateOf(false) }
+    // Listas de tintas e solventes disponíveis
+    var tintasDisponiveis by remember { mutableStateOf<List<Tinta>>(emptyList()) }
+    var solventesDisponiveis by remember { mutableStateOf<List<Solvente>>(emptyList()) }
 
     // Estados do ViewModel
     val maquinas by viewModel.maquinas.collectAsState()
     val operacaoEmAndamento by viewModel.operacaoEmAndamento.collectAsState()
     val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
 
+    // Carregar tintas e solventes ao iniciar
+    LaunchedEffect(Unit) {
+        scope.launch {
+            tintasDisponiveis = tintaRepository.buscarTodas()
+            solventesDisponiveis = solventeRepository.buscarTodos()
+        }
+    }
+
     // Filtrar máquinas do cliente atual
     val maquinasDoCliente = remember(maquinas, clienteId) {
         maquinas.filter { it.clienteId == clienteId }
-    }
-
-    // Obter códigos únicos de tinta e solvente
-    val codigosTintaDisponiveis = remember(maquinas) {
-        maquinas.map { it.codigoTinta }.filter { it.isNotBlank() }.distinct().sorted()
-    }
-
-    val codigosSolventeDisponiveis = remember(maquinas) {
-        maquinas.map { it.codigoSolvente }.filter { it.isNotBlank() }.distinct().sorted()
     }
 
     // Feedback toast
@@ -143,20 +148,13 @@ fun RelatorioEquipamentoScreen(
 
                 // SEÇÃO MÁQUINA
                 SectionCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Máquina", style = MaterialTheme.typography.titleMedium, color = Brand)
-                        IconButton(onClick = { showNovaMaquinaDialog = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "Nova Máquina", tint = Brand)
-                        }
-                    }
+                    Text("Máquina", style = MaterialTheme.typography.titleMedium, color = Brand)
                     Spacer(Modifier.height(8.dp))
 
                     if (maquinasDoCliente.isEmpty()) {
-                        Text("Nenhuma máquina cadastrada para este cliente", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                        Text("Nenhuma máquina cadastrada para este cliente",
+                             style = MaterialTheme.typography.bodyMedium,
+                             color = Color.Gray)
                     } else {
                         var maquinaExpanded by remember { mutableStateOf(false) }
 
@@ -192,9 +190,6 @@ fun RelatorioEquipamentoScreen(
                                         },
                                         onClick = {
                                             maquinaSelecionada = maquina
-                                            // Preencher automaticamente os campos da máquina
-                                            codigoTintaSelecionado = maquina.codigoTinta
-                                            codigoSolventeSelecionado = maquina.codigoSolvente
                                             dataProximaPreventiva = maquina.dataProximaPreventiva
                                             horasProximaPreventiva = maquina.horasProximaPreventiva
                                             maquinaExpanded = false
@@ -221,106 +216,46 @@ fun RelatorioEquipamentoScreen(
                     }
                 }
 
-                // SEÇÃO CÓDIGO DA TINTA
+                // SEÇÃO CÓDIGO DA TINTA com Autocomplete
                 SectionCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Código da Tinta", style = MaterialTheme.typography.titleMedium, color = Brand)
-                        IconButton(onClick = { showNovoCodigoTintaDialog = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "Novo Código de Tinta", tint = Brand)
-                        }
-                    }
+                    Text("Código da Tinta", style = MaterialTheme.typography.titleMedium, color = Brand)
                     Spacer(Modifier.height(8.dp))
 
-                    var codigoTintaExpanded by remember { mutableStateOf(false) }
-
-                    ExposedDropdownMenuBox(
-                        expanded = codigoTintaExpanded,
-                        onExpandedChange = { codigoTintaExpanded = it }
-                    ) {
-                        OutlinedTextField(
-                            value = codigoTintaSelecionado,
-                            onValueChange = { },
-                            label = { Text("Selecionar Código da Tinta *") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                            colors = textFieldColors(),
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = codigoTintaExpanded) }
-                        )
-
-                        if (codigosTintaDisponiveis.isNotEmpty()) {
-                            ExposedDropdownMenu(
-                                expanded = codigoTintaExpanded,
-                                onDismissRequest = { codigoTintaExpanded = false }
-                            ) {
-                                codigosTintaDisponiveis.forEach { codigo ->
-                                    DropdownMenuItem(
-                                        text = { Text(codigo) },
-                                        onClick = {
-                                            codigoTintaSelecionado = codigo
-                                            codigoTintaExpanded = false
-                                        }
-                                    )
-                                }
+                    AutocompleteTextField(
+                        value = codigoTintaSelecionado,
+                        onValueChange = { codigoTintaSelecionado = it },
+                        suggestions = tintasDisponiveis.map { it.codigo },
+                        label = "Código da Tinta *",
+                        placeholder = "Digite ou selecione",
+                        onAddNew = {
+                            scope.launch {
+                                tintaRepository.salvarTinta(codigoTintaSelecionado)
+                                tintasDisponiveis = tintaRepository.buscarTodas()
+                                Toast.makeText(context, "Código de tinta salvo!", Toast.LENGTH_SHORT).show()
                             }
                         }
-                    }
+                    )
                 }
 
-                // SEÇÃO CÓDIGO DO SOLVENTE
+                // SEÇÃO CÓDIGO DO SOLVENTE com Autocomplete
                 SectionCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Código do Solvente", style = MaterialTheme.typography.titleMedium, color = Brand)
-                        IconButton(onClick = { showNovoCodigoSolventeDialog = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "Novo Código de Solvente", tint = Brand)
-                        }
-                    }
+                    Text("Código do Solvente", style = MaterialTheme.typography.titleMedium, color = Brand)
                     Spacer(Modifier.height(8.dp))
 
-                    var codigoSolventeExpanded by remember { mutableStateOf(false) }
-
-                    ExposedDropdownMenuBox(
-                        expanded = codigoSolventeExpanded,
-                        onExpandedChange = { codigoSolventeExpanded = it }
-                    ) {
-                        OutlinedTextField(
-                            value = codigoSolventeSelecionado,
-                            onValueChange = { },
-                            label = { Text("Selecionar Código do Solvente *") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                            colors = textFieldColors(),
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = codigoSolventeExpanded) }
-                        )
-
-                        if (codigosSolventeDisponiveis.isNotEmpty()) {
-                            ExposedDropdownMenu(
-                                expanded = codigoSolventeExpanded,
-                                onDismissRequest = { codigoSolventeExpanded = false }
-                            ) {
-                                codigosSolventeDisponiveis.forEach { codigo ->
-                                    DropdownMenuItem(
-                                        text = { Text(codigo) },
-                                        onClick = {
-                                            codigoSolventeSelecionado = codigo
-                                            codigoSolventeExpanded = false
-                                        }
-                                    )
-                                }
+                    AutocompleteTextField(
+                        value = codigoSolventeSelecionado,
+                        onValueChange = { codigoSolventeSelecionado = it },
+                        suggestions = solventesDisponiveis.map { it.codigo },
+                        label = "Código do Solvente *",
+                        placeholder = "Digite ou selecione",
+                        onAddNew = {
+                            scope.launch {
+                                solventeRepository.salvarSolvente(codigoSolventeSelecionado)
+                                solventesDisponiveis = solventeRepository.buscarTodos()
+                                Toast.makeText(context, "Código de solvente salvo!", Toast.LENGTH_SHORT).show()
                             }
                         }
-                    }
+                    )
                 }
 
                 // SEÇÃO PRÓXIMA MANUTENÇÃO PREVENTIVA
@@ -328,43 +263,33 @@ fun RelatorioEquipamentoScreen(
                     Text("Próxima Manutenção Preventiva", style = MaterialTheme.typography.titleMedium, color = Brand)
                     Spacer(Modifier.height(8.dp))
 
-                    // Campo de data com DatePickerDialog
+                    // Campo de data
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                // Abrir o DatePickerDialog
                                 val calendar = Calendar.getInstance()
-
-                                // Tentar parsear a data existente se houver
                                 if (dataProximaPreventiva.isNotBlank()) {
                                     try {
                                         val parts = dataProximaPreventiva.split("/")
                                         if (parts.size == 3) {
                                             calendar.set(parts[2].toInt(), parts[1].toInt() - 1, parts[0].toInt())
                                         }
-                                    } catch (_: Exception) {
-                                        // Ignorar erro e usar data atual
-                                    }
+                                    } catch (_: Exception) { }
                                 }
-
-                                val ano = calendar.get(Calendar.YEAR)
-                                val mes = calendar.get(Calendar.MONTH)
-                                val dia = calendar.get(Calendar.DAY_OF_MONTH)
 
                                 DatePickerDialog(
                                     context,
-                                    { _, selectedYear, selectedMonth, selectedDay ->
-                                        // Atualizar o campo de data com a data selecionada
+                                    { _, year, month, day ->
                                         dataProximaPreventiva = String.format(
                                             Locale.getDefault(),
                                             "%02d/%02d/%04d",
-                                            selectedDay,
-                                            selectedMonth + 1,
-                                            selectedYear
+                                            day, month + 1, year
                                         )
                                     },
-                                    ano, mes, dia
+                                    calendar.get(Calendar.YEAR),
+                                    calendar.get(Calendar.MONTH),
+                                    calendar.get(Calendar.DAY_OF_MONTH)
                                 ).show()
                             }
                     ) {
@@ -379,7 +304,7 @@ fun RelatorioEquipamentoScreen(
                                 Icon(Icons.Default.DateRange, contentDescription = "Selecionar Data", tint = Brand)
                             },
                             readOnly = true,
-                            enabled = false // Desabilitar interação direta com o TextField
+                            enabled = false
                         )
                     }
 
@@ -387,11 +312,7 @@ fun RelatorioEquipamentoScreen(
 
                     OutlinedTextField(
                         value = horasProximaPreventiva,
-                        onValueChange = { newValue ->
-                            // Aceitar apenas números
-                            val filtered = newValue.filter { it.isDigit() }
-                            horasProximaPreventiva = filtered
-                        },
+                        onValueChange = { horasProximaPreventiva = it.filter { char -> char.isDigit() } },
                         label = { Text("Horas *") },
                         placeholder = { Text("Ex: 500") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -400,10 +321,8 @@ fun RelatorioEquipamentoScreen(
                         trailingIcon = {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(end = 4.dp)
                             ) {
-                                // Botão +100 moderno e compacto
                                 FilledTonalIconButton(
                                     onClick = {
                                         val atual = horasProximaPreventiva.toIntOrNull() ?: 0
@@ -415,14 +334,8 @@ fun RelatorioEquipamentoScreen(
                                         contentColor = Brand
                                     )
                                 ) {
-                                    Text(
-                                        text = "+100",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontSize = 9.sp
-                                    )
+                                    Text("+100", fontSize = 9.sp)
                                 }
-
-                                // Botão +500 moderno e compacto
                                 FilledTonalIconButton(
                                     onClick = {
                                         val atual = horasProximaPreventiva.toIntOrNull() ?: 0
@@ -434,11 +347,7 @@ fun RelatorioEquipamentoScreen(
                                         contentColor = Brand
                                     )
                                 ) {
-                                    Text(
-                                        text = "+500",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontSize = 9.sp
-                                    )
+                                    Text("+500", fontSize = 9.sp)
                                 }
                             }
                         }
@@ -449,7 +358,32 @@ fun RelatorioEquipamentoScreen(
                 Spacer(Modifier.height(16.dp))
                 Button(
                     onClick = {
-                        // Navegar para a próxima etapa
+                        // Salvar códigos nas collections
+                        scope.launch {
+                            if (codigoTintaSelecionado.isNotBlank()) {
+                                tintaRepository.salvarTinta(codigoTintaSelecionado)
+                            }
+                            if (codigoSolventeSelecionado.isNotBlank()) {
+                                solventeRepository.salvarSolvente(codigoSolventeSelecionado)
+                            }
+                        }
+
+                        // Salvar dados no SharedViewModel
+                        maquinaSelecionada?.let { maquina ->
+                            sharedViewModel.setEquipamentoData(
+                                fabricante = maquina.fabricante,
+                                numeroSerie = maquina.numeroSerie,
+                                codigoConfiguracao = maquina.codigoConfiguracao,
+                                modelo = maquina.modelo,
+                                identificacao = maquina.identificacao,
+                                anoFabricacao = maquina.anoFabricacao,
+                                codigoTinta = codigoTintaSelecionado,
+                                codigoSolvente = codigoSolventeSelecionado,
+                                dataProximaPreventiva = dataProximaPreventiva,
+                                horaProximaPreventiva = horasProximaPreventiva
+                            )
+                        }
+
                         navController.navigate("relatorioEtapa3?clienteId=$clienteId")
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
@@ -468,48 +402,66 @@ fun RelatorioEquipamentoScreen(
             }
         }
     }
+}
 
-    // Dialog para nova máquina
-    if (showNovaMaquinaDialog) {
-        NovaMaquinaDialog(
-            clienteId = clienteId,
-            onDismiss = { showNovaMaquinaDialog = false },
-            onConfirm = { novaMaquina ->
-                viewModel.salvarMaquina(novaMaquina)
-                maquinaSelecionada = novaMaquina
-                codigoTintaSelecionado = novaMaquina.codigoTinta
-                codigoSolventeSelecionado = novaMaquina.codigoSolvente
-                dataProximaPreventiva = novaMaquina.dataProximaPreventiva
-                horasProximaPreventiva = novaMaquina.horasProximaPreventiva
-                showNovaMaquinaDialog = false
-            }
-        )
+/**
+ * Campo de texto com autocomplete
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AutocompleteTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    suggestions: List<String>,
+    label: String,
+    placeholder: String,
+    onAddNew: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val filteredSuggestions = remember(value, suggestions) {
+        if (value.isBlank()) suggestions
+        else suggestions.filter { it.contains(value, ignoreCase = true) }
     }
 
-    // Dialog para novo código de tinta
-    if (showNovoCodigoTintaDialog) {
-        NovoCodigoDialog(
-            titulo = "Novo Código de Tinta",
-            label = "Código da Tinta",
-            onDismiss = { showNovoCodigoTintaDialog = false },
-            onConfirm = { codigo ->
-                codigoTintaSelecionado = codigo
-                showNovoCodigoTintaDialog = false
+    ExposedDropdownMenuBox(
+        expanded = expanded && filteredSuggestions.isNotEmpty(),
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {
+                onValueChange(it)
+                expanded = true
+            },
+            label = { Text(label) },
+            placeholder = { Text(placeholder) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryEditable),
+            colors = textFieldColors(),
+            trailingIcon = {
+                if (filteredSuggestions.isNotEmpty()) {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                }
             }
         )
-    }
 
-    // Dialog para novo código de solvente
-    if (showNovoCodigoSolventeDialog) {
-        NovoCodigoDialog(
-            titulo = "Novo Código de Solvente",
-            label = "Código do Solvente",
-            onDismiss = { showNovoCodigoSolventeDialog = false },
-            onConfirm = { codigo ->
-                codigoSolventeSelecionado = codigo
-                showNovoCodigoSolventeDialog = false
+        if (filteredSuggestions.isNotEmpty()) {
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                filteredSuggestions.take(10).forEach { suggestion ->
+                    DropdownMenuItem(
+                        text = { Text(suggestion) },
+                        onClick = {
+                            onValueChange(suggestion)
+                            expanded = false
+                        }
+                    )
+                }
             }
-        )
+        }
     }
 }
 
@@ -518,201 +470,19 @@ private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(8.dp)
-    ) { Column(modifier = Modifier.padding(16.dp), content = content) }
-}
-
-@Composable
-private fun textFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedContainerColor = Color.White,
-    unfocusedContainerColor = Color.White,
-    disabledContainerColor = Color.White,
-    focusedBorderColor = Color.LightGray,
-    unfocusedBorderColor = Color.LightGray,
-    disabledBorderColor = Color.LightGray,
-    disabledTextColor = Color.Black,
-    disabledLabelColor = Color.Gray,
-    disabledPlaceholderColor = Color.Gray
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun NovaMaquinaDialog(
-    clienteId: String,
-    onDismiss: () -> Unit,
-    onConfirm: (MaquinaEntity) -> Unit
-) {
-    var fabricante by remember { mutableStateOf("") }
-    var numeroSerie by remember { mutableStateOf("") }
-    var codigoConfiguracao by remember { mutableStateOf("") }
-    var modelo by remember { mutableStateOf("") }
-    var identificacao by remember { mutableStateOf("") }
-    var anoFabricacao by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Nova Máquina") },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 500.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                OutlinedTextField(
-                    value = fabricante,
-                    onValueChange = { fabricante = it },
-                    label = { Text("Fabricante *") },
-                    placeholder = { Text("Ex: Hitachi, Videojet") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors()
-                )
-
-                OutlinedTextField(
-                    value = numeroSerie,
-                    onValueChange = { numeroSerie = it.uppercase() },
-                    label = { Text("Número de Série *") },
-                    placeholder = { Text("Ex: SN001234") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors()
-                )
-
-                OutlinedTextField(
-                    value = codigoConfiguracao,
-                    onValueChange = { codigoConfiguracao = it.uppercase() },
-                    label = { Text("Código de Configuração *") },
-                    placeholder = { Text("Ex: CFG001") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors()
-                )
-
-                OutlinedTextField(
-                    value = modelo,
-                    onValueChange = { modelo = it.uppercase() },
-                    label = { Text("Modelo *") },
-                    placeholder = { Text("Ex: UX-D160W") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors()
-                )
-
-                OutlinedTextField(
-                    value = identificacao,
-                    onValueChange = { identificacao = it },
-                    label = { Text("Identificação *") },
-                    placeholder = { Text("Ex: Máquina Principal") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors()
-                )
-
-                OutlinedTextField(
-                    value = anoFabricacao,
-                    onValueChange = { newValue ->
-                        val filtered = newValue.filter { it.isDigit() }.take(4)
-                        anoFabricacao = filtered
-                    },
-                    label = { Text("Ano de Fabricação *") },
-                    placeholder = { Text("Ex: 2020") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors()
-                )
-
-                Text(
-                    "* Campos obrigatórios",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onConfirm(
-                        MaquinaEntity(
-                            id = UUID.randomUUID().toString(),
-                            clienteId = clienteId,
-                            fabricante = fabricante.trim(),
-                            numeroSerie = numeroSerie.trim(),
-                            codigoConfiguracao = codigoConfiguracao.trim(),
-                            modelo = modelo.trim(),
-                            identificacao = identificacao.trim(),
-                            anoFabricacao = anoFabricacao.trim(),
-                            codigoTinta = "",
-                            codigoSolvente = "",
-                            dataProximaPreventiva = "",
-                            horasProximaPreventiva = "",
-                            pendenteSincronizacao = true
-                        )
-                    )
-                },
-                enabled = fabricante.isNotBlank() && numeroSerie.isNotBlank() &&
-                          codigoConfiguracao.isNotBlank() && modelo.isNotBlank() &&
-                          identificacao.isNotBlank() && anoFabricacao.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White)
-            ) { Text("Criar") }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Cancelar", color = Brand)
-            }
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            content()
         }
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun NovoCodigoDialog(
-    titulo: String,
-    label: String,
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
-) {
-    var codigo by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(titulo) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = codigo,
-                    onValueChange = { codigo = it.uppercase() },
-                    label = { Text("$label *") },
-                    placeholder = { Text("Ex: T664, INK001") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors()
-                )
-
-                Text(
-                    "* Campo obrigatório",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onConfirm(codigo.trim()) },
-                enabled = codigo.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White)
-            ) { Text("Adicionar") }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Cancelar", color = Brand)
-            }
-        }
-    )
-}
-
-@Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
-@Composable
-fun RelatorioEquipamentoPreview() {
-    AprimortechTheme {
-        RelatorioEquipamentoScreen(navController = rememberNavController())
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun textFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = Color(0xFFF0F8FF),
+    unfocusedContainerColor = Color(0xFFF0F8FF),
+    focusedBorderColor = Brand,
+    unfocusedBorderColor = Color.LightGray
+)

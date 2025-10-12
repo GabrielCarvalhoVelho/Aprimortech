@@ -31,7 +31,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aprimortech.ui.theme.AprimortechTheme
+import com.example.aprimortech.ui.viewmodel.RelatorioSharedViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import java.math.BigDecimal
@@ -63,7 +65,8 @@ fun RelatorioHorasDeslocamentoScreen(
     servicos: String = "",
     observacoes: String = "",
     pecas: String = "",
-    clienteId: String = ""
+    clienteId: String = "",
+    sharedViewModel: RelatorioSharedViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val firestore = FirebaseFirestore.getInstance()
@@ -554,6 +557,22 @@ fun RelatorioHorasDeslocamentoScreen(
                         return@Button
                     }
 
+                    // Calcular total de horas trabalhadas
+                    val totalHoras = calcularTotalHoras(horarioEntrada, horarioSaida)
+                    val valorHoraTec = valorHoraTecnica.toLongOrNull()?.toDouble()?.div(100.0) ?: 150.0
+
+                    // Salvar dados de horas e deslocamento no ViewModel compartilhado
+                    sharedViewModel.setHorasDeslocamento(
+                        horarioEntrada = horarioEntrada,
+                        horarioSaida = horarioSaida,
+                        valorHoraTecnica = valorHoraTec,
+                        totalHoras = totalHoras,
+                        quantidadeKm = distanciaKm.toDoubleOrNull() ?: 0.0,
+                        valorPorKm = valorPorKm.toLongOrNull()?.toDouble()?.div(100.0) ?: 0.0,
+                        valorPedagios = valorPedagios.toLongOrNull()?.toDouble()?.div(100.0) ?: 0.0,
+                        valorTotalDeslocamento = valorDeslocamentoTotal
+                    )
+
                     // Passar dados para próxima etapa incluindo horas e deslocamento
                     val defeitosString = defeitos
                     val servicosString = servicos
@@ -637,7 +656,7 @@ fun calcularDuracaoEmMinutos(entrada: String, saida: String): Int {
     }
 }
 
-// Função para configurar formatação monetária nativa
+// Função configurar formatação monetária nativa
 fun setupCurrencyInput(editText: EditText, onValueChange: (String) -> Unit) {
     val locale = Locale("pt", "BR")
     val numberFormat = NumberFormat.getCurrencyInstance(locale)
@@ -781,5 +800,26 @@ fun CampoValorMonetario(
 fun RelatorioHorasDeslocamentoScreenPreview() {
     AprimortechTheme {
         RelatorioHorasDeslocamentoScreen(navController = rememberNavController())
+    }
+}
+
+// Função auxiliar para calcular total de horas
+private fun calcularTotalHoras(entrada: String, saida: String): Double {
+    return try {
+        val entradaParts = entrada.split(":")
+        val saidaParts = saida.split(":")
+
+        val entradaMinutos = entradaParts[0].toInt() * 60 + entradaParts[1].toInt()
+        val saidaMinutos = saidaParts[0].toInt() * 60 + saidaParts[1].toInt()
+
+        val diferencaMinutos = if (saidaMinutos >= entradaMinutos) {
+            saidaMinutos - entradaMinutos
+        } else {
+            (24 * 60 + saidaMinutos) - entradaMinutos
+        }
+
+        diferencaMinutos / 60.0
+    } catch (e: Exception) {
+        0.0
     }
 }

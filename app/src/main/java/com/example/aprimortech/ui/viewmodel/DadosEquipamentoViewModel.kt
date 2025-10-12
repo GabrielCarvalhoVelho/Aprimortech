@@ -138,8 +138,6 @@ class DadosEquipamentoViewModel(
             modelo = this.modelo,
             identificacao = this.identificacao,
             anoFabricacao = this.anoFabricacao,
-            codigoTinta = this.codigoTinta ?: "",
-            codigoSolvente = this.codigoSolvente ?: "",
             dataProximaPreventiva = this.dataProximaPreventiva ?: "",
             codigoConfiguracao = this.codigoConfiguracao,
             horasProximaPreventiva = this.horasProximaPreventiva

@@ -46,9 +46,9 @@ class MaquinaRemoteDataSource {
                         "modelo" to maquina.modelo,
                         "identificacao" to maquina.identificacao,
                         "anoFabricacao" to maquina.anoFabricacao,
-                        "codigoTinta" to maquina.codigoTinta,
-                        "codigoSolvente" to maquina.codigoSolvente,
                         "dataProximaPreventiva" to maquina.dataProximaPreventiva,
+                        "codigoConfiguracao" to maquina.codigoConfiguracao,
+                        "horasProximaPreventiva" to maquina.horasProximaPreventiva,
                         "criadoPor" to currentUser.uid,
                         "criadoEm" to com.google.firebase.Timestamp.now()
                     )
@@ -80,8 +80,6 @@ class MaquinaRemoteDataSource {
                 "modelo" to maquina.modelo,
                 "identificacao" to maquina.identificacao,
                 "anoFabricacao" to maquina.anoFabricacao,
-                "codigoTinta" to maquina.codigoTinta,
-                "codigoSolvente" to maquina.codigoSolvente,
                 "dataProximaPreventiva" to maquina.dataProximaPreventiva,
                 "codigoConfiguracao" to maquina.codigoConfiguracao,
                 "horasProximaPreventiva" to maquina.horasProximaPreventiva

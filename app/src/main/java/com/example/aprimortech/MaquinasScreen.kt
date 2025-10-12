@@ -149,8 +149,6 @@ fun MaquinasScreen(
                                     modelo = "",
                                     identificacao = "",
                                     anoFabricacao = "",
-                                    codigoTinta = "",
-                                    codigoSolvente = "",
                                     dataProximaPreventiva = "",
                                     codigoConfiguracao = "",
                                     horasProximaPreventiva = ""
@@ -287,8 +285,8 @@ private fun AddEditMaquinaDialog(
     clientes: List<Cliente>,
     fabricantesDisponiveis: List<String>,
     modelosDisponiveis: List<String>,
-    codigosTintaDisponiveis: List<String>,
-    codigosSolventeDisponiveis: List<String>,
+    codigosTintaDisponiveis: List<String>, // ⚠️ Parâmetro não usado mais
+    codigosSolventeDisponiveis: List<String>, // ⚠️ Parâmetro não usado mais
     onDismiss: () -> Unit,
     onConfirm: (MaquinaEntity) -> Unit
 ) {
@@ -298,17 +296,17 @@ private fun AddEditMaquinaDialog(
     var modelo by remember { mutableStateOf(initial.modelo) }
     var identificacao by remember { mutableStateOf(initial.identificacao) }
     var anoFabricacao by remember { mutableStateOf(initial.anoFabricacao) }
-    var codigoTinta by remember { mutableStateOf(initial.codigoTinta) }
-    var codigoSolvente by remember { mutableStateOf(initial.codigoSolvente) }
     var dataProximaPreventiva by remember { mutableStateOf(initial.dataProximaPreventiva) }
     var codigoConfiguracao by remember { mutableStateOf(initial.codigoConfiguracao) }
     var horasProximaPreventiva by remember { mutableStateOf(initial.horasProximaPreventiva) }
+    // ⚠️ REMOVIDOS: codigoTinta e codigoSolvente
 
     val salvarHabilitado = clienteId.isNotBlank() && fabricante.isNotBlank() &&
-            numeroSerie.isNotBlank() && modelo.isNotBlank() && codigoTinta.isNotBlank() &&
+            numeroSerie.isNotBlank() && modelo.isNotBlank() &&
             anoFabricacao.isNotBlank() && identificacao.isNotBlank() &&
-            codigoSolvente.isNotBlank() && dataProximaPreventiva.isNotBlank() &&
+            dataProximaPreventiva.isNotBlank() &&
             codigoConfiguracao.isNotBlank() && horasProximaPreventiva.isNotBlank()
+    // ⚠️ REMOVIDOS das validações: codigoTinta e codigoSolvente
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -481,89 +479,8 @@ private fun AddEditMaquinaDialog(
                     colors = textFieldColors()
                 )
 
-                // Campo Código da Tinta com dropdown autocomplete
-                var codigoTintaExpanded by remember { mutableStateOf(false) }
-                val codigosTintaFiltrados = remember(codigoTinta, codigosTintaDisponiveis) {
-                    if (codigoTinta.isBlank()) codigosTintaDisponiveis.take(5)
-                    else codigosTintaDisponiveis.filter { it.contains(codigoTinta, ignoreCase = true) }.take(5)
-                }
-
-                ExposedDropdownMenuBox(
-                    expanded = codigoTintaExpanded && codigosTintaFiltrados.isNotEmpty(),
-                    onExpandedChange = { codigoTintaExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = codigoTinta,
-                        onValueChange = {
-                            codigoTinta = it.uppercase()
-                            codigoTintaExpanded = it.isNotEmpty() && codigosTintaFiltrados.isNotEmpty()
-                        },
-                        label = { Text("Código da Tinta *") },
-                        placeholder = { Text("Ex: T123, INK-001") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryEditable),
-                        colors = textFieldColors()
-                    )
-                    if (codigosTintaFiltrados.isNotEmpty()) {
-                        ExposedDropdownMenu(
-                            expanded = codigoTintaExpanded,
-                            onDismissRequest = { codigoTintaExpanded = false }
-                        ) {
-                            codigosTintaFiltrados.forEach { sugestao ->
-                                DropdownMenuItem(
-                                    text = { Text(sugestao) },
-                                    onClick = {
-                                        codigoTinta = sugestao.uppercase()
-                                        codigoTintaExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Campo Código do Solvente com dropdown autocomplete
-                var codigoSolventeExpanded by remember { mutableStateOf(false) }
-                val codigosSolventeFiltrados = remember(codigoSolvente, codigosSolventeDisponiveis) {
-                    if (codigoSolvente.isBlank()) codigosSolventeDisponiveis.take(5)
-                    else codigosSolventeDisponiveis.filter { it.contains(codigoSolvente, ignoreCase = true) }.take(5)
-                }
-
-                ExposedDropdownMenuBox(
-                    expanded = codigoSolventeExpanded && codigosSolventeFiltrados.isNotEmpty(),
-                    onExpandedChange = { codigoSolventeExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = codigoSolvente,
-                        onValueChange = {
-                            codigoSolvente = it.uppercase()
-                            codigoSolventeExpanded = it.isNotEmpty() && codigosSolventeFiltrados.isNotEmpty()
-                        },
-                        label = { Text("Código do Solvente *") },
-                        placeholder = { Text("Ex: S001, SOL-456") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryEditable),
-                        colors = textFieldColors()
-                    )
-                    if (codigosSolventeFiltrados.isNotEmpty()) {
-                        ExposedDropdownMenu(
-                            expanded = codigoSolventeExpanded,
-                            onDismissRequest = { codigoSolventeExpanded = false }
-                        ) {
-                            codigosSolventeFiltrados.forEach { sugestao ->
-                                DropdownMenuItem(
-                                    text = { Text(sugestao) },
-                                    onClick = {
-                                        codigoSolvente = sugestao.uppercase()
-                                        codigoSolventeExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
+                // ⚠️ REMOVIDOS: Campos de Código da Tinta e Código do Solvente
+                // Esses campos agora são preenchidos apenas durante a criação do relatório
 
                 // Seção de Manutenção Preventiva com Interface Moderna
                 Text(
@@ -597,13 +514,12 @@ private fun AddEditMaquinaDialog(
                             fabricante = fabricante.trim(),
                             numeroSerie = numeroSerie.trim(),
                             modelo = modelo.trim(),
-                            codigoTinta = codigoTinta.trim(),
                             anoFabricacao = anoFabricacao.trim(),
                             identificacao = identificacao.trim(),
-                            codigoSolvente = codigoSolvente.trim(),
                             dataProximaPreventiva = dataProximaPreventiva.trim(),
                             codigoConfiguracao = codigoConfiguracao.trim(),
                             horasProximaPreventiva = horasProximaPreventiva.trim()
+                            // ⚠️ REMOVIDOS: codigoTinta e codigoSolvente - não fazem mais parte da máquina
                         )
                     )
                 },
@@ -801,11 +717,10 @@ private fun ViewMaquinaDialog(
                 Text("Número de Série: ${maquina.numeroSerie}")
                 Text("Identificação: ${maquina.identificacao}")
                 Text("Ano de Fabricação: ${maquina.anoFabricacao}")
-                Text("Código da Tinta: ${maquina.codigoTinta}")
-                Text("Código do Solvente: ${maquina.codigoSolvente}")
                 Text("Código de Configuração: ${maquina.codigoConfiguracao}")
                 Text("Próxima Preventiva: ${maquina.dataProximaPreventiva}")
                 Text("Horas para Preventiva: ${maquina.horasProximaPreventiva}h")
+                // ⚠️ REMOVIDOS: Código da Tinta e Código do Solvente da visualização
             }
         },
         confirmButton = {

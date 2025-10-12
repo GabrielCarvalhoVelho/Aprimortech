@@ -24,6 +24,10 @@ data class RelatorioEntity(
     val observacoes: String?,
     val assinaturaCliente: String?,
     val assinaturaTecnico: String?,
+    val tintaId: String?,
+    val solventeId: String?,
+    val codigoTinta: String?,
+    val codigoSolvente: String?,
     val syncPending: Boolean
 )
 
@@ -48,6 +52,10 @@ fun RelatorioEntity.toRelatorio(): Relatorio {
         observacoes = observacoes,
         assinaturaCliente = assinaturaCliente,
         assinaturaTecnico = assinaturaTecnico,
+        tintaId = tintaId,
+        solventeId = solventeId,
+        codigoTinta = codigoTinta,
+        codigoSolvente = codigoSolvente,
         syncPending = syncPending
     )
 }
@@ -72,6 +80,10 @@ fun Relatorio.toRelatorioEntity(): RelatorioEntity {
         observacoes = observacoes,
         assinaturaCliente = assinaturaCliente,
         assinaturaTecnico = assinaturaTecnico,
+        tintaId = tintaId,
+        solventeId = solventeId,
+        codigoTinta = codigoTinta,
+        codigoSolvente = codigoSolvente,
         syncPending = syncPending
     )
 }

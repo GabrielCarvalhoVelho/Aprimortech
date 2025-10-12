@@ -91,8 +91,9 @@ class MaquinaViewModel(
         val maquinasAtuais = _maquinas.value
         _fabricantesDisponiveis.value = maquinasAtuais.map { it.fabricante }.filter { it.isNotBlank() }.distinct().sorted()
         _modelosDisponiveis.value = maquinasAtuais.map { it.modelo }.filter { it.isNotBlank() }.distinct().sorted()
-        _codigosTintaDisponiveis.value = maquinasAtuais.map { it.codigoTinta }.filter { it.isNotBlank() }.distinct().sorted()
-        _codigosSolventeDisponiveis.value = maquinasAtuais.map { it.codigoSolvente }.filter { it.isNotBlank() }.distinct().sorted()
+        // ⚠️ REMOVIDOS: codigoTinta e codigoSolvente não fazem mais parte da máquina
+        _codigosTintaDisponiveis.value = emptyList()
+        _codigosSolventeDisponiveis.value = emptyList()
     }
 
     // ✅ NOVO: Verifica quantidade de itens pendentes
