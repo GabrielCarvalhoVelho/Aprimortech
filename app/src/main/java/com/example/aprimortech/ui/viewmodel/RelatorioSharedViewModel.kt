@@ -54,6 +54,11 @@ class RelatorioSharedViewModel : ViewModel() {
             fabricante, numeroSerie, codigoConfiguracao, modelo, identificacao,
             anoFabricacao, codigoTinta, codigoSolvente, dataProximaPreventiva, horaProximaPreventiva
         )
+        android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] setEquipamentoData chamado")
+        android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] codigoTinta: $codigoTinta")
+        android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] codigoSolvente: $codigoSolvente")
+        android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] dataProximaPreventiva: $dataProximaPreventiva")
+        android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] horaProximaPreventiva: $horaProximaPreventiva")
     }
 
     fun setDefeitosServicos(defeitos: List<String>, servicos: List<String>, observacoes: String) {
@@ -97,6 +102,8 @@ class RelatorioSharedViewModel : ViewModel() {
     }
 
     fun buildRelatorioCompleto(relatorioId: String = "", dataRelatorio: String = getCurrentDate()): RelatorioCompleto {
+        android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] buildRelatorioCompleto chamado")
+        android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] equipamentoData: $equipamentoData")
         val relatorio = RelatorioCompleto(
             id = relatorioId,
             dataRelatorio = dataRelatorio,
@@ -151,6 +158,12 @@ class RelatorioSharedViewModel : ViewModel() {
             // Observações
             observacoes = observacoesData
         )
+
+        android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] RelatorioCompleto criado")
+        android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] equipamentoCodigoTinta: ${relatorio.equipamentoCodigoTinta}")
+        android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] equipamentoCodigoSolvente: ${relatorio.equipamentoCodigoSolvente}")
+        android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] equipamentoDataProximaPreventiva: ${relatorio.equipamentoDataProximaPreventiva}")
+        android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] equipamentoHoraProximaPreventiva: ${relatorio.equipamentoHoraProximaPreventiva}")
 
         _relatorioCompleto.value = relatorio
         return relatorio

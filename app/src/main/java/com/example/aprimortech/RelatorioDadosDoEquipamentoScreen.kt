@@ -54,7 +54,7 @@ fun RelatorioEquipamentoScreen(
             buscarClientesUseCase = (LocalContext.current.applicationContext as AprimortechApplication).buscarClientesUseCase
         )
     ),
-    sharedViewModel: RelatorioSharedViewModel = viewModel()
+    sharedViewModel: RelatorioSharedViewModel
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as AprimortechApplication
@@ -228,10 +228,17 @@ fun RelatorioEquipamentoScreen(
                         label = "Código da Tinta *",
                         placeholder = "Digite ou selecione",
                         onAddNew = {
+                            // Salvar novo código E garantir que o campo receba o valor
                             scope.launch {
-                                tintaRepository.salvarTinta(codigoTintaSelecionado)
-                                tintasDisponiveis = tintaRepository.buscarTodas()
-                                Toast.makeText(context, "Código de tinta salvo!", Toast.LENGTH_SHORT).show()
+                                // Primeiro, garantir que o campo local receba o valor digitado
+                                // (o Autocomplete chamará onValueChange antes de onAddNew,
+                                // mas reforçamos aqui caso seja chamado diretamente)
+                                // Persistir no repositório
+                                if (codigoTintaSelecionado.isNotBlank()) {
+                                    tintaRepository.salvarTinta(codigoTintaSelecionado)
+                                    tintasDisponiveis = tintaRepository.buscarTodas()
+                                    Toast.makeText(context, "Código de tinta salvo!", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     )
@@ -250,9 +257,11 @@ fun RelatorioEquipamentoScreen(
                         placeholder = "Digite ou selecione",
                         onAddNew = {
                             scope.launch {
-                                solventeRepository.salvarSolvente(codigoSolventeSelecionado)
-                                solventesDisponiveis = solventeRepository.buscarTodos()
-                                Toast.makeText(context, "Código de solvente salvo!", Toast.LENGTH_SHORT).show()
+                                if (codigoSolventeSelecionado.isNotBlank()) {
+                                    solventeRepository.salvarSolvente(codigoSolventeSelecionado)
+                                    solventesDisponiveis = solventeRepository.buscarTodos()
+                                    Toast.makeText(context, "Código de solvente salvo!", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     )
@@ -358,7 +367,7 @@ fun RelatorioEquipamentoScreen(
                 Spacer(Modifier.height(16.dp))
                 Button(
                     onClick = {
-                        // Salvar códigos nas collections
+                        // Executar salvamento das collections e salvar no SharedViewModel
                         scope.launch {
                             if (codigoTintaSelecionado.isNotBlank()) {
                                 tintaRepository.salvarTinta(codigoTintaSelecionado)
@@ -366,25 +375,31 @@ fun RelatorioEquipamentoScreen(
                             if (codigoSolventeSelecionado.isNotBlank()) {
                                 solventeRepository.salvarSolvente(codigoSolventeSelecionado)
                             }
-                        }
 
-                        // Salvar dados no SharedViewModel
-                        maquinaSelecionada?.let { maquina ->
-                            sharedViewModel.setEquipamentoData(
-                                fabricante = maquina.fabricante,
-                                numeroSerie = maquina.numeroSerie,
-                                codigoConfiguracao = maquina.codigoConfiguracao,
-                                modelo = maquina.modelo,
-                                identificacao = maquina.identificacao,
-                                anoFabricacao = maquina.anoFabricacao,
-                                codigoTinta = codigoTintaSelecionado,
-                                codigoSolvente = codigoSolventeSelecionado,
-                                dataProximaPreventiva = dataProximaPreventiva,
-                                horaProximaPreventiva = horasProximaPreventiva
-                            )
-                        }
+                            // Agora salvar os dados no SharedViewModel
+                            maquinaSelecionada?.let { maquina ->
+                                android.util.Log.d("RelatorioEquipamentoScreen", "[DEBUG] Salvando dados do equipamento (dentro do coroutine)")
+                                android.util.Log.d("RelatorioEquipamentoScreen", "[DEBUG] codigoTintaSelecionado: $codigoTintaSelecionado")
+                                android.util.Log.d("RelatorioEquipamentoScreen", "[DEBUG] codigoSolventeSelecionado: $codigoSolventeSelecionado")
+                                android.util.Log.d("RelatorioEquipamentoScreen", "[DEBUG] dataProximaPreventiva: $dataProximaPreventiva")
+                                android.util.Log.d("RelatorioEquipamentoScreen", "[DEBUG] horasProximaPreventiva: $horasProximaPreventiva")
+                                sharedViewModel.setEquipamentoData(
+                                    fabricante = maquina.fabricante,
+                                    numeroSerie = maquina.numeroSerie,
+                                    codigoConfiguracao = maquina.codigoConfiguracao,
+                                    modelo = maquina.modelo,
+                                    identificacao = maquina.identificacao,
+                                    anoFabricacao = maquina.anoFabricacao,
+                                    codigoTinta = codigoTintaSelecionado,
+                                    codigoSolvente = codigoSolventeSelecionado,
+                                    dataProximaPreventiva = dataProximaPreventiva,
+                                    horaProximaPreventiva = horasProximaPreventiva
+                                )
+                            }
 
-                        navController.navigate("relatorioEtapa3?clienteId=$clienteId")
+                            // Navegar após salvar
+                            navController.navigate("relatorioEtapa3?clienteId=$clienteId")
+                        }
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     enabled = maquinaSelecionada != null &&
@@ -424,7 +439,7 @@ fun AutocompleteTextField(
     }
 
     ExposedDropdownMenuBox(
-        expanded = expanded && filteredSuggestions.isNotEmpty(),
+        expanded = expanded && (filteredSuggestions.isNotEmpty() || value.isNotBlank()),
         onExpandedChange = { expanded = it }
     ) {
         OutlinedTextField(
@@ -446,7 +461,8 @@ fun AutocompleteTextField(
             }
         )
 
-        if (filteredSuggestions.isNotEmpty()) {
+        // Mostrar o menu sempre que estiver expandido e houver sugestão OU valor não vazio
+        if (expanded && (filteredSuggestions.isNotEmpty() || value.isNotBlank())) {
             ExposedDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
@@ -456,6 +472,21 @@ fun AutocompleteTextField(
                         text = { Text(suggestion) },
                         onClick = {
                             onValueChange(suggestion)
+                            expanded = false
+                        }
+                    )
+                }
+
+                // Se o valor atual não está presente nas sugestões e não é vazio,
+                // mostrar opção para adicionar novo código
+                val alreadyExists = filteredSuggestions.any { it.equals(value, ignoreCase = true) }
+                if (value.isNotBlank() && !alreadyExists) {
+                    DropdownMenuItem(
+                        text = { Text("Adicionar '" + value + "'") },
+                        leadingIcon = { Icon(Icons.Filled.Add, contentDescription = "Adicionar") },
+                        onClick = {
+                            // Chama callback do chamador para salvar/usar o novo valor
+                            onAddNew()
                             expanded = false
                         }
                     )
