@@ -7,12 +7,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,12 +26,18 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.aprimortech.ui.theme.AprimortechTheme
+import com.example.aprimortech.ui.viewmodel.RelatorioViewModel
+import com.example.aprimortech.ui.viewmodel.RelatorioViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +47,57 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
     val context = LocalContext.current
     val app = context.applicationContext as? AprimortechApplication
     val offlineAuth = app?.offlineAuthManager
+
+    // ViewModel para buscar relatórios
+    val relatorioViewModel: RelatorioViewModel = viewModel(
+        factory = RelatorioViewModelFactory(
+            buscarRelatoriosUseCase = (context.applicationContext as AprimortechApplication).buscarRelatoriosUseCase,
+            salvarRelatorioUseCase = (context.applicationContext as AprimortechApplication).salvarRelatorioUseCase,
+            excluirRelatorioUseCase = (context.applicationContext as AprimortechApplication).excluirRelatorioUseCase,
+            sincronizarRelatoriosUseCase = (context.applicationContext as AprimortechApplication).sincronizarRelatoriosUseCase,
+            buscarProximasManutencoesPreventivasUseCase = (context.applicationContext as AprimortechApplication).buscarProximasManutencoesPreventivasUseCase,
+            relatorioRepository = (context.applicationContext as AprimortechApplication).relatorioRepository
+        )
+    )
+
+    // Observa a lista de relatórios
+    val relatorios by relatorioViewModel.relatorios.collectAsState()
+
+    // Helper de parsing com SimpleDateFormat (compatível com minSdk)
+    val parseDateSafe: (String?) -> Date? = remember {
+        { dateStr ->
+            if (dateStr.isNullOrBlank()) null
+            else {
+                val patterns = listOf("yyyy-MM-dd", "dd/MM/yyyy", "yyyy/MM/dd")
+                var parsed: Date? = null
+                for (pattern in patterns) {
+                    try {
+                        val sdf = SimpleDateFormat(pattern, Locale.getDefault())
+                        sdf.isLenient = false
+                        parsed = sdf.parse(dateStr)
+                        if (parsed != null) break
+                    } catch (_: Exception) {
+                        // tentar próximo
+                    }
+                }
+                parsed
+            }
+        }
+    }
+
+    // Prepara os 5 relatórios mais recentes para exibição
+    val recentReportsUi = remember(relatorios) {
+        relatorios
+            .sortedByDescending { parseDateSafe(it.dataRelatorio)?.time ?: 0L }
+            .take(5)
+            .map { r ->
+                ReportUiModel(
+                    title = r.descricaoServico.takeIf { it.isNotBlank() } ?: "Relatório ${r.id.take(6)}",
+                    subtitle = "${r.clienteId} • ${r.maquinaId} • ${r.dataRelatorio}",
+                    status = if (r.syncPending) ReportStatus.Pending else ReportStatus.Done
+                )
+            }
+    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -107,31 +166,13 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
                 HorizontalDivider()
 
                 // USUÁRIO
-                Row(
+                // Keep only logout button in the drawer (no avatar/name/email)
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    contentAlignment = Alignment.CenterEnd
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.AccountCircle,
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = Color(0xFF1A4A5C)
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text("João Silva", style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                "joao.silva@email.com",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
                     IconButton(
                         onClick = {
                             FirebaseAuth.getInstance().signOut()
@@ -180,7 +221,8 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
                     .background(Color(0xFFF5F5F5))
                     .verticalScroll(rememberScrollState())
                     .padding(innerPadding)
-                    .padding(16.dp)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.Top
             ) {
                 Text(
                     text = "Ações Rápidas",
@@ -208,41 +250,10 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
 
                 Spacer(Modifier.height(24.dp))
 
-                Text(
-                    text = "Indicadores",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = Color(0xFF1A4A5C)
-                )
-                Spacer(Modifier.height(16.dp))
-
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MetricCard("Total de Relatórios", "3", Icons.AutoMirrored.Filled.List)
-                    MetricCard("Clientes Ativos", "3", Icons.Default.Person)
-                    MetricCard("Máquinas", "3", Icons.Default.Build)
-                    MetricCard("Peças em Estoque", "98", Icons.Default.Inventory)
-                }
-
-                Spacer(Modifier.height(24.dp))
-
+                // Relatórios recentes (até 5)
                 RecentReportsSection(
-                    reports = listOf(
-                        ReportUiModel(
-                            "Instalação - Configuração da Dobradeira",
-                            "Indústrias TechFlow • Dobradeira • 22 fev 2024",
-                            ReportStatus.Draft
-                        ),
-                        ReportUiModel(
-                            "Reparo de Emergência - Torno #3",
-                            "Corporação Acme • Torno #3 • 20 fev 2024",
-                            ReportStatus.Pending
-                        ),
-                        ReportUiModel(
-                            "Manutenção Preventiva - Fresadora CNC #1",
-                            "Corporação Acme • Fresadora CNC #1 • 15 fev 2024",
-                            ReportStatus.Done
-                        )
-                    ),
-                    onVerTodos = { navController.navigate("relatorios") } // ✅ agora leva para RelatoriosScreen
+                    reports = recentReportsUi,
+                    onVerTodos = { navController.navigate("relatorios") }
                 )
             }
         }
@@ -258,29 +269,6 @@ fun DrawerMenuItem(icon: ImageVector, label: String, selected: Boolean, onClick:
         icon = { Icon(icon, contentDescription = label) },
         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
     )
-}
-
-@Composable
-fun MetricCard(title: String, value: String, icon: ImageVector) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(title, style = MaterialTheme.typography.bodyMedium)
-                Text(value, style = MaterialTheme.typography.headlineSmall)
-            }
-            Icon(icon, contentDescription = title, tint = Color(0xFF1A4A5C))
-        }
-    }
 }
 
 @Composable
