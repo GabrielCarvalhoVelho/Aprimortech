@@ -30,12 +30,14 @@ import com.example.aprimortech.ui.viewmodel.RelatorioSharedViewModel
 import com.example.aprimortech.data.local.entity.MaquinaEntity
 import com.example.aprimortech.model.Tinta
 import com.example.aprimortech.model.Solvente
+import com.example.aprimortech.model.Cliente
 import androidx.compose.material3.MenuAnchorType
 import android.widget.Toast
 import android.app.DatePickerDialog
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
+import java.util.UUID
 
 private val Brand = Color(0xFF1A4A5C)
 
@@ -71,14 +73,28 @@ fun RelatorioEquipamentoScreen(
     var dataProximaPreventiva by remember { mutableStateOf("") }
     var horasProximaPreventiva by remember { mutableStateOf("") }
 
+    // Novo: controlar exibição do modal de nova máquina
+    var showNovoMaquinaDialog by remember { mutableStateOf(false) }
+    // Novo: id pendente para seleção após salvar (aguarda ViewModel atualizar lista)
+    var pendingMaquinaId by remember { mutableStateOf<String?>(null) }
+
     // Listas de tintas e solventes disponíveis
     var tintasDisponiveis by remember { mutableStateOf<List<Tinta>>(emptyList()) }
     var solventesDisponiveis by remember { mutableStateOf<List<Solvente>>(emptyList()) }
 
     // Estados do ViewModel
     val maquinas by viewModel.maquinas.collectAsState()
+    val clientes by viewModel.clientes.collectAsState()
+    val fabricantesDisponiveis by viewModel.fabricantesDisponiveis.collectAsState()
+    val modelosDisponiveis by viewModel.modelosDisponiveis.collectAsState()
+    val codigosTintaDisponiveis by viewModel.codigosTintaDisponiveis.collectAsState()
+    val codigosSolventeDisponiveis by viewModel.codigosSolventeDisponiveis.collectAsState()
+
     val operacaoEmAndamento by viewModel.operacaoEmAndamento.collectAsState()
     val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
+
+    // Carregar dados do ViewModel ao entrar (para clientes, máquinas e autocompletes)
+    LaunchedEffect(Unit) { viewModel.carregarTodosDados() }
 
     // Carregar tintas e solventes ao iniciar
     LaunchedEffect(Unit) {
@@ -91,6 +107,18 @@ fun RelatorioEquipamentoScreen(
     // Filtrar máquinas do cliente atual
     val maquinasDoCliente = remember(maquinas, clienteId) {
         maquinas.filter { it.clienteId == clienteId }
+    }
+
+    // Quando um id de máquina foi salvo/pendente, aguardar até que ViewModel retorne essa máquina e selecioná-la
+    LaunchedEffect(pendingMaquinaId, maquinas) {
+        val pid = pendingMaquinaId
+        if (!pid.isNullOrBlank()) {
+            val encontrada = maquinas.find { it.id == pid }
+            if (encontrada != null) {
+                maquinaSelecionada = encontrada
+                pendingMaquinaId = null
+            }
+        }
     }
 
     // Feedback toast
@@ -148,7 +176,16 @@ fun RelatorioEquipamentoScreen(
 
                 // SEÇÃO MÁQUINA
                 SectionCard {
-                    Text("Máquina", style = MaterialTheme.typography.titleMedium, color = Brand)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Máquina", style = MaterialTheme.typography.titleMedium, color = Brand)
+                        IconButton(onClick = { showNovoMaquinaDialog = true }) {
+                            Icon(Icons.Default.Add, contentDescription = "Nova Máquina", tint = Brand)
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
 
                     if (maquinasDoCliente.isEmpty()) {
@@ -417,6 +454,34 @@ fun RelatorioEquipamentoScreen(
             }
         }
     }
+
+    // Dialog para nova máquina (usa implementação idêntica à de MaquinasScreen)
+    if (showNovoMaquinaDialog) {
+        AddEditMaquinaDialog(
+            initial = MaquinaEntity(
+                id = UUID.randomUUID().toString(),
+                clienteId = clienteId,
+                fabricante = "",
+                numeroSerie = "",
+                modelo = "",
+                identificacao = "",
+                anoFabricacao = "",
+                codigoConfiguracao = ""
+            ),
+            clientes = clientes,
+            fabricantesDisponiveis = fabricantesDisponiveis,
+            modelosDisponiveis = modelosDisponiveis,
+            codigosTintaDisponiveis = codigosTintaDisponiveis,
+            codigosSolventeDisponiveis = codigosSolventeDisponiveis,
+            onDismiss = { showNovoMaquinaDialog = false },
+            onConfirm = { nova ->
+                // Marcar pending id e solicitar salvamento via ViewModel
+                pendingMaquinaId = nova.id
+                viewModel.salvarMaquina(nova)
+                showNovoMaquinaDialog = false
+            }
+        )
+    }
 }
 
 /**
@@ -512,8 +577,246 @@ private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun textFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedContainerColor = Color(0xFFF0F8FF),
-    unfocusedContainerColor = Color(0xFFF0F8FF),
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    disabledContainerColor = Color.White,
     focusedBorderColor = Brand,
     unfocusedBorderColor = Color.LightGray
 )
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddEditMaquinaDialog(
+    initial: MaquinaEntity,
+    clientes: List<Cliente>,
+    fabricantesDisponiveis: List<String>,
+    modelosDisponiveis: List<String>,
+    codigosTintaDisponiveis: List<String>,
+    codigosSolventeDisponiveis: List<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (MaquinaEntity) -> Unit
+) {
+    var clienteId by remember { mutableStateOf(initial.clienteId) }
+    var fabricante by remember { mutableStateOf(initial.fabricante) }
+    var numeroSerie by remember { mutableStateOf(initial.numeroSerie) }
+    var modelo by remember { mutableStateOf(initial.modelo) }
+    var identificacao by remember { mutableStateOf(initial.identificacao) }
+    var anoFabricacao by remember { mutableStateOf(initial.anoFabricacao) }
+    var codigoConfiguracao by remember { mutableStateOf(initial.codigoConfiguracao) }
+
+    val salvarHabilitado = clienteId.isNotBlank() && fabricante.isNotBlank() &&
+            numeroSerie.isNotBlank() && modelo.isNotBlank() &&
+            anoFabricacao.isNotBlank() && identificacao.isNotBlank() &&
+            codigoConfiguracao.isNotBlank()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initial.fabricante.isBlank()) "Nova Máquina" else "Editar Máquina") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 600.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Dropdown de Cliente
+                var expanded by remember { mutableStateOf(false) }
+                val clienteSelecionado = clientes.find { it.id == clienteId }?.nome ?: ""
+
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = clienteSelecionado,
+                        onValueChange = { },
+                        readOnly = true,
+                        label = { Text("Cliente *") },
+                        placeholder = { Text("Selecione um cliente") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                        colors = textFieldColors()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        clientes.forEach { cliente ->
+                            DropdownMenuItem(
+                                text = { Text(cliente.nome) },
+                                onClick = {
+                                    clienteId = cliente.id
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Campo Fabricante com dropdown autocomplete
+                var fabricanteExpanded by remember { mutableStateOf(false) }
+                val fabricantesFiltrados = remember(fabricante, fabricantesDisponiveis) {
+                    if (fabricante.isBlank()) fabricantesDisponiveis.take(5)
+                    else fabricantesDisponiveis.filter { it.contains(fabricante, ignoreCase = true) }.take(5)
+                }
+
+                ExposedDropdownMenuBox(
+                    expanded = fabricanteExpanded && fabricantesFiltrados.isNotEmpty(),
+                    onExpandedChange = { fabricanteExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = fabricante,
+                        onValueChange = {
+                            fabricante = it
+                            fabricanteExpanded = it.isNotEmpty() && fabricantesFiltrados.isNotEmpty()
+                        },
+                        label = { Text("Fabricante *") },
+                        placeholder = { Text("Ex: Hitachi, Videojet, Domino") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryEditable),
+                        colors = textFieldColors()
+                    )
+                    if (fabricantesFiltrados.isNotEmpty()) {
+                        ExposedDropdownMenu(
+                            expanded = fabricanteExpanded,
+                            onDismissRequest = { fabricanteExpanded = false }
+                        ) {
+                            fabricantesFiltrados.forEach { sugestao ->
+                                DropdownMenuItem(
+                                    text = { Text(sugestao) },
+                                    onClick = {
+                                        fabricante = sugestao
+                                        fabricanteExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = numeroSerie,
+                    onValueChange = { numeroSerie = it.uppercase() },
+                    label = { Text("Número de Série *") },
+                    placeholder = { Text("Ex: SN001234") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
+
+                // Campo Modelo com dropdown autocomplete
+                var modeloExpanded by remember { mutableStateOf(false) }
+                val modelosFiltrados = remember(modelo, modelosDisponiveis) {
+                    if (modelo.isBlank()) modelosDisponiveis.take(5)
+                    else modelosDisponiveis.filter { it.contains(modelo, ignoreCase = true) }.take(5)
+                }
+
+                ExposedDropdownMenuBox(
+                    expanded = modeloExpanded && modelosFiltrados.isNotEmpty(),
+                    onExpandedChange = { modeloExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = modelo,
+                        onValueChange = {
+                            modelo = it.uppercase()
+                            modeloExpanded = it.isNotEmpty() && modelosFiltrados.isNotEmpty()
+                        },
+                        label = { Text("Modelo *") },
+                        placeholder = { Text("Ex: UX-D160W, 1550") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryEditable),
+                        colors = textFieldColors()
+                    )
+                    if (modelosFiltrados.isNotEmpty()) {
+                        ExposedDropdownMenu(
+                            expanded = modeloExpanded,
+                            onDismissRequest = { modeloExpanded = false }
+                        ) {
+                            modelosFiltrados.forEach { sugestao ->
+                                DropdownMenuItem(
+                                    text = { Text(sugestao) },
+                                    onClick = {
+                                        modelo = sugestao.uppercase()
+                                        modeloExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = identificacao,
+                    onValueChange = { identificacao = it },
+                    label = { Text("Identificação *") },
+                    placeholder = { Text("Ex: Máquina Principal") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
+
+                OutlinedTextField(
+                    value = anoFabricacao,
+                    onValueChange = { newValue ->
+                        val filtered = newValue.filter { it.isDigit() }.take(4)
+                        anoFabricacao = filtered
+                    },
+                    label = { Text("Ano de Fabricação *") },
+                    placeholder = { Text("Ex: 2020") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
+
+                OutlinedTextField(
+                    value = codigoConfiguracao,
+                    onValueChange = { codigoConfiguracao = it.uppercase() },
+                    label = { Text("Código de Configuração *") },
+                    placeholder = { Text("Ex: CFG001, CONFIG-A") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
+
+                Text(
+                    "* Campos obrigatórios",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(
+                        initial.copy(
+                            clienteId = clienteId.trim(),
+                            fabricante = fabricante.trim(),
+                            numeroSerie = numeroSerie.trim(),
+                            modelo = modelo.trim(),
+                            anoFabricacao = anoFabricacao.trim(),
+                            identificacao = identificacao.trim(),
+                            codigoConfiguracao = codigoConfiguracao.trim()
+                        )
+                    )
+                },
+                enabled = salvarHabilitado,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Brand,
+                    contentColor = Color.White,
+                    disabledContainerColor = Brand.copy(alpha = 0.4f),
+                    disabledContentColor = Color.White.copy(alpha = 0.8f)
+                ),
+                shape = RoundedCornerShape(6.dp)
+            ) { Text("Salvar") }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, shape = RoundedCornerShape(6.dp)) {
+                Text("Cancelar", color = Brand)
+            }
+        }
+    )
+}
