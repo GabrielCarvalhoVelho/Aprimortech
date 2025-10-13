@@ -511,14 +511,21 @@ object PdfExporter {
         val partsRows = relatorio.pecas.map { p -> Triple(p.codigo, p.descricao, p.quantidade.toString()) }
         if (partsRows.isNotEmpty()) drawPartsList(partsRows) else drawEmptyPlaceholder()
 
+        // Compute totals to show clearly in the report
+        val valorTotalHoras = relatorio.totalHorasTecnicas * relatorio.valorHoraTecnica
+        val valorTotalDeslocamentoCalc = relatorio.quantidadeKm * relatorio.valorPorKm + relatorio.valorPedagios
+        // Valor total do serviço = horas técnicas + deslocamento
+        val valorTotalServico = valorTotalHoras + valorTotalDeslocamentoCalc
+
         drawSectionTitle("HORAS TÉCNICAS")
         drawKeyValueTable(
             listOf(
                 "Horário de Entrada" to relatorio.horarioEntrada,
                 "Horário de Saída" to relatorio.horarioSaida,
+                // mostrar total de horas (numérico) e valor total calculado explicitamente
+                "Total Horas" to String.format(Locale("pt", "BR"), "%.2f h", relatorio.totalHorasTecnicas),
                 "Valor Hora Técnica" to formatCurrency(relatorio.valorHoraTecnica),
-                // Alterado: exibir "Valor Total" que é totalHorasTecnicas * valorHoraTecnica
-                "Valor Total" to formatCurrency(relatorio.totalHorasTecnicas * relatorio.valorHoraTecnica)
+                "Valor Total (Horas Técnicas)" to formatCurrency(valorTotalHoras)
             )
         )
 
@@ -528,7 +535,16 @@ object PdfExporter {
                 "Quantidade de KM" to "${relatorio.quantidadeKm} km",
                 "Valor por KM" to formatCurrency(relatorio.valorPorKm),
                 "Valor dos Pedágios" to formatCurrency(relatorio.valorPedagios),
-                "Valor Total" to formatCurrency(relatorio.valorTotalDeslocamento)
+                // usar o valor calculado explicitamente e mostrar que é calculado
+                "Valor Total (Deslocamento)" to formatCurrency(valorTotalDeslocamentoCalc)
+            )
+        )
+
+        // Exibir o valor total do serviço de forma evidente
+        drawSectionTitle("TOTAL DO SERVIÇO")
+        drawKeyValueTable(
+            listOf(
+                "Valor Total do Serviço" to formatCurrency(valorTotalServico)
             )
         )
 
