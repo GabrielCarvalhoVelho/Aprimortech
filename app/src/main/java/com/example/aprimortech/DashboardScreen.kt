@@ -30,6 +30,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.aprimortech.ui.theme.AprimortechTheme
+import com.example.aprimortech.ui.viewmodel.ClienteViewModel
+import com.example.aprimortech.ui.viewmodel.ClienteViewModelFactory
 import com.example.aprimortech.ui.viewmodel.RelatorioViewModel
 import com.example.aprimortech.ui.viewmodel.RelatorioViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
@@ -60,8 +62,22 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
         )
     )
 
+    // ViewModel para clientes (resolver nome a partir do clienteId)
+    val clienteViewModel: ClienteViewModel = viewModel(
+        factory = ClienteViewModelFactory(
+            buscarClientesUseCase = (context.applicationContext as AprimortechApplication).buscarClientesUseCase,
+            salvarClienteUseCase = (context.applicationContext as AprimortechApplication).salvarClienteUseCase,
+            excluirClienteUseCase = (context.applicationContext as AprimortechApplication).excluirClienteUseCase,
+            sincronizarClientesUseCase = (context.applicationContext as AprimortechApplication).sincronizarClientesUseCase
+        )
+    )
+
     // Observa a lista de relatórios
     val relatorios by relatorioViewModel.relatorios.collectAsState()
+
+    // Observa a lista de clientes para montar um mapa id -> nome
+    val clientes by clienteViewModel.clientes.collectAsState()
+    val clienteNameById = remember(clientes) { clientes.associate { it.id to it.nome } }
 
     // Helper de parsing com SimpleDateFormat (compatível com minSdk)
     val parseDateSafe: (String?) -> Date? = remember {
@@ -85,16 +101,21 @@ fun DashboardScreen(navController: NavController, modifier: Modifier = Modifier)
         }
     }
 
+    // Formatter para exibir data no formato dd/MM/yyyy (apenas data)
+    val displayDateFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+
     // Prepara os 5 relatórios mais recentes para exibição
-    val recentReportsUi = remember(relatorios) {
+    val recentReportsUi = remember(relatorios, clienteNameById) {
         relatorios
             .sortedByDescending { parseDateSafe(it.dataRelatorio)?.time ?: 0L }
             .take(5)
             .map { r ->
+                val clientName = clienteNameById[r.clienteId] ?: r.clienteId.takeIf { it.isNotBlank() } ?: "Cliente ${r.id.take(6)}"
+                val formattedDate = parseDateSafe(r.dataRelatorio)?.let { displayDateFormatter.format(it) } ?: (r.dataRelatorio ?: "")
                 ReportUiModel(
-                    title = r.descricaoServico.takeIf { it.isNotBlank() } ?: "Relatório ${r.id.take(6)}",
-                    subtitle = "${r.clienteId} • ${r.maquinaId} • ${r.dataRelatorio}",
-                    status = if (r.syncPending) ReportStatus.Pending else ReportStatus.Done
+                    // title = nome do cliente; date = dd/MM/yyyy
+                    title = clientName,
+                    date = formattedDate
                 )
             }
     }
@@ -329,60 +350,40 @@ fun ReportCard(report: ReportUiModel) {
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         shape = RoundedCornerShape(8.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            // Single-line: client name left, date right
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
-                    imageVector = report.icon,
-                    contentDescription = null,
-                    tint = Color(0xFF1A4A5C)
+                    imageVector = Icons.Default.Description,
+                    contentDescription = "Relatório",
+                    tint = Color(0xFF1A4A5C),
+                    modifier = Modifier.size(20.dp)
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     report.title,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = Color(0xFF1A4A5C)
+                    color = Color(0xFF1A4A5C),
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    report.date,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.wrapContentWidth(Alignment.End)
                 )
             }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                report.subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(8.dp))
-            StatusBadge(report.status)
         }
     }
 }
 
-@Composable
-fun StatusBadge(status: ReportStatus) {
-    val (label, bgColor, textColor) = when (status) {
-        ReportStatus.Draft -> Triple("Rascunho", Color(0xFFE0E0E0), Color.Black)
-        ReportStatus.Pending -> Triple("Pendente", Color(0xFFFFF59D), Color.Black)
-        ReportStatus.Done -> Triple("Concluído", Color(0xFFA5D6A7), Color.Black)
-    }
-    Surface(
-        color = bgColor,
-        shape = RoundedCornerShape(50),
-        modifier = Modifier.padding(top = 4.dp)
-    ) {
-        Text(
-            label,
-            color = textColor,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-        )
-    }
-}
-
-enum class ReportStatus { Draft, Pending, Done }
-
+// status removed: no longer show report status in the dashboard
 data class ReportUiModel(
     val title: String,
-    val subtitle: String,
-    val status: ReportStatus,
-    val icon: ImageVector = Icons.Default.Description
+    val date: String
 )
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
