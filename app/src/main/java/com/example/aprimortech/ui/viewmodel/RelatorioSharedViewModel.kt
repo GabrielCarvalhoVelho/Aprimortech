@@ -218,7 +218,8 @@ private data class EquipamentoData(
 data class PecaData(
     val codigo: String,
     val descricao: String,
-    val quantidade: Int
+    val quantidade: Int,
+    val valorUnitario: Double? = null
 )
 
 private data class HorasData(

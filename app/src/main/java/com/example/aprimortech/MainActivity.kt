@@ -265,10 +265,17 @@ fun AppNavigation() {
                 pecas.split("|").mapNotNull { pecaStr ->
                     val parts = pecaStr.split(";")
                     if (parts.size >= 3) {
+                        // parts: 0=codigo,1=descricao,2=quantidade,3=valorUnit (opcional)
+                        val quantidade = parts[2].toIntOrNull() ?: 0
+                        val valorUnit = if (parts.size > 3 && parts[3].isNotBlank()) {
+                            parts[3].replace(',', '.').toDoubleOrNull()
+                        } else null
+
                         com.example.aprimortech.ui.viewmodel.PecaData(
                             codigo = parts[0],
                             descricao = parts[1],
-                            quantidade = parts[2].toIntOrNull() ?: 0
+                            quantidade = quantidade,
+                            valorUnitario = valorUnit
                         )
                     } else null
                 }
@@ -313,7 +320,7 @@ fun AppNavigation() {
                 recomendacoes = observacoes, // Mantém para compatibilidade
                 horarioEntrada = horarioEntrada,
                 horarioSaida = horarioSaida,
-                valorHoraTecnica = valorHoraTecnicaParsed ?: relatorioCompletoBuilt.valorHoraTecnica ?: 0.0,
+                valorHoraTecnica = valorHoraTecnicaParsed ?: relatorioCompletoBuilt.valorHoraTecnica,
                 distanciaKm = distanciaKm,
                 valorDeslocamentoPorKm = valorPorKm,
                 valorDeslocamentoTotal = valorDeslocamentoTotal,
@@ -322,16 +329,18 @@ fun AppNavigation() {
                 defeitosIdentificados = defeitos.split(",").filter { it.isNotEmpty() },
                 servicosRealizados = servicos.split(",").filter { it.isNotEmpty() },
                 observacoesDefeitosServicos = observacoes,
-                codigoTinta = relatorioCompletoBuilt.equipamentoCodigoTinta ?: "",
-                codigoSolvente = relatorioCompletoBuilt.equipamentoCodigoSolvente ?: "",
-                dataProximaPreventiva = relatorioCompletoBuilt.equipamentoDataProximaPreventiva ?: "",
-                horasProximaPreventiva = relatorioCompletoBuilt.equipamentoHoraProximaPreventiva ?: "",
+                codigoTinta = relatorioCompletoBuilt.equipamentoCodigoTinta,
+                codigoSolvente = relatorioCompletoBuilt.equipamentoCodigoSolvente,
+                dataProximaPreventiva = relatorioCompletoBuilt.equipamentoDataProximaPreventiva,
+                horasProximaPreventiva = relatorioCompletoBuilt.equipamentoHoraProximaPreventiva,
                 pecasUtilizadas = pecasParsed.map { peca ->
-                    mapOf(
+                    val map = mutableMapOf<String, Any>(
                         "codigo" to peca.codigo,
                         "descricao" to peca.descricao,
                         "quantidade" to peca.quantidade
                     )
+                    peca.valorUnitario?.let { map["valorUnitario"] = it }
+                    map
                 },
                 syncPending = true
             )
@@ -528,7 +537,7 @@ fun LoginScreen(navController: NavController, modifier: Modifier = Modifier) {
                     val valid = offlineAuth?.validateCredentials(emailTrim, passTrim) ?: false
                     isProcessing = false
                     if (valid) {
-                        offlineAuth?.refreshSessionTimestamp()
+                        if (offlineAuth != null) offlineAuth.refreshSessionTimestamp()
                         Toast.makeText(context, "Login offline bem-sucedido.", Toast.LENGTH_SHORT).show()
                         navController.navigate("dashboard") {
                             popUpTo("login") { inclusive = true }

@@ -1,6 +1,5 @@
 package com.example.aprimortech
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -38,8 +37,6 @@ import kotlinx.coroutines.delay
 import android.widget.Toast
 import androidx.compose.material3.MenuAnchorType
 import java.util.UUID
-import java.text.NumberFormat
-import java.util.Locale
 
 data class PecaUiModel(
     var codigo: String = "",
@@ -81,7 +78,8 @@ fun RelatorioPecasScreen(
     val mensagemOperacao by pecaViewModel.mensagemOperacao.collectAsState()
 
     // Estados locais para UI
-    var pecas by remember { mutableStateOf(mutableListOf<PecaUiModel>()) }
+    // Usar mutableStateListOf para evitar warnings ao criar MutableState com coleção mutável
+    val pecas = remember { mutableStateListOf<PecaUiModel>() }
     var novaPeca by remember { mutableStateOf(PecaUiModel()) }
     var editIndex by remember { mutableStateOf<Int?>(null) }
 
@@ -101,7 +99,7 @@ fun RelatorioPecasScreen(
     val observacoesDecodificadas = remember {
         try {
             java.net.URLDecoder.decode(observacoes, "UTF-8")
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             observacoes
         }
     }
@@ -336,12 +334,10 @@ fun RelatorioPecasScreen(
 
                         if (editIndex == null) {
                             // adiciona
-                            pecas = (pecas + novaPeca).toMutableList()
+                            pecas.add(novaPeca)
                         } else {
                             // edita
-                            val lista = pecas.toMutableList()
-                            lista[editIndex!!] = novaPeca
-                            pecas = lista
+                            pecas[editIndex!!] = novaPeca
                             editIndex = null
                         }
 
@@ -378,8 +374,18 @@ fun RelatorioPecasScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text("${peca.codigo} - ${peca.descricao}")
-                            Text("Qtd: ${peca.quantidade} • Unit: R$ %.2f".format(peca.valorUnit))
-                            Text("Total: R$ %.2f".format(peca.valorTotal))
+
+                            // Mostrar quantidade e, se existir, o valor unitário
+                            val unitText = if (peca.valorUnit > 0.0) " • Unit: R$ %.2f".format(peca.valorUnit) else ""
+                            Text("Qtd: ${peca.quantidade}$unitText")
+
+                            // Mostrar total apenas se houver valor unitário
+                            if (peca.valorUnit > 0.0) {
+                                Text("Total: R$ %.2f".format(peca.valorTotal))
+                            } else {
+                                Text("Total: -")
+                            }
+
                             Row(
                                 horizontalArrangement = Arrangement.End,
                                 modifier = Modifier.fillMaxWidth()
@@ -393,7 +399,7 @@ fun RelatorioPecasScreen(
                                     Icon(Icons.Filled.Edit, contentDescription = "Editar", tint = Color(0xFF1A4A5C))
                                 }
                                 IconButton(onClick = {
-                                    pecas = pecas.toMutableList().also { it.removeAt(index) }
+                                    pecas.removeAt(index)
                                 }) {
                                     Icon(Icons.Filled.Delete, contentDescription = "Excluir", tint = MaterialTheme.colorScheme.error)
                                 }
@@ -421,7 +427,8 @@ fun RelatorioPecasScreen(
                             com.example.aprimortech.ui.viewmodel.PecaData(
                                 codigo = peca.codigo,
                                 descricao = peca.descricao,
-                                quantidade = peca.quantidade
+                                quantidade = peca.quantidade,
+                                valorUnitario = if (peca.valorUnit == 0.0) null else peca.valorUnit
                             )
                         }
                     )
@@ -430,7 +437,7 @@ fun RelatorioPecasScreen(
                     val defeitosString = defeitos
                     val servicosString = servicos
                     val observacoesEncoded = java.net.URLEncoder.encode(observacoesDecodificadas, "UTF-8")
-                    val pecasJson = pecas.joinToString("|") { "${it.codigo};${it.descricao};${it.quantidade};${it.valorUnit}" }
+                    val pecasJson = pecas.joinToString("|") { "${it.codigo};${it.descricao};${it.quantidade};${if (it.valorUnit == 0.0) "" else it.valorUnit}" }
 
                     navController.navigate("relatorioEtapa5?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&pecas=$pecasJson&clienteId=$clienteId")
                 },
@@ -512,7 +519,8 @@ fun AddEditPecaCatalogoDialog(
     var descricao by remember { mutableStateOf(initial.descricao) }
     var valorUnitarioText by remember { mutableStateOf(if (initial.valorUnitario > 0) initial.valorUnitario.toString() else "") }
 
-    val salvarHabilitado = codigo.isNotBlank() && descricao.isNotBlank() && valorUnitarioText.isNotBlank()
+    // Tornar o valor unitário opcional: apenas código e descrição são obrigatórios
+    val salvarHabilitado = codigo.isNotBlank() && descricao.isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -564,7 +572,7 @@ fun AddEditPecaCatalogoDialog(
                             .replace(',', '.')
                         valorUnitarioText = filtered
                     },
-                    label = { Text("Valor Unitário (R$) *") },
+                    label = { Text("Valor Unitário (R$) (opcional)") },
                     placeholder = { Text("Ex: 45.90") },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal,
@@ -584,7 +592,7 @@ fun AddEditPecaCatalogoDialog(
                 )
 
                 Text(
-                    "* Campos obrigatórios",
+                    "* Campos obrigatórios (Valor unitário é opcional)",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray,
                     modifier = Modifier.padding(top = 4.dp)

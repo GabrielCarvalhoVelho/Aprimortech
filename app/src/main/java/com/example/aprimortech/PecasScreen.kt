@@ -152,14 +152,16 @@ fun PecasScreen(
 
             Spacer(Modifier.height(16.dp))
 
+            // Precriar formatador de moeda com Locale BR usando Locale.Builder (evita construtor depreciado)
+            val brLocale = remember { Locale.Builder().setLanguage("pt").setRegion("BR").build() }
+            val currencyFormatter = remember { NumberFormat.getCurrencyInstance(brLocale) }
+
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 items(listaFiltrada, key = { it.id }) { peca ->
-                    val currencyFormatter = remember { NumberFormat.getCurrencyInstance(Locale("pt", "BR")) }
-
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -170,9 +172,11 @@ fun PecasScreen(
                             Text(peca.codigo, style = MaterialTheme.typography.titleMedium, color = Brand)
                             Spacer(Modifier.height(4.dp))
                             Text("Descrição: ${peca.descricao}", style = MaterialTheme.typography.bodySmall)
-                            Text("Valor Unitário: ${currencyFormatter.format(peca.valorUnitario)}",
+                            Text(
+                                text = if (peca.valorUnitario > 0.0) "Valor Unitário: ${currencyFormatter.format(peca.valorUnitario)}" else "Valor Unitário: -",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Brand)
+                                color = Brand
+                            )
 
                             Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
@@ -275,7 +279,8 @@ private fun AddEditPecaDialog(
     var descricao by remember { mutableStateOf(initial.descricao) }
     var valorUnitarioText by remember { mutableStateOf(if (initial.valorUnitario > 0) initial.valorUnitario.toString() else "") }
 
-    val salvarHabilitado = codigo.isNotBlank() && descricao.isNotBlank() && valorUnitarioText.isNotBlank()
+    // Tornar o valor unitário opcional
+    val salvarHabilitado = codigo.isNotBlank() && descricao.isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -312,7 +317,7 @@ private fun AddEditPecaDialog(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                 )
 
-                // 3. Valor Unitário
+                // 3. Valor Unitário (opcional)
                 OutlinedTextField(
                     value = valorUnitarioText,
                     onValueChange = { newValue ->
@@ -320,7 +325,7 @@ private fun AddEditPecaDialog(
                             .replace(',', '.')
                         valorUnitarioText = filtered
                     },
-                    label = { Text("Valor Unitário (R$) *") },
+                    label = { Text("Valor Unitário (R$) (opcional)") },
                     placeholder = { Text("Ex: 45.90") },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal,
@@ -335,7 +340,7 @@ private fun AddEditPecaDialog(
                 )
 
                 Text(
-                    "* Campos obrigatórios",
+                    "* Campos obrigatórios (Valor unitário é opcional)",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray,
                     modifier = Modifier.padding(top = 4.dp)
@@ -390,7 +395,7 @@ private fun ViewPecaDialog(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val currencyFormatter = remember { NumberFormat.getCurrencyInstance(Locale("pt", "BR")) }
+    val currencyFormatter = remember { NumberFormat.getCurrencyInstance(Locale.Builder().setLanguage("pt").setRegion("BR").build()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -399,7 +404,11 @@ private fun ViewPecaDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Código: ${peca.codigo}")
                 Text("Descrição: ${peca.descricao}")
-                Text("Valor Unitário: ${currencyFormatter.format(peca.valorUnitario)}")
+                Text(
+                    text = if (peca.valorUnitario > 0.0) "Valor Unitário: ${currencyFormatter.format(peca.valorUnitario)}" else "Valor Unitário: -",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Brand
+                )
             }
         },
         confirmButton = {
