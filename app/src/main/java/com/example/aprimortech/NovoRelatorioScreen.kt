@@ -42,6 +42,8 @@ import kotlinx.coroutines.delay
 import java.util.UUID
 import android.widget.Toast
 import androidx.compose.material3.MenuAnchorType
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 private val Brand = Color(0xFF1A4A5C)
 
@@ -129,11 +131,10 @@ fun NovoRelatorioScreen(
 
     // Carregar contatos quando cliente muda
     LaunchedEffect(clienteSelecionado) {
-        if (clienteSelecionado != null) {
-            //viewModel.carregarSetoresPorCliente(clienteSelecionado!!.id)
-        }
+        // Quando o cliente muda, sempre resetamos o contato selecionado.
+        // (Chamada para carregar setores por cliente foi comentada intencionalmente;
+        // se quiser reativar, use: viewModel.carregarSetoresPorCliente(clienteSelecionado!!.id) )
         contatoSelecionado = null
-        //setorSelecionado = null
     }
 
     Scaffold(
@@ -372,33 +373,64 @@ fun NovoRelatorioScreen(
                 // BOTÃO CONTINUAR
                 Spacer(Modifier.height(16.dp))
                 Button(
+                    // Ação do botão: salvar os dados do cliente (contato opcional) no ViewModel compartilhado
+                    // e navegar para a tela de dados do equipamento.
                     onClick = {
-                        // Salvar dados do cliente no ViewModel compartilhado
+                        // Garantir que haja um cliente selecionado antes de prosseguir
                         clienteSelecionado?.let { cliente ->
-                            contatoSelecionado?.let { contato ->
-                                sharedViewModel.setClienteData(
-                                    nome = cliente.nome,
-                                    endereco = cliente.endereco,
-                                    cidade = cliente.cidade,
-                                    estado = cliente.estado,
-                                    telefone = cliente.telefone,
-                                    celular = cliente.celular,
-                                    contatos = listOf(
-                                        ContatoInfo(
-                                            nome = contato.nome,
-                                            setor = contato.setor ?: "",
-                                            celular = contato.celular ?: ""
-                                        )
+
+                            // Preparar a lista de contatos a ser salva. Se nenhum contato foi selecionado,
+                            // enviamos uma lista vazia (contato é opcional).
+                            val contatosParaSalvar = contatoSelecionado?.let { contato ->
+                                listOf(
+                                    ContatoInfo(
+                                        nome = contato.nome,
+                                        setor = contato.setor ?: "",
+                                        celular = contato.celular ?: ""
                                     )
                                 )
+                            } ?: emptyList()
+
+                            // Popula o ViewModel compartilhado com os dados do cliente.
+                            // Mantemos esta lógica na camada de apresentação (UI) — o ViewModel
+                            // `RelatorioSharedViewModel` é responsável por armazenar o estado do relatório.
+                            sharedViewModel.setClienteData(
+                                nome = cliente.nome,
+                                endereco = cliente.endereco,
+                                cidade = cliente.cidade,
+                                estado = cliente.estado,
+                                telefone = cliente.telefone,
+                                celular = cliente.celular,
+                                contatos = contatosParaSalvar
+                            )
+
+                            // Navegar para a próxima tela usando parâmetros seguros.
+                            // Se nenhum contato foi selecionado, passamos uma string vazia.
+                            val contatoNomeSafe = contatoSelecionado?.nome ?: ""
+
+                            // IMPORTANT: Encode the contato name to avoid illegal characters in the route
+                            // and ensure predictable behavior when contatoNome is empty. The Navigation
+                            // component may attempt to resolve deep links when the route looks like a URI
+                            // (e.g., contains empty path segments). Encoding and providing a default
+                            // argument on the destination side prevents the IllegalArgumentException.
+                            val contatoEncoded = URLEncoder.encode(contatoNomeSafe, StandardCharsets.UTF_8.name())
+
+                            // If contatoEncoded is blank, navigate to a route without the contato segment
+                            // to avoid creating a trailing '/' which can be interpreted as a deep link.
+                            if (contatoEncoded.isBlank()) {
+                                // Navigate using the route that accepts only clienteId
+                                navController.navigate("dadosEquipamento/${cliente.id}")
+                            } else {
+                                // Normal route with contato
+                                navController.navigate("dadosEquipamento/${cliente.id}/$contatoEncoded")
                             }
                         }
-
-                        // Navegar para a página de Dados do Equipamento
-                        navController.navigate("dadosEquipamento/${clienteSelecionado!!.id}/${contatoSelecionado!!.nome}")
                     },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    enabled = clienteSelecionado != null && contatoSelecionado != null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    // Habilita o botão quando houver um cliente selecionado; contato é opcional agora.
+                    enabled = clienteSelecionado != null,
                     colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White),
                     shape = RoundedCornerShape(8.dp)
                 ) {

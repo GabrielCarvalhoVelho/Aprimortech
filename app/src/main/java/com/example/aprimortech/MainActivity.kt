@@ -91,6 +91,23 @@ fun AppNavigation() {
         composable("novoRelatorio") {
             NovoRelatorioScreen(navController = navController, sharedViewModel = sharedViewModel)
         }
+
+        // Support navigation when contato is omitted (contato is optional).
+        composable(
+            "dadosEquipamento/{clienteId}",
+            arguments = listOf(
+                navArgument("clienteId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val clienteId = backStackEntry.arguments?.getString("clienteId") ?: ""
+
+            RelatorioEquipamentoScreen(
+                navController = navController,
+                clienteId = clienteId,
+                sharedViewModel = sharedViewModel
+            )
+        }
+
         composable(
             "dadosEquipamento/{clienteId}/{contatoNome}",
             arguments = listOf(
