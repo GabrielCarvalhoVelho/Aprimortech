@@ -291,8 +291,6 @@ private fun RelatorioContent(relatorioCompleto: RelatorioCompleto) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        HeaderSection(relatorioCompleto)
-        Divider()
         ClienteSection(relatorioCompleto)
         Divider()
         EquipamentoSection(relatorioCompleto)
@@ -315,19 +313,6 @@ private fun RelatorioContent(relatorioCompleto: RelatorioCompleto) {
         Divider()
         AssinaturasSection(relatorioCompleto)
         Spacer(modifier = Modifier.height(16.dp))
-    }
-}
-
-@Composable
-private fun HeaderSection(relatorio: RelatorioCompleto) {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = "RELATÓRIO DE MANUTENÇÃO", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-            Text(text = "Data: ${relatorio.dataRelatorio}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-            if (relatorio.id.isNotEmpty()) {
-                Text(text = "ID: ${relatorio.id}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
-            }
-        }
     }
 }
 
