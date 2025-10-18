@@ -8,11 +8,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -91,6 +91,19 @@ fun RelatorioFinalizadoScreen(
                     }
                 },
                 actions = {
+                    // Botão para ir ao Dashboard. Ajuste a rota "dashboard" se necessário.
+                    IconButton(
+                        onClick = {
+                            navController.navigate("dashboard") {
+                                launchSingleTop = true
+                                // Evita criar várias instâncias do dashboard na pilha
+                                popUpTo("dashboard") { inclusive = false }
+                            }
+                        }
+                    ) {
+                        Icon(Icons.Filled.Home, contentDescription = "Ir para Dashboard")
+                    }
+
                     if (relatorioCompleto != null) {
                         IconButton(
                             onClick = {
