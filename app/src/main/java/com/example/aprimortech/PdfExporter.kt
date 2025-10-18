@@ -6,6 +6,7 @@ import android.graphics.pdf.PdfDocument
 import android.os.Environment
 import android.util.Base64
 import androidx.core.content.FileProvider
+import androidx.core.graphics.toColorInt
 import com.example.aprimortech.model.RelatorioCompleto
 import java.io.File
 import java.io.FileOutputStream
@@ -33,9 +34,9 @@ object PdfExporter {
         val footerReserve = 56
 
         val brand = Color.rgb(26, 74, 92)
-        val ink = Color.parseColor("#1A1A1A")
-        val inkLight = Color.parseColor("#666666")
-        val rule = Color.parseColor("#E5E7EB")
+        val ink = "#1A1A1A".toColorInt()
+        val inkLight = "#666666".toColorInt()
+        val rule = "#E5E7EB".toColorInt()
 
         // Fontes padrão do Android
         val fontRegular = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
@@ -65,6 +66,9 @@ object PdfExporter {
             color = rule
             strokeWidth = 1f
         }
+
+        // use a single non-deprecated Locale instance for pt-BR
+        val localePtBr = Locale.forLanguageTag("pt-BR")
 
         val companyLine1Val = companyLine1 ?: "JP - SOLUÇÕES TÉCNICAS E COMÉRCIO INDUSTRIAL - CNPJ: 26.549.228/0001-29"
         val companyLine2Val = companyLine2 ?: "Rua Plínio Pasqui, 186, Vila Dom Pedro II - São Paulo/SP - CEP: 02244-030"
@@ -523,7 +527,7 @@ object PdfExporter {
                 "Horário de Entrada" to relatorio.horarioEntrada,
                 "Horário de Saída" to relatorio.horarioSaida,
                 // mostrar total de horas (numérico) e valor total calculado explicitamente
-                "Total Horas" to String.format(Locale("pt", "BR"), "%.2f h", relatorio.totalHorasTecnicas),
+                "Total Horas" to String.format(localePtBr, "%.2f h", relatorio.totalHorasTecnicas),
                 "Valor Hora Técnica" to formatCurrency(relatorio.valorHoraTecnica),
                 "Valor Total (Horas Técnicas)" to formatCurrency(valorTotalHoras)
             )
@@ -566,15 +570,23 @@ object PdfExporter {
         // prepare output directory and file
         val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)!!
         if (!dir.exists()) dir.mkdirs()
-        val timestamp = System.currentTimeMillis()
-        val file = File(dir, "relatorio_completo_${relatorio.id}_$timestamp.pdf")
+
+        // build a filesystem-safe filename: relatorio_nomedocliente_dd_MM_yy
+        val clientRaw = relatorio.clienteNome
+        // normalize to remove accents, then replace non-alphanumeric with underscores
+        val normalized = java.text.Normalizer.normalize(clientRaw.trim().lowercase(localePtBr), java.text.Normalizer.Form.NFD)
+        val withoutDiacritics = normalized.replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
+        val safeClient = withoutDiacritics.replace("[^a-z0-9]+".toRegex(), "_").trim('_')
+        val dateStr = java.text.SimpleDateFormat("dd_MM_yy", localePtBr).format(Date())
+        val baseName = "relatorio_${if (safeClient.isNotBlank()) safeClient else "cliente"}_$dateStr"
+        val file = File(dir, "$baseName.pdf")
 
         // write PDF
         FileOutputStream(file).use { document.writeTo(it) }
 
-        // write debug file to help troubleshooting signatures (same timestamp)
+        // write debug file (same base name)
         try {
-            val debugFile = File(dir, "relatorio_completo_${relatorio.id}_$timestamp.debug.txt")
+            val debugFile = File(dir, "$baseName.debug.txt")
             FileOutputStream(debugFile).use { fos ->
                 fos.write(debugLogs.joinToString("\n").toByteArray())
             }
@@ -591,7 +603,7 @@ object PdfExporter {
 
     @Suppress("DEPRECATION")
     private fun formatCurrency(value: Double): String {
-        val format = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
+        val format = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR"))
         return format.format(value)
     }
 }
