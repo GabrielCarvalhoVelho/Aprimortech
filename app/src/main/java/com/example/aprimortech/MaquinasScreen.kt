@@ -14,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -29,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import androidx.compose.foundation.BorderStroke
 import com.example.aprimortech.data.local.entity.MaquinaEntity
 import com.example.aprimortech.model.Cliente
 import com.example.aprimortech.ui.theme.AprimortechTheme
@@ -62,11 +60,7 @@ fun MaquinasScreen(
     val clientes by viewModel.clientes.collectAsState()
     val fabricantesDisponiveis by viewModel.fabricantesDisponiveis.collectAsState()
     val modelosDisponiveis by viewModel.modelosDisponiveis.collectAsState()
-    val codigosTintaDisponiveis by viewModel.codigosTintaDisponiveis.collectAsState()
-    val codigosSolventeDisponiveis by viewModel.codigosSolventeDisponiveis.collectAsState()
     val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
-    val operacaoEmAndamento by viewModel.operacaoEmAndamento.collectAsState()
-    val itensPendentes by viewModel.itensPendentesSincronizacao.collectAsState()
 
     val listaFiltrada = remember(maquinas, clientes, query) {
         if (query.isBlank()) maquinas else maquinas.filter { maquina ->
@@ -212,8 +206,6 @@ fun MaquinasScreen(
             clientes = clientes,
             fabricantesDisponiveis = fabricantesDisponiveis,
             modelosDisponiveis = modelosDisponiveis,
-            codigosTintaDisponiveis = codigosTintaDisponiveis,
-            codigosSolventeDisponiveis = codigosSolventeDisponiveis,
             onDismiss = { showAddEdit = false; editingMaquina = null },
             onConfirm = { updated ->
                 viewModel.salvarMaquina(updated)
@@ -282,8 +274,6 @@ private fun AddEditMaquinaDialog(
     clientes: List<Cliente>,
     fabricantesDisponiveis: List<String>,
     modelosDisponiveis: List<String>,
-    codigosTintaDisponiveis: List<String>, // ⚠️ Parâmetro não usado mais
-    codigosSolventeDisponiveis: List<String>, // ⚠️ Parâmetro não usado mais
     onDismiss: () -> Unit,
     onConfirm: (MaquinaEntity) -> Unit
 ) {

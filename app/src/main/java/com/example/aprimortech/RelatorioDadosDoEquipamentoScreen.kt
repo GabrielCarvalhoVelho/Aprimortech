@@ -267,14 +267,17 @@ fun RelatorioEquipamentoScreen(
                         onAddNew = {
                             // Salvar novo código E garantir que o campo receba o valor
                             scope.launch {
-                                // Primeiro, garantir que o campo local receba o valor digitado
-                                // (o Autocomplete chamará onValueChange antes de onAddNew,
-                                // mas reforçamos aqui caso seja chamado diretamente)
-                                // Persistir no repositório
-                                if (codigoTintaSelecionado.isNotBlank()) {
-                                    tintaRepository.salvarTinta(codigoTintaSelecionado)
-                                    tintasDisponiveis = tintaRepository.buscarTodas()
-                                    Toast.makeText(context, "Código de tinta salvo!", Toast.LENGTH_SHORT).show()
+                                val novo = codigoTintaSelecionado.trim()
+                                if (novo.isNotBlank()) {
+                                    // Comparação case-insensitive para evitar duplicatas
+                                    val existe = tintasDisponiveis.any { it.codigo.equals(novo, ignoreCase = true) }
+                                    if (!existe) {
+                                        tintaRepository.salvarTinta(novo)
+                                        tintasDisponiveis = tintaRepository.buscarTodas()
+                                        Toast.makeText(context, "Código de tinta salvo!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Código de tinta já existe", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             }
                         }
@@ -294,10 +297,16 @@ fun RelatorioEquipamentoScreen(
                         placeholder = "Digite ou selecione",
                         onAddNew = {
                             scope.launch {
-                                if (codigoSolventeSelecionado.isNotBlank()) {
-                                    solventeRepository.salvarSolvente(codigoSolventeSelecionado)
-                                    solventesDisponiveis = solventeRepository.buscarTodos()
-                                    Toast.makeText(context, "Código de solvente salvo!", Toast.LENGTH_SHORT).show()
+                                val novo = codigoSolventeSelecionado.trim()
+                                if (novo.isNotBlank()) {
+                                    val existe = solventesDisponiveis.any { it.codigo.equals(novo, ignoreCase = true) }
+                                    if (!existe) {
+                                        solventeRepository.salvarSolvente(novo)
+                                        solventesDisponiveis = solventeRepository.buscarTodos()
+                                        Toast.makeText(context, "Código de solvente salvo!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Código de solvente já existe", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             }
                         }
@@ -406,11 +415,21 @@ fun RelatorioEquipamentoScreen(
                     onClick = {
                         // Executar salvamento das collections e salvar no SharedViewModel
                         scope.launch {
-                            if (codigoTintaSelecionado.isNotBlank()) {
-                                tintaRepository.salvarTinta(codigoTintaSelecionado)
+                            val novoTinta = codigoTintaSelecionado.trim()
+                            if (novoTinta.isNotBlank()) {
+                                val existeTinta = tintasDisponiveis.any { it.codigo.equals(novoTinta, ignoreCase = true) }
+                                if (!existeTinta) {
+                                    tintaRepository.salvarTinta(novoTinta)
+                                    tintasDisponiveis = tintaRepository.buscarTodas()
+                                }
                             }
-                            if (codigoSolventeSelecionado.isNotBlank()) {
-                                solventeRepository.salvarSolvente(codigoSolventeSelecionado)
+                            val novoSolvente = codigoSolventeSelecionado.trim()
+                            if (novoSolvente.isNotBlank()) {
+                                val existeSolvente = solventesDisponiveis.any { it.codigo.equals(novoSolvente, ignoreCase = true) }
+                                if (!existeSolvente) {
+                                    solventeRepository.salvarSolvente(novoSolvente)
+                                    solventesDisponiveis = solventeRepository.buscarTodos()
+                                }
                             }
 
                             // Agora salvar os dados no SharedViewModel
@@ -471,8 +490,6 @@ fun RelatorioEquipamentoScreen(
             clientes = clientes,
             fabricantesDisponiveis = fabricantesDisponiveis,
             modelosDisponiveis = modelosDisponiveis,
-            codigosTintaDisponiveis = codigosTintaDisponiveis,
-            codigosSolventeDisponiveis = codigosSolventeDisponiveis,
             onDismiss = { showNovoMaquinaDialog = false },
             onConfirm = { nova ->
                 // Marcar pending id e solicitar salvamento via ViewModel
@@ -591,8 +608,6 @@ private fun AddEditMaquinaDialog(
     clientes: List<Cliente>,
     fabricantesDisponiveis: List<String>,
     modelosDisponiveis: List<String>,
-    codigosTintaDisponiveis: List<String>,
-    codigosSolventeDisponiveis: List<String>,
     onDismiss: () -> Unit,
     onConfirm: (MaquinaEntity) -> Unit
 ) {
@@ -608,6 +623,7 @@ private fun AddEditMaquinaDialog(
             numeroSerie.isNotBlank() && modelo.isNotBlank() &&
             anoFabricacao.isNotBlank() && identificacao.isNotBlank() &&
             codigoConfiguracao.isNotBlank()
+    // ⚠️ REMOVIDOS das validações: codigoTinta e codigoSolvente
 
     AlertDialog(
         onDismissRequest = onDismiss,
