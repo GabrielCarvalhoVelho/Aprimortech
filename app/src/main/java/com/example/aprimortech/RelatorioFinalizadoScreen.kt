@@ -8,11 +8,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,7 +32,26 @@ import com.example.aprimortech.data.repository.*
 import com.example.aprimortech.model.*
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
 import java.util.*
+
+private val Brand = Color(0xFF1A4A5C)
+private val appBackground = Color(0xFFF5F5F5)
+private val displayDateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.forLanguageTag("pt-BR"))
+
+private fun parseDateSafe(dateStr: String?): Date? {
+    if (dateStr.isNullOrBlank()) return null
+    val patterns = listOf("yyyy-MM-dd", "dd/MM/yyyy", "yyyy/MM/dd")
+    for (pattern in patterns) {
+        try {
+            val sdf = SimpleDateFormat(pattern, Locale.getDefault())
+            sdf.isLenient = false
+            val parsed = sdf.parse(dateStr)
+            if (parsed != null) return parsed
+        } catch (_: Exception) { }
+    }
+    return null
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,25 +105,29 @@ fun RelatorioFinalizadoScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Relatório Finalizado") },
+            CenterAlignedTopAppBar(
+                title = {
+                    Image(
+                        painter = painterResource(id = R.drawable.logo_aprimortech),
+                        contentDescription = "Logo Aprimortech",
+                        modifier = Modifier.height(40.dp)
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = Brand)
                     }
                 },
                 actions = {
-                    // Botão para ir ao Dashboard. Ajuste a rota "dashboard" se necessário.
                     IconButton(
                         onClick = {
                             navController.navigate("dashboard") {
                                 launchSingleTop = true
-                                // Evita criar várias instâncias do dashboard na pilha
                                 popUpTo("dashboard") { inclusive = false }
                             }
                         }
                     ) {
-                        Icon(Icons.Filled.Home, contentDescription = "Ir para Dashboard")
+                        Icon(Icons.Filled.Home, contentDescription = "Ir para Dashboard", tint = Brand)
                     }
 
                     if (relatorioCompleto != null) {
@@ -122,20 +148,20 @@ fun RelatorioFinalizadoScreen(
                                 }
                             }
                         ) {
-                            Icon(Icons.Default.Share, contentDescription = "Compartilhar")
+                            Icon(Icons.Default.Share, contentDescription = "Compartilhar", tint = Brand)
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White,
-                    actionIconContentColor = Color.White
-                )
+                }
             )
         }
     ) { paddingValues ->
-        Box(modifier = modifier.fillMaxSize().padding(paddingValues)) {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(appBackground)
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
             when {
                 isLoading -> LoadingView()
                 errorMessage != null -> ErrorView(errorMessage!!)
@@ -146,6 +172,7 @@ fun RelatorioFinalizadoScreen(
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 private suspend fun carregarRelatorioCompleto(
     relatorioId: String,
     relatorioRepository: RelatorioRepository,
@@ -183,7 +210,7 @@ private suspend fun carregarRelatorioCompleto(
                         else -> 0
                     }
                 )
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 null
             }
         }
@@ -270,7 +297,7 @@ private fun calcularHorasTecnicas(horarioEntrada: String?, horarioSaida: String?
             (24 * 60 - minutosEntrada) + minutosSaida
         }
         diferencaMinutos / 60.0
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         0.0
     }
 }
@@ -304,26 +331,51 @@ private fun RelatorioContent(relatorioCompleto: RelatorioCompleto) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Cabeçalho: nome do cliente (em destaque) e data formatada
+        SectionCard {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Description, contentDescription = "Relatório", tint = Brand, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = relatorioCompleto.clienteNome,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Brand,
+                    modifier = Modifier.weight(1f)
+                )
+                val parsed = parseDateSafe(relatorioCompleto.dataRelatorio)
+                val formattedDate = if (parsed != null) displayDateFormatter.format(parsed) else relatorioCompleto.dataRelatorio
+                Text(
+                    text = formattedDate,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         ClienteSection(relatorioCompleto)
-        Divider()
+        HorizontalDivider()
         EquipamentoSection(relatorioCompleto)
-        Divider()
+        HorizontalDivider()
         if (relatorioCompleto.pecas.isNotEmpty()) {
             PecasSection(relatorioCompleto.pecas)
-            Divider()
+            HorizontalDivider()
         }
         if (relatorioCompleto.defeitos.isNotEmpty()) {
             DefeitosSection(relatorioCompleto.defeitos)
-            Divider()
+            HorizontalDivider()
         }
         if (relatorioCompleto.servicos.isNotEmpty()) {
-            ServicosSection(relatorioCompleto.servicos)
-            Divider()
+            ServicosSection(servicos = relatorioCompleto.servicos, title = relatorioCompleto.clienteNome)
+            HorizontalDivider()
         }
         HorasTecnicasSection(relatorioCompleto)
-        Divider()
+        HorizontalDivider()
         DeslocamentoSection(relatorioCompleto)
-        Divider()
+        HorizontalDivider()
+        if (relatorioCompleto.observacoes.isNotBlank()) {
+            ObservacoesSection(relatorioCompleto.observacoes)
+            HorizontalDivider()
+        }
         AssinaturasSection(relatorioCompleto)
         Spacer(modifier = Modifier.height(16.dp))
     }
@@ -376,8 +428,8 @@ private fun DefeitosSection(defeitos: List<String>) {
 }
 
 @Composable
-private fun ServicosSection(servicos: List<String>) {
-    SectionCard(title = "SERVIÇOS REALIZADOS") {
+private fun ServicosSection(servicos: List<String>, title: String) {
+    SectionCard(title = title) {
         servicos.forEachIndexed { index, servico ->
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
                 Text(text = "${index + 1}.", fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(end = 8.dp))
@@ -401,14 +453,14 @@ private fun PecasSection(pecas: List<PecaInfo>) {
                 Text(text = peca.descricao, fontSize = 12.sp, modifier = Modifier.weight(2f))
                 Text(text = peca.quantidade.toString(), fontSize = 12.sp, modifier = Modifier.width(40.dp))
             }
-            Divider()
+            HorizontalDivider()
         }
     }
 }
 
 @Composable
 private fun HorasTecnicasSection(relatorio: RelatorioCompleto) {
-    val numberFormat = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
+    val numberFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR"))
     val valorTotalHorasTecnicas = relatorio.totalHorasTecnicas * relatorio.valorHoraTecnica
     SectionCard(title = "HORAS TÉCNICAS") {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -416,7 +468,7 @@ private fun HorasTecnicasSection(relatorio: RelatorioCompleto) {
             InfoRow(label = "Saída", value = relatorio.horarioSaida)
         }
         Spacer(modifier = Modifier.height(8.dp))
-        InfoRow(label = "Total de Horas", value = String.format("%.2f h", relatorio.totalHorasTecnicas))
+        InfoRow(label = "Total de Horas", value = String.format(Locale.getDefault(), "%.2f h", relatorio.totalHorasTecnicas))
         InfoRow(label = "Valor por Hora", value = numberFormat.format(relatorio.valorHoraTecnica))
         InfoRow(label = "Valor Total", value = numberFormat.format(valorTotalHorasTecnicas), highlight = true)
     }
@@ -424,9 +476,9 @@ private fun HorasTecnicasSection(relatorio: RelatorioCompleto) {
 
 @Composable
 private fun DeslocamentoSection(relatorio: RelatorioCompleto) {
-    val numberFormat = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
+    val numberFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR"))
     SectionCard(title = "DESLOCAMENTO") {
-        InfoRow(label = "Distância (KM)", value = String.format("%.2f km", relatorio.quantidadeKm))
+        InfoRow(label = "Distância (KM)", value = String.format(Locale.getDefault(), "%.2f km", relatorio.quantidadeKm))
         InfoRow(label = "Valor por KM", value = numberFormat.format(relatorio.valorPorKm))
         InfoRow(label = "Pedágios", value = numberFormat.format(relatorio.valorPedagios))
         InfoRow(label = "Total Deslocamento", value = numberFormat.format(relatorio.valorTotalDeslocamento), highlight = true)
@@ -516,11 +568,18 @@ private fun AssinaturasSection(relatorio: RelatorioCompleto) {
 }
 
 @Composable
-private fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            Divider()
+private fun SectionCard(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            title?.let {
+                Text(text = it, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Brand)
+                HorizontalDivider()
+            }
             content()
         }
     }

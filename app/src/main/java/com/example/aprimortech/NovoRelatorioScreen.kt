@@ -37,6 +37,8 @@ import com.example.aprimortech.ui.viewmodel.RelatorioSharedViewModel
 import com.example.aprimortech.model.Cliente
 import com.example.aprimortech.model.ContatoCliente
 import com.example.aprimortech.model.ContatoInfo
+import com.example.aprimortech.ui.viewmodel.PecaData
+import com.example.aprimortech.model.Relatorio
 import com.example.aprimortech.ui.components.AutoCompleteEnderecoField
 import kotlinx.coroutines.delay
 import java.util.UUID
@@ -97,6 +99,107 @@ fun NovoRelatorioScreen(
 
     // Observar mensagem do ClienteViewModel para feedback de criação de cliente
     val mensagemCliente by clienteViewModel.mensagemOperacao.collectAsState()
+
+    // === NOVA LÓGICA: Verifica se há um relatório para edição vindo do RelatoriosScreen ===
+    // O RelatoriosScreen grava o Relatorio no savedStateHandle com a chave "relatorioEdit" antes de navegar.
+    // Tentar obter do previousBackStackEntry (padrão ao enviar dados antes de navegar). Se não existir, tentar o currentBackStackEntry.
+    val savedRelatorio = navController.previousBackStackEntry?.savedStateHandle?.get<Relatorio>("relatorioEdit")
+        ?: navController.currentBackStackEntry?.savedStateHandle?.get<Relatorio>("relatorioEdit")
+
+    LaunchedEffect(savedRelatorio, clientes) {
+        savedRelatorio?.let { rel ->
+            // Tenta encontrar o cliente correspondente na lista de clientes carregada
+            val clienteEncontrado = clientes.find { it.id == rel.clienteId }
+            if (clienteEncontrado != null) {
+                clienteSelecionado = clienteEncontrado
+            }
+
+            // Mapear contatos do cliente (se disponível) para ContatoInfo
+            val contatosInfo = clienteEncontrado?.contatos?.map {
+                ContatoInfo(nome = it.nome, setor = it.setor ?: "", celular = it.celular ?: "")
+            } ?: emptyList()
+
+            // Preencher dados no sharedViewModel com os campos disponíveis do Relatório
+            sharedViewModel.setClienteData(
+                nome = clienteEncontrado?.nome ?: "",
+                endereco = clienteEncontrado?.endereco ?: "",
+                cidade = clienteEncontrado?.cidade ?: "",
+                estado = clienteEncontrado?.estado ?: "",
+                telefone = clienteEncontrado?.telefone ?: "",
+                celular = clienteEncontrado?.celular ?: "",
+                contatos = contatosInfo
+            )
+
+            // Preencher dados do equipamento com os campos que existem no Relatorio
+            sharedViewModel.setEquipamentoData(
+                fabricante = "",
+                numeroSerie = rel.maquinaId, // usar maquinaId como placeholder quando número de série não existir
+                codigoConfiguracao = "",
+                modelo = "",
+                identificacao = "",
+                anoFabricacao = "",
+                codigoTinta = rel.codigoTinta ?: "",
+                codigoSolvente = rel.codigoSolvente ?: "",
+                dataProximaPreventiva = rel.dataProximaPreventiva ?: "",
+                horaProximaPreventiva = rel.horasProximaPreventiva ?: ""
+            )
+
+            // Defeitos, serviços e observações
+            sharedViewModel.setDefeitosServicos(
+                defeitos = rel.defeitosIdentificados,
+                servicos = rel.servicosRealizados,
+                observacoes = rel.observacoesDefeitosServicos
+            )
+
+            // Mapear peças utilizadas para PecaData
+            val pecas = rel.pecasUtilizadas.mapNotNull { map ->
+                try {
+                    val codigo = map["codigo"]?.toString() ?: return@mapNotNull null
+                    val descricao = map["descricao"]?.toString() ?: ""
+                    val quantidade = when (val q = map["quantidade"]) {
+                        is Number -> q.toInt()
+                        is String -> q.toIntOrNull() ?: 0
+                        else -> 0
+                    }
+                    PecaData(codigo = codigo, descricao = descricao, quantidade = quantidade)
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            sharedViewModel.setPecas(pecas)
+
+            // Horas e deslocamento
+            sharedViewModel.setHorasDeslocamento(
+                horarioEntrada = rel.horarioEntrada ?: "",
+                horarioSaida = rel.horarioSaida ?: "",
+                valorHoraTecnica = rel.valorHoraTecnica ?: 0.0,
+                totalHoras = 0.0,
+                quantidadeKm = rel.distanciaKm ?: 0.0,
+                valorPorKm = rel.valorDeslocamentoPorKm ?: 0.0,
+                valorPedagios = rel.valorPedagios ?: 0.0,
+                valorTotalDeslocamento = rel.valorDeslocamentoTotal ?: 0.0
+            )
+
+            // Assinaturas
+            sharedViewModel.setAssinaturas(
+                assinaturaTecnico1 = rel.assinaturaTecnico1,
+                assinaturaTecnico2 = rel.assinaturaTecnico2,
+                assinaturaCliente1 = rel.assinaturaCliente1,
+                assinaturaCliente2 = rel.assinaturaCliente2,
+                nomeTecnico = ""
+            )
+
+            // Opcional: construir RelatorioCompleto inicial para preview imediato em outras telas
+            try {
+                sharedViewModel.buildRelatorioCompleto(relatorioId = rel.id, dataRelatorio = rel.dataRelatorio)
+            } catch (_: Exception) { /* safe */ }
+
+            // Remover a chave da entry onde estava, para não reaplicar quando voltar à tela
+            // especificar o tipo genérico para que o compilador saiba qual T usar
+            navController.previousBackStackEntry?.savedStateHandle?.remove<Relatorio>("relatorioEdit")
+                ?: navController.currentBackStackEntry?.savedStateHandle?.remove<Relatorio>("relatorioEdit")
+        }
+    }
 
     // Feedback toast
     LaunchedEffect(mensagemOperacao) {
