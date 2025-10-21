@@ -1,5 +1,6 @@
 package com.example.aprimortech
 
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,9 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.Image
-import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.aprimortech.ui.theme.AprimortechTheme
@@ -31,6 +30,10 @@ import com.example.aprimortech.ui.viewmodel.RelatorioViewModelFactory
 import com.example.aprimortech.ui.viewmodel.ClienteViewModel
 import com.example.aprimortech.ui.viewmodel.ClienteViewModelFactory
 import com.example.aprimortech.model.Relatorio
+import com.example.aprimortech.model.RelatorioCompleto
+import com.example.aprimortech.data.repository.*
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.*
@@ -70,6 +73,7 @@ fun RelatoriosScreen(
     )
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
     var showDeleteDialog by remember { mutableStateOf<Relatorio?>(null) }
     var showProximasManutencoes by remember { mutableStateOf(false) }
@@ -90,6 +94,17 @@ fun RelatoriosScreen(
     )
     val clientes by clienteViewModel.clientes.collectAsState()
     val clienteNameById = remember(clientes) { clientes.associate { it.id to it.nome } }
+
+    // Repositories & application references (used to build RelatorioCompleto for export)
+    val app = remember { context.applicationContext as AprimortechApplication }
+    val relatorioRepository = remember { app.relatorioRepository }
+    val clienteRepository = remember { app.clienteRepository }
+    val maquinaRepository = remember { app.maquinaRepository }
+    val pecaRepository = remember { app.pecaRepository }
+    val defeitoRepository = remember { app.defeitoRepository }
+    val servicoRepository = remember { app.servicoRepository }
+    val tintaRepository = remember { TintaRepository() }
+    val solventeRepository = remember { SolventeRepository() }
 
     // Feedback toast
     LaunchedEffect(mensagemOperacao) {
@@ -216,8 +231,30 @@ fun RelatoriosScreen(
                             },
                             onDelete = { showDeleteDialog = relatorio },
                             onExportPdf = {
-                                // TODO: Implementar exportação PDF
-                                Toast.makeText(context, "Exportação PDF em desenvolvimento", Toast.LENGTH_SHORT).show()
+                                scope.launch {
+                                    try {
+                                        val relComp = carregarRelatorioCompleto(
+                                            relatorioId = relatorio.id,
+                                            relatorioRepository = relatorioRepository,
+                                            clienteRepository = clienteRepository,
+                                            maquinaRepository = maquinaRepository,
+                                            pecaRepository = pecaRepository,
+                                            defeitoRepository = defeitoRepository,
+                                            servicoRepository = servicoRepository,
+                                            tintaRepository = tintaRepository,
+                                            solventeRepository = solventeRepository
+                                        )
+                                        val uri = PdfExporter.exportRelatorioCompleto(context, relComp)
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "application/pdf"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(shareIntent, "Compartilhar Relatório"))
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Erro ao exportar PDF: ${e.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
                             }
                         )
                     }
@@ -333,5 +370,136 @@ private fun RelatorioCard(
 fun RelatoriosScreenPreview() {
     AprimortechTheme {
         RelatoriosScreen(navController = rememberNavController())
+    }
+}
+
+// --- helper to build RelatorioCompleto (adapted from RelatorioFinalizadoScreen)
+@Suppress("UNUSED_PARAMETER")
+private suspend fun carregarRelatorioCompleto(
+    relatorioId: String,
+    relatorioRepository: com.example.aprimortech.data.repository.RelatorioRepository,
+    clienteRepository: com.example.aprimortech.data.repository.ClienteRepository,
+    maquinaRepository: com.example.aprimortech.data.repository.MaquinaRepository,
+    pecaRepository: com.example.aprimortech.data.repository.PecaRepository,
+    defeitoRepository: com.example.aprimortech.data.repository.DefeitoRepository,
+    servicoRepository: com.example.aprimortech.data.repository.ServicoRepository,
+    tintaRepository: com.example.aprimortech.data.repository.TintaRepository,
+    solventeRepository: com.example.aprimortech.data.repository.SolventeRepository
+): RelatorioCompleto {
+    val relatorio = relatorioRepository.buscarRelatorioPorId(relatorioId)
+        ?: throw Exception("Relatório não encontrado")
+
+    val cliente = clienteRepository.buscarClientePorId(relatorio.clienteId)
+        ?: throw Exception("Cliente não encontrado")
+
+    val maquina = if (relatorio.maquinaId.isNotBlank() && relatorio.maquinaId != "maquinas" && relatorio.maquinaId.length > 10) {
+        maquinaRepository.buscarMaquinaPorId(relatorio.maquinaId)
+    } else {
+        maquinaRepository.buscarMaquinasPorCliente(cliente.id).firstOrNull()
+    }
+
+    val pecasInfo = if (relatorio.pecasUtilizadas.isNotEmpty()) {
+        relatorio.pecasUtilizadas.mapNotNull { pecaMap ->
+            try {
+                com.example.aprimortech.model.PecaInfo(
+                    codigo = pecaMap["codigo"] as? String ?: "",
+                    descricao = pecaMap["descricao"] as? String ?: "",
+                    quantidade = when (val qtd = pecaMap["quantidade"]) {
+                        is Int -> qtd
+                        is Long -> qtd.toInt()
+                        is Double -> qtd.toInt()
+                        is String -> qtd.toIntOrNull() ?: 0
+                        else -> 0
+                    }
+                )
+            } catch (_: Exception) {
+                null
+            }
+        }
+    } else if (relatorio.pecaIds.isNotEmpty()) {
+        relatorio.pecaIds.mapNotNull { pecaId ->
+            pecaRepository.buscarPecaPorId(pecaId)?.let { peca ->
+                com.example.aprimortech.model.PecaInfo(codigo = peca.codigo, descricao = peca.descricao, quantidade = 1)
+            }
+        }
+    } else emptyList()
+
+    val defeitos = if (relatorio.defeitosIdentificados.isNotEmpty()) {
+        relatorio.defeitosIdentificados
+    } else {
+        relatorio.descricaoServico.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
+    val servicos = if (relatorio.servicosRealizados.isNotEmpty()) {
+        relatorio.servicosRealizados
+    } else {
+        relatorio.recomendacoes.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
+    val observacoesFinais = relatorio.observacoesDefeitosServicos.ifEmpty {
+        relatorio.observacoes ?: ""
+    }
+
+    val totalHoras = calcularHorasTecnicas(relatorio.horarioEntrada, relatorio.horarioSaida)
+
+    val contatos = cliente.contatos.map { contato ->
+        com.example.aprimortech.model.ContatoInfo(nome = contato.nome, setor = contato.setor ?: "", celular = contato.celular ?: "")
+    }
+
+    return com.example.aprimortech.model.RelatorioCompleto(
+        id = relatorio.id,
+        dataRelatorio = relatorio.dataRelatorio,
+        clienteNome = cliente.nome,
+        clienteEndereco = cliente.endereco,
+        clienteCidade = cliente.cidade,
+        clienteEstado = cliente.estado,
+        clienteTelefone = cliente.telefone,
+        clienteCelular = cliente.celular,
+        clienteContatos = contatos,
+        equipamentoFabricante = maquina?.fabricante ?: "Não especificado",
+        equipamentoNumeroSerie = maquina?.numeroSerie ?: "N/A",
+        equipamentoCodigoConfiguracao = maquina?.codigoConfiguracao ?: "N/A",
+        equipamentoModelo = maquina?.modelo ?: "N/A",
+        equipamentoIdentificacao = maquina?.identificacao ?: "N/A",
+        equipamentoAnoFabricacao = maquina?.anoFabricacao ?: "",
+        equipamentoCodigoTinta = relatorio.codigoTinta ?: "",
+        equipamentoCodigoSolvente = relatorio.codigoSolvente ?: "",
+        equipamentoDataProximaPreventiva = relatorio.dataProximaPreventiva ?: "",
+        equipamentoHoraProximaPreventiva = relatorio.horasProximaPreventiva ?: "",
+        defeitos = defeitos,
+        servicos = servicos,
+        pecas = pecasInfo,
+        horarioEntrada = relatorio.horarioEntrada ?: "",
+        horarioSaida = relatorio.horarioSaida ?: "",
+        valorHoraTecnica = relatorio.valorHoraTecnica ?: 0.0,
+        totalHorasTecnicas = totalHoras,
+        quantidadeKm = relatorio.distanciaKm ?: 0.0,
+        valorPorKm = relatorio.valorDeslocamentoPorKm ?: 0.0,
+        valorPedagios = relatorio.valorPedagios ?: 0.0,
+        valorTotalDeslocamento = relatorio.valorDeslocamentoTotal ?: 0.0,
+        assinaturaTecnico1 = relatorio.assinaturaTecnico1,
+        assinaturaCliente1 = relatorio.assinaturaCliente1,
+        assinaturaTecnico2 = relatorio.assinaturaTecnico2,
+        assinaturaCliente2 = relatorio.assinaturaCliente2,
+        observacoes = observacoesFinais,
+        nomeTecnico = "Técnico Aprimortech"
+    )
+}
+
+private fun calcularHorasTecnicas(horarioEntrada: String?, horarioSaida: String?): Double {
+    if (horarioEntrada.isNullOrEmpty() || horarioSaida.isNullOrEmpty()) return 0.0
+    return try {
+        val (horaEntrada, minutoEntrada) = horarioEntrada.split(":").map { it.toInt() }
+        val (horaSaida, minutoSaida) = horarioSaida.split(":").map { it.toInt() }
+        val minutosEntrada = horaEntrada * 60 + minutoEntrada
+        val minutosSaida = horaSaida * 60 + minutoSaida
+        val diferencaMinutos = if (minutosSaida >= minutosEntrada) {
+            minutosSaida - minutosEntrada
+        } else {
+            (24 * 60 - minutosEntrada) + minutosSaida
+        }
+        diferencaMinutos / 60.0
+    } catch (_: Exception) {
+        0.0
     }
 }
