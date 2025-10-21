@@ -365,7 +365,7 @@ private fun RelatorioContent(relatorioCompleto: RelatorioCompleto) {
             HorizontalDivider()
         }
         if (relatorioCompleto.servicos.isNotEmpty()) {
-            ServicosSection(servicos = relatorioCompleto.servicos, title = relatorioCompleto.clienteNome)
+            ServicosSection(servicos = relatorioCompleto.servicos)
             HorizontalDivider()
         }
         HorasTecnicasSection(relatorioCompleto)
@@ -428,8 +428,8 @@ private fun DefeitosSection(defeitos: List<String>) {
 }
 
 @Composable
-private fun ServicosSection(servicos: List<String>, title: String) {
-    SectionCard(title = title) {
+private fun ServicosSection(servicos: List<String>) {
+    SectionCard(title = "SERVIÇOS REALIZADOS") {
         servicos.forEachIndexed { index, servico ->
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
                 Text(text = "${index + 1}.", fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(end = 8.dp))
