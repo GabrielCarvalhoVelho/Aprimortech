@@ -31,7 +31,14 @@ import com.example.aprimortech.ui.viewmodel.ClienteViewModel
 import com.example.aprimortech.ui.viewmodel.ClienteViewModelFactory
 import com.example.aprimortech.model.Relatorio
 import com.example.aprimortech.model.RelatorioCompleto
-import com.example.aprimortech.data.repository.*
+import com.example.aprimortech.data.repository.RelatorioRepository
+import com.example.aprimortech.data.repository.ClienteRepository
+import com.example.aprimortech.data.repository.MaquinaRepository
+import com.example.aprimortech.data.repository.PecaRepository
+import com.example.aprimortech.data.repository.DefeitoRepository
+import com.example.aprimortech.data.repository.ServicoRepository
+import com.example.aprimortech.data.repository.TintaRepository
+import com.example.aprimortech.data.repository.SolventeRepository
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import java.net.URLEncoder
@@ -80,7 +87,6 @@ fun RelatoriosScreen(
 
     // Estados do ViewModel
     val relatorios by viewModel.relatorios.collectAsState()
-    val proximasManutencoes by viewModel.proximasManutencoes.collectAsState()
     val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
 
     // ViewModel para clientes (resolver nome a partir do clienteId)
@@ -103,8 +109,8 @@ fun RelatoriosScreen(
     val pecaRepository = remember { app.pecaRepository }
     val defeitoRepository = remember { app.defeitoRepository }
     val servicoRepository = remember { app.servicoRepository }
-    val tintaRepository = remember { TintaRepository() }
-    val solventeRepository = remember { SolventeRepository() }
+    val tintaRepository = remember { app.tintaRepository }
+    val solventeRepository = remember { app.solventeRepository }
 
     // Feedback toast
     LaunchedEffect(mensagemOperacao) {
@@ -132,6 +138,23 @@ fun RelatoriosScreen(
         }
     }
 
+    // Computa manutenções preventivas a partir dos relatórios (próximos 30 dias)
+    val proximasManutencoesLocal = remember(relatorios) {
+        val todayCal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
+        val today = todayCal.time
+        val millisIn30Days = 30L * 24 * 60 * 60 * 1000
+        relatorios.mapNotNull { rel ->
+            val parsed = parseDateSafe(rel.dataProximaPreventiva)
+            if (parsed != null && parsed.time >= today.time && (parsed.time - today.time) <= millisIn30Days) {
+                rel to parsed
+            } else null
+        }.sortedBy { it.second.time }
+            .map { it.first }
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -151,10 +174,10 @@ fun RelatoriosScreen(
                     // Botão de próximas manutenções
                     IconButton(onClick = { showProximasManutencoes = true }) {
                         Badge(
-                            containerColor = if (proximasManutencoes.isNotEmpty()) MaterialTheme.colorScheme.error else Color.Transparent
+                            containerColor = if (proximasManutencoesLocal.isNotEmpty()) MaterialTheme.colorScheme.error else Color.Transparent
                         ) {
-                            if (proximasManutencoes.isNotEmpty()) {
-                                Text("${proximasManutencoes.size}")
+                            if (proximasManutencoesLocal.isNotEmpty()) {
+                                Text("${proximasManutencoesLocal.size}")
                             }
                         }
                         Icon(Icons.Default.NotificationImportant, contentDescription = "Próximas Manutenções", tint = Brand)
@@ -292,8 +315,42 @@ fun RelatoriosScreen(
             onDismissRequest = { showProximasManutencoes = false },
             title = { Text("Próximas Manutenções Preventivas") },
             text = {
-                // ✅ ATUALIZADO: Agora busca preventivas dos RELATÓRIOS
-                Text("Funcionalidade temporariamente desabilitada. As manutenções preventivas agora são registradas nos relatórios.")
+                if (proximasManutencoesLocal.isEmpty()) {
+                    Text("Nenhuma manutenção preventiva nos próximos 30 dias.")
+                } else {
+                    Column {
+                        proximasManutencoesLocal.forEach { rel ->
+                            val name = clienteNameById[rel.clienteId]
+                                ?: rel.clienteId.takeIf { it.isNotBlank() } ?: "Cliente ${rel.id.take(6)}"
+                            val dateStr = parseDateSafe(rel.dataProximaPreventiva)
+                                ?.let { displayDateFormatter.format(it) }
+                                ?: rel.dataProximaPreventiva ?: "N/A"
+                            // calcular dias restantes quando possível
+                            val diasRestantes = parseDateSafe(rel.dataProximaPreventiva)?.let { date ->
+                                val diff = (date.time - Calendar.getInstance().apply {
+                                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                                }.time.time) / (24 * 60 * 60 * 1000)
+                                diff.toInt()
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(name, style = MaterialTheme.typography.bodyMedium)
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(dateStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    diasRestantes?.let { d ->
+                                        Text(if (d == 0) "Hoje" else "Em $d dias", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                }
             },
             confirmButton = {
                 Button(onClick = { showProximasManutencoes = false }) {
@@ -377,14 +434,14 @@ fun RelatoriosScreenPreview() {
 @Suppress("UNUSED_PARAMETER")
 private suspend fun carregarRelatorioCompleto(
     relatorioId: String,
-    relatorioRepository: com.example.aprimortech.data.repository.RelatorioRepository,
-    clienteRepository: com.example.aprimortech.data.repository.ClienteRepository,
-    maquinaRepository: com.example.aprimortech.data.repository.MaquinaRepository,
-    pecaRepository: com.example.aprimortech.data.repository.PecaRepository,
-    defeitoRepository: com.example.aprimortech.data.repository.DefeitoRepository,
-    servicoRepository: com.example.aprimortech.data.repository.ServicoRepository,
-    tintaRepository: com.example.aprimortech.data.repository.TintaRepository,
-    solventeRepository: com.example.aprimortech.data.repository.SolventeRepository
+    relatorioRepository: RelatorioRepository,
+    clienteRepository: ClienteRepository,
+    maquinaRepository: MaquinaRepository,
+    pecaRepository: PecaRepository,
+    defeitoRepository: DefeitoRepository,
+    servicoRepository: ServicoRepository,
+    tintaRepository: TintaRepository,
+    solventeRepository: SolventeRepository
 ): RelatorioCompleto {
     val relatorio = relatorioRepository.buscarRelatorioPorId(relatorioId)
         ?: throw Exception("Relatório não encontrado")
@@ -446,7 +503,7 @@ private suspend fun carregarRelatorioCompleto(
         com.example.aprimortech.model.ContatoInfo(nome = contato.nome, setor = contato.setor ?: "", celular = contato.celular ?: "")
     }
 
-    return com.example.aprimortech.model.RelatorioCompleto(
+    return RelatorioCompleto(
         id = relatorio.id,
         dataRelatorio = relatorio.dataRelatorio,
         clienteNome = cliente.nome,
