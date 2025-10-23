@@ -101,6 +101,9 @@ fun RelatoriosScreen(
     val clientes by clienteViewModel.clientes.collectAsState()
     val clienteNameById = remember(clientes) { clientes.associate { it.id to it.nome } }
 
+    // Cache para nomes de máquinas
+    val maquinaNameById = remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+
     // Repositories & application references (used to build RelatorioCompleto for export)
     val app = remember { context.applicationContext as AprimortechApplication }
     val relatorioRepository = remember { app.relatorioRepository }
@@ -125,15 +128,23 @@ fun RelatoriosScreen(
         // Removendo chamada para método privado carregarRelatorios()
         viewModel.sincronizarRelatorios()
         clienteViewModel.sincronizarDados()
+
+        // Popular cache de nomes de máquinas
+        val maquinas = maquinaRepository.buscarMaquinas()
+        val maquinaMap = maquinas.associate { it.id to it.identificacao }
+        maquinaNameById.value = maquinaMap
     }
 
-    val filteredRelatorios = remember(searchQuery.text, relatorios) {
+    val filteredRelatorios = remember(searchQuery.text, relatorios, clienteNameById, maquinaNameById.value) {
         if (searchQuery.text.isBlank()) {
             relatorios
         } else {
             relatorios.filter {
                 it.descricaoServico.contains(searchQuery.text, ignoreCase = true) ||
-                it.clienteId.contains(searchQuery.text, ignoreCase = true)
+                it.clienteId.contains(searchQuery.text, ignoreCase = true) ||
+                clienteNameById[it.clienteId]?.contains(searchQuery.text, ignoreCase = true) == true ||
+                it.maquinaId.contains(searchQuery.text, ignoreCase = true) ||
+                maquinaNameById.value[it.maquinaId]?.contains(searchQuery.text, ignoreCase = true) == true
             }
         }
     }
@@ -209,7 +220,7 @@ fun RelatoriosScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Buscar por descrição ou cliente") },
+                placeholder = { Text("Buscar por descrição, cliente ou máquina") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true
             )
@@ -240,12 +251,15 @@ fun RelatoriosScreen(
                     items(filteredRelatorios) { relatorio ->
                         val clientName = clienteNameById[relatorio.clienteId]
                             ?: relatorio.clienteId.takeIf { it.isNotBlank() } ?: "Cliente ${relatorio.id.take(6)}"
+                        val machineName = maquinaNameById.value[relatorio.maquinaId]
+                            ?: relatorio.maquinaId.takeIf { it.isNotBlank() } ?: "Máquina ${relatorio.id.take(6)}"
                         val parsed = parseDateSafe(relatorio.dataRelatorio)
                         val formattedDate = parsed?.let { displayDateFormatter.format(it) } ?: relatorio.dataRelatorio
 
                         RelatorioCard(
                             relatorio = relatorio,
                             clientName = clientName,
+                            machineName = machineName,
                             formattedDate = formattedDate,
                             onDetails = {
                                 // Navegar para detalhes do relatório (id devidamente codificado)
@@ -365,6 +379,7 @@ fun RelatoriosScreen(
 private fun RelatorioCard(
     relatorio: Relatorio,
     clientName: String,
+    machineName: String,
     formattedDate: String,
     onDetails: () -> Unit,
     onDelete: () -> Unit,
@@ -383,6 +398,11 @@ private fun RelatorioCard(
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(clientName, style = MaterialTheme.typography.titleMedium, color = Brand, modifier = Modifier.weight(1f))
                 Text(formattedDate, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            // Mostrar nome da máquina (usa o parâmetro para evitar warning de não utilizado)
+            if (machineName.isNotBlank()) {
+                Text(machineName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             if (relatorio.descricaoServico.isNotBlank()) {
