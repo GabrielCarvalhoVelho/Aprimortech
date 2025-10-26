@@ -87,8 +87,6 @@ fun RelatorioEquipamentoScreen(
     val clientes by viewModel.clientes.collectAsState()
     val fabricantesDisponiveis by viewModel.fabricantesDisponiveis.collectAsState()
     val modelosDisponiveis by viewModel.modelosDisponiveis.collectAsState()
-    val codigosTintaDisponiveis by viewModel.codigosTintaDisponiveis.collectAsState()
-    val codigosSolventeDisponiveis by viewModel.codigosSolventeDisponiveis.collectAsState()
 
     val operacaoEmAndamento by viewModel.operacaoEmAndamento.collectAsState()
     val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
@@ -260,14 +258,14 @@ fun RelatorioEquipamentoScreen(
 
                     AutocompleteTextField(
                         value = codigoTintaSelecionado,
-                        onValueChange = { codigoTintaSelecionado = it },
+                        onValueChange = { codigoTintaSelecionado = it.uppercase() },
                         suggestions = tintasDisponiveis.map { it.codigo },
                         label = "Código da Tinta *",
                         placeholder = "Digite ou selecione",
                         onAddNew = {
                             // Salvar novo código E garantir que o campo receba o valor
                             scope.launch {
-                                val novo = codigoTintaSelecionado.trim()
+                                val novo = codigoTintaSelecionado.trim().uppercase()
                                 if (novo.isNotBlank()) {
                                     // Comparação case-insensitive para evitar duplicatas
                                     val existe = tintasDisponiveis.any { it.codigo.equals(novo, ignoreCase = true) }
@@ -291,13 +289,13 @@ fun RelatorioEquipamentoScreen(
 
                     AutocompleteTextField(
                         value = codigoSolventeSelecionado,
-                        onValueChange = { codigoSolventeSelecionado = it },
+                        onValueChange = { codigoSolventeSelecionado = it.uppercase() },
                         suggestions = solventesDisponiveis.map { it.codigo },
                         label = "Código do Solvente *",
                         placeholder = "Digite ou selecione",
                         onAddNew = {
                             scope.launch {
-                                val novo = codigoSolventeSelecionado.trim()
+                                val novo = codigoSolventeSelecionado.trim().uppercase()
                                 if (novo.isNotBlank()) {
                                     val existe = solventesDisponiveis.any { it.codigo.equals(novo, ignoreCase = true) }
                                     if (!existe) {
@@ -351,7 +349,7 @@ fun RelatorioEquipamentoScreen(
                         OutlinedTextField(
                             value = dataProximaPreventiva,
                             onValueChange = { },
-                            label = { Text("Data *") },
+                            label = { Text("Data") },
                             placeholder = { Text("DD/MM/AAAA") },
                             modifier = Modifier.fillMaxWidth(),
                             colors = textFieldColors(),
@@ -415,7 +413,7 @@ fun RelatorioEquipamentoScreen(
                     onClick = {
                         // Executar salvamento das collections e salvar no SharedViewModel
                         scope.launch {
-                            val novoTinta = codigoTintaSelecionado.trim()
+                            val novoTinta = codigoTintaSelecionado.trim().uppercase()
                             if (novoTinta.isNotBlank()) {
                                 val existeTinta = tintasDisponiveis.any { it.codigo.equals(novoTinta, ignoreCase = true) }
                                 if (!existeTinta) {
@@ -423,7 +421,7 @@ fun RelatorioEquipamentoScreen(
                                     tintasDisponiveis = tintaRepository.buscarTodas()
                                 }
                             }
-                            val novoSolvente = codigoSolventeSelecionado.trim()
+                            val novoSolvente = codigoSolventeSelecionado.trim().uppercase()
                             if (novoSolvente.isNotBlank()) {
                                 val existeSolvente = solventesDisponiveis.any { it.codigo.equals(novoSolvente, ignoreCase = true) }
                                 if (!existeSolvente) {
@@ -461,7 +459,6 @@ fun RelatorioEquipamentoScreen(
                     enabled = maquinaSelecionada != null &&
                               codigoTintaSelecionado.isNotBlank() &&
                               codigoSolventeSelecionado.isNotBlank() &&
-                              dataProximaPreventiva.isNotBlank() &&
                               horasProximaPreventiva.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(containerColor = Brand, contentColor = Color.White),
                     shape = RoundedCornerShape(8.dp)
@@ -686,7 +683,7 @@ private fun AddEditMaquinaDialog(
                     OutlinedTextField(
                         value = fabricante,
                         onValueChange = {
-                            fabricante = it
+                            fabricante = it.uppercase()
                             fabricanteExpanded = it.isNotEmpty() && fabricantesFiltrados.isNotEmpty()
                         },
                         label = { Text("Fabricante *") },
@@ -767,7 +764,7 @@ private fun AddEditMaquinaDialog(
 
                 OutlinedTextField(
                     value = identificacao,
-                    onValueChange = { identificacao = it },
+                    onValueChange = { identificacao = it.uppercase() },
                     label = { Text("Identificação *") },
                     placeholder = { Text("Ex: Máquina Principal") },
                     modifier = Modifier.fillMaxWidth(),
