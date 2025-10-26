@@ -14,7 +14,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
@@ -27,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -219,6 +217,14 @@ fun RelatorioHorasDeslocamentoScreen(
     }
 
     // Cálculo do valor total de deslocamento
+    val adjustedDistanceKm by remember {
+        derivedStateOf {
+            val distancia = distanciaKm.replace(",", ".").toDoubleOrNull() ?: 0.0
+            // aplicar margem de 20% e contabilizar ida e volta (×2.4)
+            distancia * 1.2 * 2.0
+        }
+    }
+
     val valorDeslocamentoTotal by remember {
         derivedStateOf {
             val valorKmEmCentavos = valorPorKm.toLongOrNull() ?: 0L
@@ -227,9 +233,8 @@ fun RelatorioHorasDeslocamentoScreen(
             val valorPedagiosEmCentavos = valorPedagios.toLongOrNull() ?: 0L
             val valorPedagiosEmReais = valorPedagiosEmCentavos.toDouble() / 100
 
-            val distancia = distanciaKm.replace(",", ".").toDoubleOrNull() ?: 0.0
-
-            (valorKmEmReais * distancia) + valorPedagiosEmReais
+            // usar adjustedDistanceKm (já inclui margem de 20% e ida/volta)
+            (valorKmEmReais * adjustedDistanceKm) + valorPedagiosEmReais
         }
     }
 
@@ -455,10 +460,15 @@ fun RelatorioHorasDeslocamentoScreen(
 
                     // Campo de Distância - Calculado automaticamente
                     OutlinedTextField(
-                        value = if (isCalculatingDistance) "Calculando..." else "${distanciaKm} km",
+                        value = if (isCalculatingDistance) {
+                            "Calculando..."
+                        } else {
+                            // Mostrar apenas a distância já ajustada (margem + ida/volta)
+                            "${String.format(Locale.getDefault(), "%.1f", adjustedDistanceKm)} km"
+                        },
                         onValueChange = { },
                         label = { Text("Distância") },
-                        placeholder = { Text("Calculado automaticamente") },
+                        placeholder = { Text("Calculado automaticamente e já com margem") },
                         readOnly = true,
                         leadingIcon = {
                             if (isCalculatingDistance) {
@@ -561,12 +571,14 @@ fun RelatorioHorasDeslocamentoScreen(
                     val totalHoras = calcularTotalHoras(horarioEntrada, horarioSaida)
                     val valorHoraTec = valorHoraTecnica.toLongOrNull()?.toDouble()?.div(100.0) ?: 150.0
 
-                    android.util.Log.d("RelatorioHorasDeslocamento", "=== SALVANDO DADOS ===")
-                    android.util.Log.d("RelatorioHorasDeslocamento", "Horário Entrada: $horarioEntrada")
-                    android.util.Log.d("RelatorioHorasDeslocamento", "Horário Saída: $horarioSaida")
-                    android.util.Log.d("RelatorioHorasDeslocamento", "⭐⭐⭐ Valor Hora Técnica (centavos): $valorHoraTecnica")
-                    android.util.Log.d("RelatorioHorasDeslocamento", "⭐⭐⭐ Valor Hora Técnica (reais): $valorHoraTec")
-                    android.util.Log.d("RelatorioHorasDeslocamento", "Total Horas: $totalHoras")
+                    Log.d("RelatorioHorasDeslocamento", "=== SALVANDO DADOS ===")
+                    Log.d("RelatorioHorasDeslocamento", "Horário Entrada: $horarioEntrada")
+                    Log.d("RelatorioHorasDeslocamento", "Horário Saída: $horarioSaida")
+                    Log.d("RelatorioHorasDeslocamento", "⭐⭐⭐ Valor Hora Técnica (centavos): $valorHoraTecnica")
+                    Log.d("RelatorioHorasDeslocamento", "⭐⭐⭐ Valor Hora Técnica (reais): $valorHoraTec")
+                    Log.d("RelatorioHorasDeslocamento", "Total Horas: $totalHoras")
+                    Log.d("RelatorioHorasDeslocamento", "Distância original (km): $distanciaKm")
+                    Log.d("RelatorioHorasDeslocamento", "Distância ajustada (km, +20% e ida/volta): $adjustedDistanceKm")
 
                     // Salvar dados de horas e deslocamento no ViewModel compartilhado
                     sharedViewModel.setHorasDeslocamento(
@@ -574,7 +586,7 @@ fun RelatorioHorasDeslocamentoScreen(
                         horarioSaida = horarioSaida,
                         valorHoraTecnica = valorHoraTec,
                         totalHoras = totalHoras,
-                        quantidadeKm = distanciaKm.replace(",", ".").toDoubleOrNull() ?: 0.0,
+                        quantidadeKm = adjustedDistanceKm, // salvar distância ajustada
                         valorPorKm = valorPorKm.toLongOrNull()?.toDouble()?.div(100.0) ?: 0.0,
                         valorPedagios = valorPedagios.toLongOrNull()?.toDouble()?.div(100.0) ?: 0.0,
                         valorTotalDeslocamento = valorDeslocamentoTotal
@@ -585,10 +597,10 @@ fun RelatorioHorasDeslocamentoScreen(
                     val servicosString = servicos
                     val observacoesEncoded = java.net.URLEncoder.encode(observacoesDecodificadas, "UTF-8")
                     val pecasString = pecas
-                    // ⭐ CORREÇÃO CRÍTICA: Incluir valorHoraTec na string horasData
-                    val horasData = "${horarioEntrada};${horarioSaida};${distanciaKm};${valorPorKm};${valorPedagios};${valorDeslocamentoTotal};${valorHoraTec}"
+                    // ⭐ Incluir distância ajustada (com margem e ida/volta) na string horasData
+                    val horasData = "${horarioEntrada};${horarioSaida};${String.format(Locale.getDefault(), "%.1f", adjustedDistanceKm)};${valorPorKm};${valorPedagios};${valorDeslocamentoTotal};${valorHoraTec}"
 
-                    android.util.Log.d("RelatorioHorasDeslocamento", "String horasData: $horasData")
+                    Log.d("RelatorioHorasDeslocamento", "String horasData: $horasData")
 
                     navController.navigate("relatorioEtapa6?defeitos=$defeitosString&servicos=$servicosString&observacoes=$observacoesEncoded&pecas=$pecasString&horas=$horasData&clienteId=$clienteId")
                 },
@@ -668,7 +680,7 @@ fun calcularDuracaoEmMinutos(entrada: String, saida: String): Int {
 
 // Função configurar formatação monetária nativa
 fun setupCurrencyInput(editText: EditText, onValueChange: (String) -> Unit) {
-    val locale = Locale("pt", "BR")
+    val locale = Locale.forLanguageTag("pt-BR")
     val numberFormat = NumberFormat.getCurrencyInstance(locale)
 
     editText.addTextChangedListener(object : TextWatcher {
@@ -695,7 +707,7 @@ fun setupCurrencyInput(editText: EditText, onValueChange: (String) -> Unit) {
 
                         // Retorna apenas os dígitos para armazenamento
                         onValueChange(cleanString)
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         current = ""
                         editText.setText("")
                         onValueChange("")
@@ -721,8 +733,6 @@ fun CampoValorMonetario(
     placeholder: String,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-
     Column(modifier = modifier) {
         // Label
         Text(
@@ -783,8 +793,8 @@ fun CampoValorMonetario(
         if (valor.isNotEmpty()) {
             val valorFormatado = try {
                 val parsed = BigDecimal(valor).divide(BigDecimal(100))
-                NumberFormat.getCurrencyInstance(Locale("pt", "BR")).format(parsed)
-            } catch (e: Exception) {
+                NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR")).format(parsed)
+            } catch (_: Exception) {
                 "R$ 0,00"
             }
 
@@ -829,7 +839,7 @@ private fun calcularTotalHoras(entrada: String, saida: String): Double {
         }
 
         diferencaMinutos / 60.0
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         0.0
     }
 }
