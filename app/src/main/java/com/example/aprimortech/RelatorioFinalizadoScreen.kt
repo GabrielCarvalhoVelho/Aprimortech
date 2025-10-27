@@ -8,6 +8,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -244,6 +245,15 @@ private suspend fun carregarRelatorioCompleto(
         ContatoInfo(nome = contato.nome, setor = contato.setor ?: "", celular = contato.celular ?: "")
     }
 
+    // Equipamento fotos: priorizar fotos diretamente salvas no relatório (relatorio.equipamentoFotos)
+    val equipamentoFotosList = if (relatorio.equipamentoFotos.isNotEmpty()) {
+        relatorio.equipamentoFotos
+    } else {
+        // Caso não existam no relatório, tentar recuperar da máquina (se houver campo de fotos)
+        // Atualmente Maquina model doesn't store fotos; placeholder for future retrieval from maquina
+        emptyList()
+    }
+
     return RelatorioCompleto(
         id = relatorio.id,
         dataRelatorio = relatorio.dataRelatorio,
@@ -264,6 +274,8 @@ private suspend fun carregarRelatorioCompleto(
         equipamentoCodigoSolvente = relatorio.codigoSolvente ?: "",
         equipamentoDataProximaPreventiva = relatorio.dataProximaPreventiva ?: "",
         equipamentoHoraProximaPreventiva = relatorio.horasProximaPreventiva ?: "",
+        // Passar lista de fotos para o modelo completo
+        equipamentoFotos = equipamentoFotosList,
         defeitos = defeitos,
         servicos = servicos,
         pecas = pecasInfo,
@@ -355,6 +367,11 @@ private fun RelatorioContent(relatorioCompleto: RelatorioCompleto) {
         ClienteSection(relatorioCompleto)
         HorizontalDivider()
         EquipamentoSection(relatorioCompleto)
+        // Nova seção: fotos do equipamento (se existirem)
+        if (relatorioCompleto.equipamentoFotos.isNotEmpty()) {
+            HorizontalDivider()
+            FotosSection(relatorioCompleto)
+        }
         HorizontalDivider()
         if (relatorioCompleto.pecas.isNotEmpty()) {
             PecasSection(relatorioCompleto.pecas)
@@ -593,5 +610,51 @@ private fun InfoRow(label: String, value: String, highlight: Boolean = false) {
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
         Text(text = displayValue, fontSize = 12.sp, fontWeight = if (highlight) FontWeight.Bold else FontWeight.Normal,
             color = if (highlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
+private fun FotosSection(relatorio: RelatorioCompleto) {
+    SectionCard(title = "FOTOS DO EQUIPAMENTO") {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            relatorio.equipamentoFotos.forEachIndexed { index, base64 ->
+                val bitmap = remember(base64) {
+                    try {
+                        val bytes = Base64.decode(base64, Base64.DEFAULT)
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+
+                if (bitmap != null) {
+                    Card(
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.size(120.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                    ) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Foto ${index + 1}",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                } else {
+                    Card(shape = RoundedCornerShape(8.dp), modifier = Modifier.size(120.dp)) {
+                        Box(modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.LightGray), contentAlignment = Alignment.Center) {
+                            Text("Erro ao carregar", fontSize = 12.sp, color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
     }
 }

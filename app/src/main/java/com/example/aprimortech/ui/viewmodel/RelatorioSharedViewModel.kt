@@ -48,17 +48,20 @@ class RelatorioSharedViewModel : ViewModel() {
         codigoTinta: String,
         codigoSolvente: String,
         dataProximaPreventiva: String,
-        horaProximaPreventiva: String
+        horaProximaPreventiva: String,
+        equipamentoFotos: List<String> = emptyList()
     ) {
         equipamentoData = EquipamentoData(
             fabricante, numeroSerie, codigoConfiguracao, modelo, identificacao,
-            anoFabricacao, codigoTinta, codigoSolvente, dataProximaPreventiva, horaProximaPreventiva
+            anoFabricacao, codigoTinta, codigoSolvente, dataProximaPreventiva, horaProximaPreventiva,
+            equipamentoFotos
         )
         android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] setEquipamentoData chamado")
         android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] codigoTinta: $codigoTinta")
         android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] codigoSolvente: $codigoSolvente")
         android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] dataProximaPreventiva: $dataProximaPreventiva")
         android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] horaProximaPreventiva: $horaProximaPreventiva")
+        android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] fotos count: ${equipamentoFotos.size}")
     }
 
     fun setDefeitosServicos(defeitos: List<String>, servicos: List<String>, observacoes: String) {
@@ -128,6 +131,7 @@ class RelatorioSharedViewModel : ViewModel() {
             equipamentoCodigoSolvente = equipamentoData?.codigoSolvente ?: "",
             equipamentoDataProximaPreventiva = equipamentoData?.dataProximaPreventiva ?: "",
             equipamentoHoraProximaPreventiva = equipamentoData?.horaProximaPreventiva ?: "",
+            equipamentoFotos = equipamentoData?.fotos ?: emptyList(),
 
             // Defeitos e Serviços
             defeitos = defeitosData,
@@ -212,7 +216,8 @@ private data class EquipamentoData(
     val codigoTinta: String,
     val codigoSolvente: String,
     val dataProximaPreventiva: String,
-    val horaProximaPreventiva: String
+    val horaProximaPreventiva: String,
+    val fotos: List<String> = emptyList()
 )
 
 data class PecaData(

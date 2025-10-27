@@ -3,6 +3,7 @@ package com.example.aprimortech.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.aprimortech.model.Relatorio
+import org.json.JSONArray
 
 @Entity(tableName = "relatorios")
 data class RelatorioEntity(
@@ -36,11 +37,21 @@ data class RelatorioEntity(
     val defeitosIdentificados: String = "", // CSV format
     val servicosRealizados: String = "", // CSV format
     val observacoesDefeitosServicos: String = "",
-    val syncPending: Boolean
+    val syncPending: Boolean,
+    // NOVO: armazenamento das fotos do equipamento como JSON array string
+    val equipamentoFotosJson: String = "[]"
 )
 
 // Extension functions para conversão
 fun RelatorioEntity.toRelatorio(): Relatorio {
+    // Desserializar equipamentoFotosJson (JSONArray -> List<String>)
+    val fotosList = try {
+        val arr = JSONArray(equipamentoFotosJson)
+        List(arr.length()) { i -> arr.optString(i) }
+    } catch (e: Exception) {
+        emptyList()
+    }
+
     return Relatorio(
         id = id,
         clienteId = clienteId,
@@ -72,11 +83,21 @@ fun RelatorioEntity.toRelatorio(): Relatorio {
         defeitosIdentificados = if (defeitosIdentificados.isBlank()) emptyList() else defeitosIdentificados.split(","),
         servicosRealizados = if (servicosRealizados.isBlank()) emptyList() else servicosRealizados.split(","),
         observacoesDefeitosServicos = observacoesDefeitosServicos,
-        syncPending = syncPending
+        syncPending = syncPending,
+        equipamentoFotos = fotosList
     )
 }
 
 fun Relatorio.toRelatorioEntity(): RelatorioEntity {
+    // Serializar equipamentoFotos (List<String> -> JSONArray string)
+    val fotosJson = try {
+        val arr = JSONArray()
+        equipamentoFotos.forEach { arr.put(it) }
+        arr.toString()
+    } catch (e: Exception) {
+        "[]"
+    }
+
     return RelatorioEntity(
         id = id,
         clienteId = clienteId,
@@ -108,6 +129,7 @@ fun Relatorio.toRelatorioEntity(): RelatorioEntity {
         defeitosIdentificados = defeitosIdentificados.joinToString(","),
         servicosRealizados = servicosRealizados.joinToString(","),
         observacoesDefeitosServicos = observacoesDefeitosServicos,
-        syncPending = syncPending
+        syncPending = syncPending,
+        equipamentoFotosJson = fotosJson
     )
 }

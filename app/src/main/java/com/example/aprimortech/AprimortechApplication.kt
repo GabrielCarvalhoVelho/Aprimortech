@@ -20,6 +20,7 @@ import com.example.aprimortech.worker.ClienteSyncWorker
 import com.example.aprimortech.worker.MaquinaSyncWorker
 import com.example.aprimortech.worker.PecaSyncWorker
 import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -196,6 +197,27 @@ class AprimortechApplication : Application() {
             // Inicializar Firebase PRIMEIRO
             FirebaseApp.initializeApp(this)
             Log.d(TAG, "✅ Firebase inicializado")
+
+            // --- Garantir que o FirebaseAuth esteja com algum usuário autenticado ---
+            try {
+                val auth = FirebaseAuth.getInstance()
+                val current = auth.currentUser
+                if (current == null) {
+                    Log.d(TAG, "ℹ️ Nenhum usuário autenticado no FirebaseAuth, tentando signInAnonymously()...")
+                    auth.signInAnonymously().addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            val user = auth.currentUser
+                            Log.d(TAG, "✅ Sign-in anônimo realizado: uid=${user?.uid}")
+                        } else {
+                            Log.w(TAG, "⚠️ Falha no sign-in anônimo do FirebaseAuth: ${task.exception?.message}", task.exception)
+                        }
+                    }
+                } else {
+                    Log.d(TAG, "✅ FirebaseAuth já autenticado: uid=${current.uid}")
+                }
+            } catch (authEx: Exception) {
+                Log.w(TAG, "⚠️ Erro ao inicializar FirebaseAuth", authEx)
+            }
 
             // Forçar inicialização do Firestore
             firestore

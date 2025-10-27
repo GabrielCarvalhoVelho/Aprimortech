@@ -56,6 +56,7 @@ class RelatorioRemoteDataSource @Inject constructor() {
                 "defeitosIdentificados" to relatorio.defeitosIdentificados,
                 "servicosRealizados" to relatorio.servicosRealizados,
                 "observacoesDefeitosServicos" to relatorio.observacoesDefeitosServicos,
+                "equipamentoFotos" to relatorio.equipamentoFotos,
                 "syncPending" to relatorio.syncPending
             )
 

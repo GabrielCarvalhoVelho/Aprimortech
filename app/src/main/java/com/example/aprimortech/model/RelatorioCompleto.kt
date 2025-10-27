@@ -33,6 +33,8 @@ data class RelatorioCompleto(
     val equipamentoCodigoSolvente: String = "",
     val equipamentoDataProximaPreventiva: String = "",
     val equipamentoHoraProximaPreventiva: String = "",
+    // NOVO: lista de fotos do equipamento (Base64 ou URIs serializados) - até 4 itens
+    val equipamentoFotos: List<String> = emptyList(),
 
     // Defeitos
     val defeitos: List<String> = emptyList(),

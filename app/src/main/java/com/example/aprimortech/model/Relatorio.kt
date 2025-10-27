@@ -32,7 +32,9 @@ data class Relatorio(
     val servicosRealizados: List<String> = emptyList(),    // Lista de serviços realizados
     val observacoesDefeitosServicos: String = "",          // Observações da tela DefeitoServicosScreen
     val pecasUtilizadas: List<Map<String, Any>> = emptyList(), // [{"codigo": "ABC", "descricao": "Peça X", "quantidade": 2}]
-    val syncPending: Boolean = true
+    val syncPending: Boolean = true,
+    // NOVO: fotos do equipamento salvas junto ao relatório (Base64 ou URIs serializados)
+    val equipamentoFotos: List<String> = emptyList()
 )
 
 private fun getCurrentDate(): String {

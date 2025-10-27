@@ -4,4 +4,8 @@
     <external-files-path
         name="documents"
         path="Documents/" />
+    <!-- Permitir compartilhar arquivos do cache interno (ex.: cacheDir) -->
+    <cache-path
+        name="cache"
+        path="." />
 </paths>

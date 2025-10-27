@@ -1,16 +1,23 @@
 package com.example.aprimortech
 
+import android.Manifest
+import android.net.Uri
+import android.util.Base64
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -38,6 +45,18 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
+import android.graphics.BitmapFactory
+import androidx.core.content.FileProvider
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.InputStream
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
+import androidx.compose.foundation.horizontalScroll
 
 private val Brand = Color(0xFF1A4A5C)
 
@@ -47,7 +66,12 @@ fun RelatorioEquipamentoScreen(
     navController: NavController,
     modifier: Modifier = Modifier,
     clienteId: String = "",
-    viewModel: MaquinaViewModel = viewModel(
+    // Tornar o ViewModel opcional para evitar usar APIs composable em parâmetros padrão
+    maquinaViewModelParam: MaquinaViewModel? = null,
+    sharedViewModel: RelatorioSharedViewModel
+) {
+    // Instanciar o ViewModel aqui (dentro do contexto @Composable)
+    val maquinaVM: MaquinaViewModel = maquinaViewModelParam ?: viewModel(
         factory = MaquinaViewModelFactory(
             buscarMaquinasUseCase = (LocalContext.current.applicationContext as AprimortechApplication).buscarMaquinasUseCase,
             salvarMaquinaUseCase = (LocalContext.current.applicationContext as AprimortechApplication).salvarMaquinaUseCase,
@@ -55,9 +79,8 @@ fun RelatorioEquipamentoScreen(
             sincronizarMaquinasUseCase = (LocalContext.current.applicationContext as AprimortechApplication).sincronizarMaquinasUseCase,
             buscarClientesUseCase = (LocalContext.current.applicationContext as AprimortechApplication).buscarClientesUseCase
         )
-    ),
-    sharedViewModel: RelatorioSharedViewModel
-) {
+    )
+
     val context = LocalContext.current
     val app = context.applicationContext as AprimortechApplication
     val scope = rememberCoroutineScope()
@@ -72,27 +95,68 @@ fun RelatorioEquipamentoScreen(
     var codigoSolventeSelecionado by remember { mutableStateOf("") }
     var dataProximaPreventiva by remember { mutableStateOf("") }
     var horasProximaPreventiva by remember { mutableStateOf("") }
+    // Fotos do equipamento (armazenadas como Base64 para enviar/armazenar no sharedViewModel)
+    var equipamentoFotos by remember { mutableStateOf<List<String>>(emptyList()) }
 
-    // Novo: controlar exibição do modal de nova máquina
-    var showNovoMaquinaDialog by remember { mutableStateOf(false) }
-    // Novo: id pendente para seleção após salvar (aguarda ViewModel atualizar lista)
+    // Launchers para câmera e galeria
+    val cameraUriState = remember { mutableStateOf<Uri?>(null) }
+    val takePictureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success) {
+            cameraUriState.value?.let { uri ->
+                val base64 = uriToBase64(context, uri)
+                base64?.let { newImage ->
+                    if (equipamentoFotos.size < 4) equipamentoFotos = equipamentoFotos + newImage
+                    else Toast.makeText(context, "Máximo de 4 fotos", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Launcher para solicitar permissão de câmera (runtime)
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            // Se a permissão foi concedida, lançar a câmera usando a uri previamente criada
+            cameraUriState.value?.let { uri ->
+                takePictureLauncher.launch(uri)
+            }
+        } else {
+            Toast.makeText(context, "Permissão de câmera necessária para tirar fotos", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val pickImagesLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            val ctx = context
+            val converted = uris.mapNotNull { uri -> uriToBase64(ctx, uri) }
+            val available = 4 - equipamentoFotos.size
+            if (converted.isNotEmpty()) {
+                equipamentoFotos = equipamentoFotos + converted.take(available)
+                if (converted.size > available) {
+                    Toast.makeText(ctx, "Apenas $available fotos adicionadas (limite 4)", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Estados auxiliares ausentes anteriormente
     var pendingMaquinaId by remember { mutableStateOf<String?>(null) }
+    var showNovoMaquinaDialog by remember { mutableStateOf(false) }
 
     // Listas de tintas e solventes disponíveis
     var tintasDisponiveis by remember { mutableStateOf<List<Tinta>>(emptyList()) }
     var solventesDisponiveis by remember { mutableStateOf<List<Solvente>>(emptyList()) }
 
-    // Estados do ViewModel
-    val maquinas by viewModel.maquinas.collectAsState()
-    val clientes by viewModel.clientes.collectAsState()
-    val fabricantesDisponiveis by viewModel.fabricantesDisponiveis.collectAsState()
-    val modelosDisponiveis by viewModel.modelosDisponiveis.collectAsState()
+    // Estados do ViewModel (usando a instância local `maquinaVM`)
+    val maquinas by maquinaVM.maquinas.collectAsState()
+    val clientes by maquinaVM.clientes.collectAsState()
+    val fabricantesDisponiveis by maquinaVM.fabricantesDisponiveis.collectAsState()
+    val modelosDisponiveis by maquinaVM.modelosDisponiveis.collectAsState()
 
-    val operacaoEmAndamento by viewModel.operacaoEmAndamento.collectAsState()
-    val mensagemOperacao by viewModel.mensagemOperacao.collectAsState()
+    val operacaoEmAndamento by maquinaVM.operacaoEmAndamento.collectAsState()
+    val mensagemOperacao by maquinaVM.mensagemOperacao.collectAsState()
 
     // Carregar dados do ViewModel ao entrar (para clientes, máquinas e autocompletes)
-    LaunchedEffect(Unit) { viewModel.carregarTodosDados() }
+    LaunchedEffect(Unit) { maquinaVM.carregarTodosDados() }
 
     // Carregar tintas e solventes ao iniciar
     LaunchedEffect(Unit) {
@@ -123,7 +187,7 @@ fun RelatorioEquipamentoScreen(
     LaunchedEffect(mensagemOperacao) {
         mensagemOperacao?.let { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-            viewModel.limparMensagem()
+            maquinaVM.limparMensagem()
         }
     }
 
@@ -407,6 +471,90 @@ fun RelatorioEquipamentoScreen(
                     )
                 }
 
+                // SEÇÃO FOTOS DO EQUIPAMENTO
+                SectionCard {
+                    Text("Fotos do Equipamento", style = MaterialTheme.typography.titleMedium, color = Brand)
+                    Spacer(Modifier.height(8.dp))
+
+                    // Miniaturas em uma única linha, lado a lado (rolável horizontalmente se necessário)
+                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Mostrar até 4 slots (preencher com Spacer quando vazio)
+                            for (i in 0 until 4) {
+                                if (i < equipamentoFotos.size) {
+                                    val base64 = equipamentoFotos[i]
+                                    Box(modifier = Modifier.size(72.dp)) {
+                                        val bytes = Base64.decode(base64, Base64.DEFAULT)
+                                        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                        Image(
+                                            bitmap = bitmap.asImageBitmap(),
+                                            contentDescription = "Foto ${i + 1}",
+                                            modifier = Modifier
+                                                .size(72.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp)),
+                                            contentScale = ContentScale.Crop
+                                        )
+
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = Color.White,
+                                            tonalElevation = 2.dp,
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .align(Alignment.TopEnd)
+                                                .clickable {
+                                                    equipamentoFotos = equipamentoFotos.toMutableList().also { list ->
+                                                        if (i in list.indices) list.removeAt(i)
+                                                    }
+                                                }
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Default.Close, contentDescription = "Remover foto", tint = Color(0xFFB00020), modifier = Modifier.size(14.dp))
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Spacer(modifier = Modifier.size(72.dp))
+                                }
+                            }
+                        }
+
+                        // Botões centralizados abaixo das miniaturas (evita sobreposição)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                            FilledTonalButton(onClick = {
+                                val ctx = context
+                                val photoFile = File(ctx.cacheDir, "photo_${System.currentTimeMillis()}.jpg")
+                                val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".fileprovider", photoFile)
+                                cameraUriState.value = uri
+
+                                val cameraPermission = Manifest.permission.CAMERA
+                                if (ContextCompat.checkSelfPermission(ctx, cameraPermission) == PackageManager.PERMISSION_GRANTED) {
+                                    takePictureLauncher.launch(uri)
+                                } else {
+                                    cameraPermissionLauncher.launch(cameraPermission)
+                                }
+                            }, colors = ButtonDefaults.filledTonalButtonColors(containerColor = Brand.copy(alpha = 0.08f)), modifier = Modifier.padding(end = 8.dp)) {
+                                Icon(Icons.Default.Add, contentDescription = "Tirar foto", tint = Brand)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Câmera", color = Brand)
+                            }
+
+                            FilledTonalButton(onClick = { pickImagesLauncher.launch("image/*") }, colors = ButtonDefaults.filledTonalButtonColors(containerColor = Brand.copy(alpha = 0.08f))) {
+                                Text("Galeria", color = Brand)
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    Text("Até 4 fotos. Você pode tirar novas fotos ou selecionar da galeria.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                }
+
                 // BOTÃO CONTINUAR
                 Spacer(Modifier.height(16.dp))
                 Button(
@@ -447,7 +595,8 @@ fun RelatorioEquipamentoScreen(
                                     codigoTinta = codigoTintaSelecionado,
                                     codigoSolvente = codigoSolventeSelecionado,
                                     dataProximaPreventiva = dataProximaPreventiva,
-                                    horaProximaPreventiva = horasProximaPreventiva
+                                    horaProximaPreventiva = horasProximaPreventiva,
+                                    equipamentoFotos = equipamentoFotos
                                 )
                             }
 
@@ -491,7 +640,7 @@ fun RelatorioEquipamentoScreen(
             onConfirm = { nova ->
                 // Marcar pending id e solicitar salvamento via ViewModel
                 pendingMaquinaId = nova.id
-                viewModel.salvarMaquina(nova)
+                maquinaVM.salvarMaquina(nova)
                 showNovoMaquinaDialog = false
             }
         )
@@ -832,4 +981,21 @@ private fun AddEditMaquinaDialog(
             }
         }
     )
+}
+
+// Helper: converte Uri para Base64 (JPEG comprimido)
+private fun uriToBase64(context: android.content.Context, uri: Uri): String? {
+    return try {
+        val input: InputStream? = context.contentResolver.openInputStream(uri)
+        val bitmap = BitmapFactory.decodeStream(input)
+        input?.close()
+        val baos = ByteArrayOutputStream()
+        // Comprimir em JPEG com qualidade 80
+        bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, baos)
+        val bytes = baos.toByteArray()
+        Base64.encodeToString(bytes, Base64.DEFAULT)
+    } catch (e: Exception) {
+        android.util.Log.e("RelatorioEquipamentoScreen", "Erro convertendo uri para base64", e)
+        null
+    }
 }

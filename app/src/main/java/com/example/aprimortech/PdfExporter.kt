@@ -197,6 +197,93 @@ object PdfExporter {
             y += barH + 4
         }
 
+        fun drawImagesSection(images: List<String>) {
+            if (images.isEmpty()) return
+            drawSectionTitle("FOTOS DO EQUIPAMENTO")
+
+            val cols = 2
+            val spacing = 8
+            val availableW = contentWidth - (spacing * (cols - 1))
+            val imgW = (availableW / cols)
+            val imgMaxH = 140
+
+            var col = 0
+
+            images.forEachIndexed { idx, raw ->
+                // Ensure there's room for image block; if not, new page
+                checkNewPage(imgMaxH + 20)
+
+                // decode or fetch image
+                var bmp: Bitmap? = null
+                val cleanedRaw = raw.substringAfter("base64,").replace("\\s".toRegex(), "")
+
+                try {
+                    if (cleanedRaw.startsWith("http://") || cleanedRaw.startsWith("https://")) {
+                        try {
+                            val url = java.net.URL(cleanedRaw)
+                            val conn = url.openConnection() as java.net.HttpURLConnection
+                            conn.connectTimeout = 5000
+                            conn.readTimeout = 5000
+                            conn.requestMethod = "GET"
+                            conn.doInput = true
+                            conn.connect()
+                            conn.inputStream.use { ins ->
+                                val bytes = ins.readBytes()
+                                bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                            }
+                            conn.disconnect()
+                        } catch (_: Exception) {
+                            bmp = null
+                        }
+                    } else {
+                        // Only http/https are fetched here; gs:// should have sido resolvido pelo repositório
+                        bmp = null
+                    }
+                } catch (_: Exception) {
+                    bmp = null
+                }
+
+                // draw placeholder if no bitmap
+                val left = margin + (col * (imgW + spacing))
+                val top = y
+                val right = left + imgW
+                val bottom = top + imgMaxH
+
+                if (bmp != null) {
+                    // scale preserving aspect ratio
+                    val scale = minOf(imgW.toFloat() / bmp.width.toFloat(), imgMaxH.toFloat() / bmp.height.toFloat(), 1f)
+                    val bmpW = (bmp.width * scale).toInt()
+                    val bmpH = (bmp.height * scale).toInt()
+                    val cx = left + (imgW - bmpW) / 2
+                    val cy = top + (imgMaxH - bmpH) / 2
+                    val dest = Rect(cx, cy, cx + bmpW, cy + bmpH)
+                    canvas.drawBitmap(bmp, null, dest, null)
+                    // draw border
+                    canvas.drawRect(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat(), linePaint)
+                } else {
+                    // placeholder box
+                    val placeholder = Paint().apply { color = Color.argb(12, 0, 0, 0) }
+                    canvas.drawRect(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat(), placeholder)
+                    val tx = "Imagem indisponível"
+                    val pw = textPaint.measureText(tx)
+                    canvas.drawText(tx, left + (imgW - pw) / 2f, top + imgMaxH / 2f, textPaint)
+                    canvas.drawRect(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat(), linePaint)
+                }
+
+                col++
+                if (col >= cols) {
+                    // move to next row
+                    col = 0
+                    y = bottom + 12
+                }
+            }
+
+            // if last row was not fully completed, advance y
+            if (col != 0) {
+                y += imgMaxH + 12
+            }
+        }
+
         fun drawEmptyPlaceholder() {
             val p = Paint(textPaint).apply { color = inkLight }
             canvas.drawText("—", (margin + 8).toFloat(), y.toFloat(), p)
@@ -358,7 +445,7 @@ object PdfExporter {
                             debugLogs.add("Assinatura[$idx] prefix='${base64.take(20)}' cleanedLen=${cleaned.length}")
 
                             // If the cleaned value looks like a URL (http/https/gs://), skip base64 decode
-                            if (cleaned.startsWith("http://") || cleaned.startsWith("https://") || cleaned.startsWith("gs://")) {
+                            if (cleaned.startsWith("http://") || cleaned.startsWith("https://")) {
                                 debugLogs.add("Assinatura[$idx] appears to be URL: ${cleaned.take(120)}")
                                 // If it's an HTTP/HTTPS URL, try to fetch the image bytes and decode
                                 var fetchedBmp: Bitmap? = null
@@ -400,6 +487,11 @@ object PdfExporter {
                                     // Could be gs:// or fetch failed; draw placeholder line
                                     canvas.drawLine((leftX + 8).toFloat(), lineY.toFloat(), (rightX - 8).toFloat(), lineY.toFloat(), linePaint)
                                 }
+                            } else if (cleaned.startsWith("gs://")) {
+                                // gs:// links are expected to be resolved by the repository into HTTP URLs.
+                                // If we still see a gs:// here, log and draw placeholder line.
+                                debugLogs.add("Assinatura[$idx] gs:// detected but not resolved: ${cleaned.take(120)}")
+                                canvas.drawLine((leftX + 8).toFloat(), lineY.toFloat(), (rightX - 8).toFloat(), lineY.toFloat(), linePaint)
                             } else {
                                 // Try multiple Base64 flags to decode different encodings (DEFAULT, NO_WRAP, URL_SAFE, combinations)
                                 var bmp: Bitmap? = null
@@ -554,6 +646,13 @@ object PdfExporter {
 
         drawSectionTitle("OBSERVAÇÕES")
         drawFullText(relatorio.observacoes)
+
+        // Novas: desenhar fotos do equipamento (se houver)
+        if (relatorio.equipamentoFotos.isNotEmpty()) {
+            try {
+                drawImagesSection(relatorio.equipamentoFotos)
+            } catch (_: Exception) { }
+        }
 
         drawSectionTitle("ASSINATURAS")
         val sigItems = listOf(
