@@ -1,8 +1,10 @@
 package com.example.aprimortech
 
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.graphics.BitmapFactory
 import android.util.Base64
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -32,6 +34,11 @@ import androidx.navigation.NavController
 import com.example.aprimortech.data.repository.*
 import com.example.aprimortech.model.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.tasks.await
+import com.google.firebase.storage.FirebaseStorage
+import java.net.URL
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -246,12 +253,72 @@ private suspend fun carregarRelatorioCompleto(
     }
 
     // Equipamento fotos: priorizar fotos diretamente salvas no relatório (relatorio.equipamentoFotos)
-    val equipamentoFotosList = if (relatorio.equipamentoFotos.isNotEmpty()) {
-        relatorio.equipamentoFotos
+    var equipamentoFotosList = if (relatorio.equipamentoFotos.isNotEmpty()) {
+        relatorio.equipamentoFotos.toMutableList()
     } else {
         // Caso não existam no relatório, tentar recuperar da máquina (se houver campo de fotos)
         // Atualmente Maquina model doesn't store fotos; placeholder for future retrieval from maquina
-        emptyList()
+        mutableListOf<String>()
+    }
+
+    // Se houver entradas tipo `gs://bucket` (apenas bucket sem path), tentar listar o diretório padrão relatorios/<id>/fotos
+    try {
+        val bucketOnly = equipamentoFotosList.any { it.startsWith("gs://") && !it.substringAfter("gs://").contains("/") }
+        if (bucketOnly) {
+            val resolved = mutableListOf<String>()
+            val storage = FirebaseStorage.getInstance()
+            equipamentoFotosList.forEach { item ->
+                if (item.startsWith("gs://") && !item.substringAfter("gs://").contains("/")) {
+                    try {
+                        val folderRef = try {
+                            val bucketRef = storage.getReferenceFromUrl(item)
+                            bucketRef.child("relatorios/${relatorio.id}/fotos")
+                        } catch (inner: Exception) {
+                            // Fallback to default app bucket path if getReferenceFromUrl fails
+                            storage.reference.child("relatorios/${relatorio.id}/fotos")
+                        }
+                        val listResult = folderRef.listAll().await()
+                        if (listResult.items.isEmpty()) {
+                            // Try alternative bucket name when original uses `.firebasestorage.app` (some projects use .appspot.com)
+                            if (item.contains(".firebasestorage.app")) {
+                                try {
+                                    val altBucket = item.replace(".firebasestorage.app", ".appspot.com")
+                                    val altRef = try {
+                                        storage.getReferenceFromUrl(altBucket).child("relatorios/${relatorio.id}/fotos")
+                                    } catch (_: Exception) {
+                                        storage.reference.child("relatorios/${relatorio.id}/fotos")
+                                    }
+                                    val altList = altRef.listAll().await()
+                                    altList.items.forEach { fileRef ->
+                                        try {
+                                            val url = fileRef.downloadUrl.await().toString()
+                                            resolved.add(url)
+                                        } catch (_: Exception) { }
+                                    }
+                                    // if altList had items, continue
+                                    if (altList.items.isNotEmpty()) return@forEach
+                                } catch (_: Exception) { /* ignore alt attempt */ }
+                            }
+                        } else {
+                            listResult.items.forEach { fileRef ->
+                                try {
+                                    val url = fileRef.downloadUrl.await().toString()
+                                    resolved.add(url)
+                                } catch (_: Exception) { /* ignore single file */ }
+                            }
+                        }
+                    } catch (_: Exception) {
+                        // fallback: keep original bucket string for debugging
+                        resolved.add(item)
+                    }
+                } else {
+                    resolved.add(item)
+                }
+            }
+            equipamentoFotosList = resolved
+        }
+    } catch (_: Exception) {
+        // ignore resolution errors, we'll try to render what we have
     }
 
     return RelatorioCompleto(
@@ -429,6 +496,92 @@ private fun EquipamentoSection(relatorio: RelatorioCompleto) {
         InfoRow(label = "Código Solvente", value = relatorio.equipamentoCodigoSolvente)
         InfoRow(label = "Data Próxima Preventiva", value = relatorio.equipamentoDataProximaPreventiva)
         InfoRow(label = "Horas até Próxima Preventiva", value = relatorio.equipamentoHoraProximaPreventiva)
+
+        // Mostrar thumbnails das fotos do equipamento dentro desta seção
+        if (relatorio.equipamentoFotos.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "Fotos do Equipamento", style = MaterialTheme.typography.titleSmall, color = Brand)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                relatorio.equipamentoFotos.forEachIndexed { index, imgStr ->
+                    // Use produceState to load image bytes asynchronously depending on the source
+                    val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, key1 = imgStr) {
+                        value = try {
+                            when {
+                                imgStr.startsWith("gs://") -> {
+                                    // Resolve gs:// via Firebase Storage and download bytes
+                                    val storage = FirebaseStorage.getInstance()
+                                    val ref = storage.getReferenceFromUrl(imgStr)
+                                    val bytes = ref.getBytes(10L * 1024L * 1024L).await() // up to 10MB
+                                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                }
+                                imgStr.startsWith("http://") || imgStr.startsWith("https://") -> {
+                                    // Load via network on IO dispatcher
+                                    withContext(Dispatchers.IO) {
+                                        try {
+                                            val bytes = URL(imgStr).openStream().use { it.readBytes() }
+                                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                        } catch (e: Exception) {
+                                            null
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    // Assume Base64
+                                    val bytes = Base64.decode(imgStr, Base64.DEFAULT)
+                                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+
+                    if (bitmap != null) {
+                        Card(
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.size(100.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                        ) {
+                            Image(
+                                bitmap = bitmap!!.asImageBitmap(),
+                                contentDescription = "Foto ${index + 1}",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    } else {
+                        // Log the failing string for debugging
+                        LaunchedEffect(imgStr) {
+                            Log.d("RelatorioFinalizado", "Falha ao carregar imagem equipamento (index=$index). valor='$imgStr'")
+                        }
+
+                        Card(shape = RoundedCornerShape(8.dp), modifier = Modifier.size(100.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.LightGray),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                // If gs:// looks like only a bucket, give a hint to the user
+                                val debugText = when {
+                                    imgStr.startsWith("gs://") && !imgStr.contains("/") -> "gs://... (parece só bucket)"
+                                    imgStr.length > 24 -> imgStr.take(24) + "..."
+                                    else -> imgStr
+                                }
+                                Text("Erro ao carregar\n$debugText", fontSize = 10.sp, color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -622,12 +775,32 @@ private fun FotosSection(relatorio: RelatorioCompleto) {
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            relatorio.equipamentoFotos.forEachIndexed { index, base64 ->
-                val bitmap = remember(base64) {
-                    try {
-                        val bytes = Base64.decode(base64, Base64.DEFAULT)
-                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                    } catch (_: Exception) {
+            relatorio.equipamentoFotos.forEachIndexed { index, imgStr ->
+                val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, key1 = imgStr) {
+                    value = try {
+                        when {
+                            imgStr.startsWith("gs://") -> {
+                                val storage = FirebaseStorage.getInstance()
+                                val ref = storage.getReferenceFromUrl(imgStr)
+                                val bytes = ref.getBytes(10L * 1024L * 1024L).await()
+                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                            }
+                            imgStr.startsWith("http://") || imgStr.startsWith("https://") -> {
+                                withContext(Dispatchers.IO) {
+                                    try {
+                                        val bytes = URL(imgStr).openStream().use { it.readBytes() }
+                                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                    } catch (e: Exception) {
+                                        null
+                                    }
+                                }
+                            }
+                            else -> {
+                                val bytes = Base64.decode(imgStr, Base64.DEFAULT)
+                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                            }
+                        }
+                    } catch (e: Exception) {
                         null
                     }
                 }
@@ -639,7 +812,7 @@ private fun FotosSection(relatorio: RelatorioCompleto) {
                         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                     ) {
                         Image(
-                            bitmap = bitmap.asImageBitmap(),
+                            bitmap = bitmap!!.asImageBitmap(),
                             contentDescription = "Foto ${index + 1}",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
@@ -650,11 +823,39 @@ private fun FotosSection(relatorio: RelatorioCompleto) {
                         Box(modifier = Modifier
                             .fillMaxSize()
                             .background(Color.LightGray), contentAlignment = Alignment.Center) {
-                            Text("Erro ao carregar", fontSize = 12.sp, color = Color.White)
+                            LaunchedEffect(imgStr) {
+                                Log.d("RelatorioFinalizado", "Falha ao carregar imagem (index=$index). valor='$imgStr'")
+                            }
+                            val debugText = when {
+                                imgStr.startsWith("gs://") && !imgStr.contains("/") -> "gs://... (parece só bucket)"
+                                imgStr.length > 32 -> imgStr.take(32) + "..."
+                                else -> imgStr
+                            }
+                            Text("Erro ao carregar\n$debugText", fontSize = 12.sp, color = Color.White)
                         }
                     }
                 }
             }
         }
+
+        // DEBUG PANEL: mostra as strings das imagens e o tipo (apenas em builds DEBUG)
+        val ctx = LocalContext.current
+        val isDebug = (ctx.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (isDebug && relatorio.equipamentoFotos.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "DEBUG: imagens (tipo / prefixo)", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            Column(modifier = Modifier.fillMaxWidth()) {
+                relatorio.equipamentoFotos.forEachIndexed { i, s ->
+                    val type = when {
+                        s.startsWith("gs://") -> "gs://"
+                        s.startsWith("http://") || s.startsWith("https://") -> "http(s)"
+                        s.length > 100 -> "base64 (long)"
+                        else -> "base64/other"
+                    }
+                    Text(text = "${i + 1}. [$type] ${s.take(60)}${if (s.length > 60) "..." else ""}", fontSize = 10.sp, color = Color.Gray)
+                }
+            }
+        }
+
     }
 }

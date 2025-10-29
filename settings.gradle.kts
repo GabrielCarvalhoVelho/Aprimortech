@@ -1,3 +1,6 @@
+// Enable type-safe accessors for the version catalog
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
 pluginManagement {
     repositories {
         google {

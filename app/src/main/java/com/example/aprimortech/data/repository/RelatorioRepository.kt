@@ -1,5 +1,6 @@
 package com.example.aprimortech.data.repository
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import com.example.aprimortech.model.Relatorio
@@ -87,7 +88,7 @@ class RelatorioRepository @Inject constructor(
                         // If item already looks like URL (http/https) or gs://, keep it
                         if (item.startsWith("http://") || item.startsWith("https://")) {
                             uploaded.add(item)
-                            continue
+                            return@forEachIndexed
                         }
 
                         if (item.startsWith("gs://")) {
@@ -96,11 +97,11 @@ class RelatorioRepository @Inject constructor(
                                 val refFromGs = storage.getReferenceFromUrl(item)
                                 val resolved = refFromGs.downloadUrl.await().toString()
                                 uploaded.add(resolved)
-                                continue
+                                return@forEachIndexed
                             } catch (ex: Exception) {
                                 // if resolution fails, keep original gs:// reference
                                 uploaded.add(item)
-                                continue
+                                return@forEachIndexed
                             }
                         }
 
@@ -117,7 +118,7 @@ class RelatorioRepository @Inject constructor(
                         if (decodedBytes == null || decodedBytes.isEmpty()) {
                             // Try raw string decode without header
                             try {
-                                val db = Base64.decode(item.replace("\s".toRegex(), ""), Base64.DEFAULT)
+                                val db = Base64.decode(item.replace("\\s".toRegex(), ""), Base64.DEFAULT)
                                 if (db.isNotEmpty()) decodedBytes = db
                             } catch (_: Exception) { }
                         }
@@ -125,7 +126,7 @@ class RelatorioRepository @Inject constructor(
                         if (decodedBytes == null) {
                             // cannot decode, skip
                             uploaded.add(item)
-                            continue
+                            return@forEachIndexed
                         }
 
                         // Optionally compress image to JPEG to reduce size
@@ -159,7 +160,7 @@ class RelatorioRepository @Inject constructor(
                         uploaded.add(item)
                     }
                 }
-                uploaded
+                return uploaded
             }
 
             if (relatorio.id.isEmpty()) {
@@ -184,7 +185,7 @@ class RelatorioRepository @Inject constructor(
                     "valorHoraTecnica" to relatorio.valorHoraTecnica,
                     "distanciaKm" to relatorio.distanciaKm,
                     "valorDeslocamentoPorKm" to relatorio.valorDeslocamentoPorKm,
-                    "valorDeslocamentoTotal" to relatorio.valorDeslocamentoTotal,
+                    "valorDeslocamentoTotal" to relatorio.valorDeslocamentoPorKm,
                     "valorPedagios" to relatorio.valorPedagios,
                     "custoPecas" to relatorio.custoPecas,
                     "observacoes" to relatorio.observacoes,
