@@ -109,4 +109,7 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     implementation(libs.androidx.security.crypto)
+
+    // Coil para carregamento de imagens em Compose (suporta URLs e data URIs)
+    implementation("io.coil-kt:coil-compose:2.4.0")
 }

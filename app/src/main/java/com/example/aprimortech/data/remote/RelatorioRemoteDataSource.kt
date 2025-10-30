@@ -11,6 +11,14 @@ class RelatorioRemoteDataSource @Inject constructor() {
     private val firestore = FirebaseFirestore.getInstance()
     private val collection = firestore.collection("relatorios")
 
+    // Calcula valor total do deslocamento: (distanciaKm * valorDeslocamentoPorKm) + valorPedagios
+    private fun calcularValorDeslocamentoTotal(distanciaKm: Double?, valorPorKm: Double?, pedagios: Double?): Double {
+        val d = distanciaKm ?: 0.0
+        val v = valorPorKm ?: 0.0
+        val p = pedagios ?: 0.0
+        return d * v + p
+    }
+
     suspend fun salvarRelatorio(relatorio: Relatorio) {
         try {
             android.util.Log.d("RelatorioRemoteDataSource", "=== SALVANDO RELATÓRIO NO FIREBASE ===")
@@ -24,6 +32,10 @@ class RelatorioRemoteDataSource @Inject constructor() {
             android.util.Log.d("RelatorioRemoteDataSource", "Valor por KM: ${relatorio.valorDeslocamentoPorKm}")
             android.util.Log.d("RelatorioRemoteDataSource", "Código Tinta: ${relatorio.codigoTinta}")
             android.util.Log.d("RelatorioRemoteDataSource", "Código Solvente: ${relatorio.codigoSolvente}")
+
+            // Recalcular valor total do deslocamento para garantir consistência
+            val valorDeslocamentoTotalCalc = calcularValorDeslocamentoTotal(relatorio.distanciaKm, relatorio.valorDeslocamentoPorKm, relatorio.valorPedagios)
+            android.util.Log.d("RelatorioRemoteDataSource", "Calculado valorDeslocamentoTotal (remote) = $valorDeslocamentoTotalCalc")
 
             // Criar um mapa explícito para garantir que todos os campos sejam salvos
             val relatorioMap = hashMapOf<String, Any?>(
@@ -39,7 +51,7 @@ class RelatorioRemoteDataSource @Inject constructor() {
                 "valorHoraTecnica" to relatorio.valorHoraTecnica,
                 "distanciaKm" to relatorio.distanciaKm,
                 "valorDeslocamentoPorKm" to relatorio.valorDeslocamentoPorKm,
-                "valorDeslocamentoTotal" to relatorio.valorDeslocamentoTotal,
+                "valorDeslocamentoTotal" to valorDeslocamentoTotalCalc,
                 "valorPedagios" to relatorio.valorPedagios,
                 "custoPecas" to relatorio.custoPecas,
                 "observacoes" to relatorio.observacoes,

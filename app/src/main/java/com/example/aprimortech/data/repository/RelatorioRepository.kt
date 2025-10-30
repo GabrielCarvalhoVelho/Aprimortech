@@ -9,6 +9,7 @@ import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.tasks.await
 import java.io.ByteArrayOutputStream
+import java.net.URLDecoder
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,7 +19,16 @@ class RelatorioRepository @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
     private val collection = firestore.collection("relatorios")
-    private val storage = FirebaseStorage.getInstance()
+    // Apontar explicitamente para o bucket do usuário
+    private val storage = FirebaseStorage.getInstance("gs://aprimortech-30cad.firebasestorage.app")
+
+    // Calcula valor total do deslocamento: (distanciaKm * valorDeslocamentoPorKm) + valorPedagios
+    private fun calcularValorDeslocamentoTotal(distanciaKm: Double?, valorPorKm: Double?, pedagios: Double?): Double {
+        val d = distanciaKm ?: 0.0
+        val v = valorPorKm ?: 0.0
+        val p = pedagios ?: 0.0
+        return d * v + p
+    }
 
     suspend fun buscarTodosRelatorios(): List<Relatorio> {
         return try {
@@ -75,8 +85,11 @@ class RelatorioRepository @Inject constructor(
     suspend fun salvarRelatorio(relatorio: Relatorio): String {
         return try {
             android.util.Log.d("RelatorioRepository", "=== SALVANDO RELATÓRIO ===")
-            android.util.Log.d("RelatorioRepository", "ID: ${relatorio.id}")
-            android.util.Log.d("RelatorioRepository", "⭐ Valor Hora Técnica: ${relatorio.valorHoraTecnica}")
+
+            // DEBUG: log do bucket
+            try {
+                android.util.Log.d("RelatorioRepository", "Storage bucket=${storage.reference.bucket}")
+            } catch (_: Exception) { }
 
             // Helper: upload imagens Base64 para Storage e retornar lista de URLs (ou manter as que já são URL/gs://)
             suspend fun uploadFotosIfNeeded(targetDocId: String, fotos: List<String>): List<String> {
@@ -84,26 +97,101 @@ class RelatorioRepository @Inject constructor(
                 val uploaded = mutableListOf<String>()
                 fotos.forEachIndexed { idx, item ->
                     try {
-                        val cleaned = item.substringAfter("base64,\"").replace("\n", "").replace("\r", "").trim()
-                        // If item already looks like URL (http/https) or gs://, keep it
+                        // If item already looks like URL (http/https) or gs://, try to handle specially
                         if (item.startsWith("http://") || item.startsWith("https://")) {
-                            uploaded.add(item)
-                            return@forEachIndexed
-                        }
-
-                        if (item.startsWith("gs://")) {
-                            // try to resolve gs:// to a public download URL via Firebase Storage
                             try {
-                                val refFromGs = storage.getReferenceFromUrl(item)
-                                val resolved = refFromGs.downloadUrl.await().toString()
-                                uploaded.add(resolved)
-                                return@forEachIndexed
+                                // Detectar se é um downloadUrl do Firebase (contém /o/<pathEncoded>)
+                                val afterO = item.substringAfter("/o/", "")
+                                val pathEncoded = afterO.substringBefore("?", "")
+                                if (pathEncoded.isNotBlank()) {
+                                    val storagePath = URLDecoder.decode(pathEncoded, "UTF-8")
+                                    // DEBUG
+                                    android.util.Log.d("RelatorioRepository", "Encontrada URL http; storagePath=$storagePath")
+                                    // Se a imagem está em drafts, copiar para pasta final do relatorio
+                                    if (storagePath.startsWith("relatorios/drafts/")) {
+                                        try {
+                                            val refDraft = storage.reference.child(storagePath)
+                                            android.util.Log.d("RelatorioRepository", "Baixando bytes de draft: ${refDraft.path}")
+                                            // baixar bytes (limitado a 10 MB)
+                                            val maxBytes: Long = 10L * 1024L * 1024L
+                                            val bytes = refDraft.getBytes(maxBytes).await()
+                                            android.util.Log.d("RelatorioRepository", "Bytes baixados: ${bytes.size}")
+                                            // reupload para destino
+                                            val fileName = "foto_${idx}_${UUID.randomUUID()}.jpg"
+                                            val path = "relatorios/$targetDocId/fotos/$fileName"
+                                            android.util.Log.d("RelatorioRepository", "Fazendo upload para: $path")
+                                            val ref = storage.reference.child(path)
+                                            val metadata = StorageMetadata.Builder().setContentType("image/jpeg").build()
+                                            ref.putBytes(bytes, metadata).await()
+                                            val downloadUrl = ref.downloadUrl.await().toString()
+                                            uploaded.add(downloadUrl)
+                                            return@forEachIndexed
+                                        } catch (ex: Exception) {
+                                            android.util.Log.w("RelatorioRepository", "Falha ao migrar imagem draft -> final (http): ${ex.message}", ex)
+                                            // fallback: manter URL original
+                                            uploaded.add(item)
+                                            return@forEachIndexed
+                                        }
+                                    } else {
+                                        // não é draft; manter URL
+                                        uploaded.add(item)
+                                        return@forEachIndexed
+                                    }
+                                } else {
+                                    // Não conseguimos extrair path; manter URL
+                                    uploaded.add(item)
+                                    return@forEachIndexed
+                                }
                             } catch (ex: Exception) {
-                                // if resolution fails, keep original gs:// reference
+                                // qualquer erro, manter URL
                                 uploaded.add(item)
                                 return@forEachIndexed
                             }
                         }
+
+                        if (item.startsWith("gs://")) {
+                            // try to resolve gs:// to a reference and, if it's in drafts, copy
+                            try {
+                                val refFromGs = storage.getReferenceFromUrl(item)
+                                val refPath = refFromGs.path
+                                android.util.Log.d("RelatorioRepository", "Encontrada URL gs://; path=$refPath")
+                                if (refPath.startsWith("relatorios/drafts/")) {
+                                    try {
+                                        val maxBytes: Long = 10L * 1024L * 1024L
+                                        val bytes = refFromGs.getBytes(maxBytes).await()
+                                        val fileName = "foto_${idx}_${UUID.randomUUID()}.jpg"
+                                        val path = "relatorios/$targetDocId/fotos/$fileName"
+                                        android.util.Log.d("RelatorioRepository", "Fazendo upload para: $path")
+                                        val ref = storage.reference.child(path)
+                                        val metadata = StorageMetadata.Builder().setContentType("image/jpeg").build()
+                                        ref.putBytes(bytes, metadata).await()
+                                        val downloadUrl = ref.downloadUrl.await().toString()
+                                        uploaded.add(downloadUrl)
+                                        return@forEachIndexed
+                                    } catch (ex: Exception) {
+                                        android.util.Log.w("RelatorioRepository", "Falha ao migrar imagem draft -> final (gs): ${ex.message}", ex)
+                                        uploaded.add(item)
+                                        return@forEachIndexed
+                                    }
+                                } else {
+                                    // tentar resolver para downloadUrl se possível
+                                    try {
+                                        val resolved = refFromGs.downloadUrl.await().toString()
+                                        uploaded.add(resolved)
+                                        return@forEachIndexed
+                                    } catch (_: Exception) {
+                                        uploaded.add(item)
+                                        return@forEachIndexed
+                                    }
+                                }
+                            } catch (ex: Exception) {
+                                uploaded.add(item)
+                                return@forEachIndexed
+                            }
+                        }
+
+                        // Se chegou aqui, item não era URL/gs, tentar decodificar base64 e upload
+                        val cleaned = item.substringAfter("base64,\"").replace("\n", "").replace("\r", "").trim()
 
                         // Decode base64 (try common flags)
                         var decodedBytes: ByteArray? = null
@@ -124,7 +212,7 @@ class RelatorioRepository @Inject constructor(
                         }
 
                         if (decodedBytes == null) {
-                            // cannot decode, skip
+                            // cannot decode, skip keeping original
                             uploaded.add(item)
                             return@forEachIndexed
                         }
@@ -151,6 +239,7 @@ class RelatorioRepository @Inject constructor(
                             .build()
 
                         // upload
+                        android.util.Log.d("RelatorioRepository", "Fazendo upload de base64 -> path=$path, bytes=${finalBytes.size}")
                         ref.putBytes(finalBytes, metadata).await()
                         val downloadUrl = ref.downloadUrl.await().toString()
                         uploaded.add(downloadUrl)
@@ -171,6 +260,10 @@ class RelatorioRepository @Inject constructor(
                 // First, upload fotos if any (the function is suspend)
                 val fotosUploaded = uploadFotosIfNeeded(newId, relatorio.equipamentoFotos)
 
+                // Calcular valor total do deslocamento: (distanciaKm * valorDeslocamentoPorKm) + valorPedagios
+                val valorDeslocamentoTotalCalc = calcularValorDeslocamentoTotal(relatorio.distanciaKm, relatorio.valorDeslocamentoPorKm, relatorio.valorPedagios)
+                android.util.Log.d("RelatorioRepository", "Calculado valorDeslocamentoTotal=$valorDeslocamentoTotalCalc (distancia=${relatorio.distanciaKm}, porKm=${relatorio.valorDeslocamentoPorKm}, pedagios=${relatorio.valorPedagios})")
+
                 // Criar mapa explícito para garantir que todos os campos sejam salvos
                 val relatorioMap = hashMapOf<String, Any?>(
                     "clienteId" to relatorio.clienteId,
@@ -185,7 +278,7 @@ class RelatorioRepository @Inject constructor(
                     "valorHoraTecnica" to relatorio.valorHoraTecnica,
                     "distanciaKm" to relatorio.distanciaKm,
                     "valorDeslocamentoPorKm" to relatorio.valorDeslocamentoPorKm,
-                    "valorDeslocamentoTotal" to relatorio.valorDeslocamentoPorKm,
+                    "valorDeslocamentoTotal" to valorDeslocamentoTotalCalc,
                     "valorPedagios" to relatorio.valorPedagios,
                     "custoPecas" to relatorio.custoPecas,
                     "observacoes" to relatorio.observacoes,
@@ -217,6 +310,10 @@ class RelatorioRepository @Inject constructor(
                 // Upload fotos (keeping existing URLs)
                 val fotosUploaded = uploadFotosIfNeeded(relatorio.id, relatorio.equipamentoFotos)
 
+                // Recalcular valor total do deslocamento antes de atualizar
+                val valorDeslocamentoTotalCalcUpd = calcularValorDeslocamentoTotal(relatorio.distanciaKm, relatorio.valorDeslocamentoPorKm, relatorio.valorPedagios)
+                android.util.Log.d("RelatorioRepository", "Atualizando valorDeslocamentoTotal=$valorDeslocamentoTotalCalcUpd (distancia=${relatorio.distanciaKm}, porKm=${relatorio.valorDeslocamentoPorKm}, pedagios=${relatorio.valorPedagios})")
+
                 val relatorioMap = hashMapOf<String, Any?>(
                     "clienteId" to relatorio.clienteId,
                     "maquinaId" to relatorio.maquinaId,
@@ -230,7 +327,7 @@ class RelatorioRepository @Inject constructor(
                     "valorHoraTecnica" to relatorio.valorHoraTecnica,
                     "distanciaKm" to relatorio.distanciaKm,
                     "valorDeslocamentoPorKm" to relatorio.valorDeslocamentoPorKm,
-                    "valorDeslocamentoTotal" to relatorio.valorDeslocamentoTotal,
+                    "valorDeslocamentoTotal" to valorDeslocamentoTotalCalcUpd,
                     "valorPedagios" to relatorio.valorPedagios,
                     "custoPecas" to relatorio.custoPecas,
                     "observacoes" to relatorio.observacoes,

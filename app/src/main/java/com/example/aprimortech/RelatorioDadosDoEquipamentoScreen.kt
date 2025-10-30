@@ -57,6 +57,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
 import androidx.compose.foundation.horizontalScroll
+import com.example.aprimortech.data.repository.StorageUploader
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.tasks.await
+import java.net.URL
+import com.google.firebase.storage.FirebaseStorage
 
 private val Brand = Color(0xFF1A4A5C)
 
@@ -105,8 +111,20 @@ fun RelatorioEquipamentoScreen(
             cameraUriState.value?.let { uri ->
                 val base64 = uriToBase64(context, uri)
                 base64?.let { newImage ->
-                    if (equipamentoFotos.size < 4) equipamentoFotos = equipamentoFotos + newImage
-                    else Toast.makeText(context, "Máximo de 4 fotos", Toast.LENGTH_SHORT).show()
+                    // Tentativa assíncrona de upload para Storage; se falhar, manter Base64 localmente
+                    scope.launch {
+                        val folder = "relatorios/drafts" // manter padrão simples; o RelatorioRepository fará o re-upload definitivo ao salvar
+                        val uploadedUrl = withContext(Dispatchers.IO) { StorageUploader.uploadBase64Image(newImage, folder) }
+                        if (uploadedUrl != null) {
+                            if (equipamentoFotos.size < 4) equipamentoFotos = equipamentoFotos + uploadedUrl
+                            else Toast.makeText(context, "Máximo de 4 fotos", Toast.LENGTH_SHORT).show()
+                        } else {
+                            // upload falhou, manter base64 local
+                            if (equipamentoFotos.size < 4) equipamentoFotos = equipamentoFotos + newImage
+                            else Toast.makeText(context, "Máximo de 4 fotos", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Foto adicionada localmente (sem upload). Será enviada ao salvar.", Toast.LENGTH_LONG).show()
+                        }
+                    }
                 }
             }
         }
@@ -127,12 +145,23 @@ fun RelatorioEquipamentoScreen(
     val pickImagesLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
             val ctx = context
-            val converted = uris.mapNotNull { uri -> uriToBase64(ctx, uri) }
-            val available = 4 - equipamentoFotos.size
-            if (converted.isNotEmpty()) {
-                equipamentoFotos = equipamentoFotos + converted.take(available)
-                if (converted.size > available) {
-                    Toast.makeText(ctx, "Apenas $available fotos adicionadas (limite 4)", Toast.LENGTH_SHORT).show()
+            // Converter e tentar upload em série (limitado ao número disponível)
+            scope.launch {
+                val converted = uris.mapNotNull { uri -> uriToBase64(ctx, uri) }
+                var available = 4 - equipamentoFotos.size
+                for (base64 in converted) {
+                    if (available <= 0) break
+                    val uploadedUrl = withContext(Dispatchers.IO) { StorageUploader.uploadBase64Image(base64, "relatorios/drafts") }
+                    if (uploadedUrl != null) {
+                        equipamentoFotos = equipamentoFotos + uploadedUrl
+                    } else {
+                        equipamentoFotos = equipamentoFotos + base64
+                        Toast.makeText(ctx, "Algumas imagens foram adicionadas localmente e serão enviadas ao salvar.", Toast.LENGTH_LONG).show()
+                    }
+                    available--
+                }
+                if (converted.size > (4 - available)) {
+                    Toast.makeText(ctx, "Apenas ${4 - equipamentoFotos.size} fotos adicionadas (limite 4)", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -487,19 +516,80 @@ fun RelatorioEquipamentoScreen(
                             // Mostrar até 4 slots (preencher com Spacer quando vazio)
                             for (i in 0 until 4) {
                                 if (i < equipamentoFotos.size) {
-                                    val base64 = equipamentoFotos[i]
+                                    val item = equipamentoFotos[i]
                                     Box(modifier = Modifier.size(72.dp)) {
-                                        val bytes = Base64.decode(base64, Base64.DEFAULT)
-                                        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                        Image(
-                                            bitmap = bitmap.asImageBitmap(),
-                                            contentDescription = "Foto ${i + 1}",
-                                            modifier = Modifier
-                                                .size(72.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp)),
-                                            contentScale = ContentScale.Crop
-                                        )
+                                        // Bitmap state por imagem (suporta URLs e base64)
+                                        var bitmapState by remember(item) { mutableStateOf<android.graphics.Bitmap?>(null) }
+
+                                        LaunchedEffect(item) {
+                                            try {
+                                                // http/https URL -> buscar bytes via rede
+                                                if (item.startsWith("http://") || item.startsWith("https://")) {
+                                                    val bytes = withContext(Dispatchers.IO) {
+                                                        URL(item).openStream().use { it.readBytes() }
+                                                    }
+                                                    bitmapState = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                                    return@LaunchedEffect
+                                                }
+
+                                                // gs:// reference -> usar Firebase Storage
+                                                if (item.startsWith("gs://")) {
+                                                    try {
+                                                        val storage = FirebaseStorage.getInstance("gs://aprimortech-30cad.firebasestorage.app")
+                                                        val ref = storage.getReferenceFromUrl(item)
+                                                        val maxBytes: Long = 10L * 1024L * 1024L
+                                                        val bytes = ref.getBytes(maxBytes).await()
+                                                        bitmapState = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                                        return@LaunchedEffect
+                                                    } catch (_: Exception) {
+                                                        // fallback: tentar resolver downloadUrl -> buscar via HTTP
+                                                        try {
+                                                            val storage = FirebaseStorage.getInstance("gs://aprimortech-30cad.firebasestorage.app")
+                                                            val ref = storage.getReferenceFromUrl(item)
+                                                            val downloadUrl = ref.downloadUrl.await().toString()
+                                                            val bytes = withContext(Dispatchers.IO) { URL(downloadUrl).openStream().use { it.readBytes() } }
+                                                            bitmapState = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                                            return@LaunchedEffect
+                                                        } catch (_: Exception) {
+                                                            bitmapState = null
+                                                        }
+                                                    }
+                                                }
+
+                                                // Caso padrão: tratar como Base64 (captura exceção se inválido)
+                                                try {
+                                                    val bytes = Base64.decode(item, Base64.DEFAULT)
+                                                    bitmapState = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                                } catch (_: Exception) {
+                                                    // se for inválido, deixar null (mostra placeholder)
+                                                    bitmapState = null
+                                                }
+                                            } catch (_: Exception) {
+                                                android.util.Log.d("RelatorioEquipamento", "Falha ao carregar bitmap item")
+                                                bitmapState = null
+                                            }
+                                        }
+
+                                        if (bitmapState != null) {
+                                            Image(
+                                                bitmap = bitmapState!!.asImageBitmap(),
+                                                contentDescription = "Foto ${i + 1}",
+                                                modifier = Modifier
+                                                    .size(72.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp)),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        } else {
+                                            // Placeholder simples quando não há bitmap
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(72.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
+                                                    .background(Color(0xFFECECEC))
+                                            )
+                                        }
 
                                         Surface(
                                             shape = CircleShape,

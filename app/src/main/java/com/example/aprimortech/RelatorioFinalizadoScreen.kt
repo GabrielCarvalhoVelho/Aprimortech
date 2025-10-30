@@ -38,6 +38,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.auth.FirebaseAuth
 import java.net.URL
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -93,6 +94,25 @@ fun RelatorioFinalizadoScreen(
 
         try {
             isLoading = true
+
+            // Garantir autenticação anônima (se regras exigirem auth para leitura do Storage)
+            try {
+                val auth = FirebaseAuth.getInstance()
+                if (auth.currentUser == null) {
+                    Log.d("RelatorioFinalizado", "Usuário não autenticado. Tentando signInAnonymously()")
+                    try {
+                        auth.signInAnonymously().await()
+                        Log.d("RelatorioFinalizado", "Autenticação anônima bem sucedida: uid=${auth.currentUser?.uid}")
+                    } catch (_: Exception) {
+                        Log.w("RelatorioFinalizado", "Falha ao autenticar anonimamente")
+                    }
+                } else {
+                    Log.d("RelatorioFinalizado", "Usuário já autenticado: uid=${auth.currentUser?.uid}")
+                }
+            } catch (_: Exception) {
+                Log.w("RelatorioFinalizado", "Erro ao garantir autenticação anon")
+            }
+
             relatorioCompleto = carregarRelatorioCompleto(
                 relatorioId = relatorioId,
                 relatorioRepository = relatorioRepository,
@@ -261,32 +281,33 @@ private suspend fun carregarRelatorioCompleto(
         mutableListOf<String>()
     }
 
-    // Se houver entradas tipo `gs://bucket` (apenas bucket sem path), tentar listar o diretório padrão relatorios/<id>/fotos
+    // Resolver entradas `gs://` ou listagens e converter para URLs HTTP (downloadUrl) ou data URIs antes de retornar
     try {
         val bucketOnly = equipamentoFotosList.any { it.startsWith("gs://") && !it.substringAfter("gs://").contains("/") }
         if (bucketOnly) {
             val resolved = mutableListOf<String>()
-            val storage = FirebaseStorage.getInstance()
-            equipamentoFotosList.forEach { item ->
-                if (item.startsWith("gs://") && !item.substringAfter("gs://").contains("/")) {
-                    try {
-                        val folderRef = try {
-                            val bucketRef = storage.getReferenceFromUrl(item)
-                            bucketRef.child("relatorios/${relatorio.id}/fotos")
-                        } catch (inner: Exception) {
-                            // Fallback to default app bucket path if getReferenceFromUrl fails
-                            storage.reference.child("relatorios/${relatorio.id}/fotos")
-                        }
-                        val listResult = folderRef.listAll().await()
-                        if (listResult.items.isEmpty()) {
-                            // Try alternative bucket name when original uses `.firebasestorage.app` (some projects use .appspot.com)
-                            if (item.contains(".firebasestorage.app")) {
+            val storage = FirebaseStorage.getInstance("gs://aprimortech-30cad.firebasestorage.app")
+             equipamentoFotosList.forEach { item ->
+                 if (item.startsWith("gs://") && !item.substringAfter("gs://").contains("/")) {
+                     try {
+                         val folderRef = try {
+                             val bucketRef = storage.getReferenceFromUrl(item)
+                             bucketRef.child("relatorios/${relatorio.id}/fotos")
+                         } catch (_: Exception) {
+                             // Fallback to default app bucket path if getReferenceFromUrl fails
+                             storage.reference.child("relatorios/${relatorio.id}/fotos")
+                         }
+                         val listResult = folderRef.listAll().await()
+                         if (listResult.items.isEmpty()) {
+                             // Try alternative bucket name when original uses `.firebasestorage.app` (some projects use .appspot.com)
+                             if (item.contains(".firebasestorage.app")) {
                                 try {
                                     val altBucket = item.replace(".firebasestorage.app", ".appspot.com")
+                                    val altStorage = FirebaseStorage.getInstance("gs://aprimortech-30cad.firebasestorage.app")
                                     val altRef = try {
-                                        storage.getReferenceFromUrl(altBucket).child("relatorios/${relatorio.id}/fotos")
+                                        altStorage.getReferenceFromUrl(altBucket).child("relatorios/${relatorio.id}/fotos")
                                     } catch (_: Exception) {
-                                        storage.reference.child("relatorios/${relatorio.id}/fotos")
+                                        altStorage.reference.child("relatorios/${relatorio.id}/fotos")
                                     }
                                     val altList = altRef.listAll().await()
                                     altList.items.forEach { fileRef ->
@@ -299,27 +320,27 @@ private suspend fun carregarRelatorioCompleto(
                                     if (altList.items.isNotEmpty()) return@forEach
                                 } catch (_: Exception) { /* ignore alt attempt */ }
                             }
-                        } else {
+                         } else {
                             listResult.items.forEach { fileRef ->
                                 try {
                                     val url = fileRef.downloadUrl.await().toString()
                                     resolved.add(url)
                                 } catch (_: Exception) { /* ignore single file */ }
                             }
-                        }
-                    } catch (_: Exception) {
-                        // fallback: keep original bucket string for debugging
-                        resolved.add(item)
-                    }
-                } else {
-                    resolved.add(item)
-                }
-            }
-            equipamentoFotosList = resolved
-        }
-    } catch (_: Exception) {
-        // ignore resolution errors, we'll try to render what we have
-    }
+                         }
+                     } catch (_: Exception) {
+                         // fallback: keep original bucket string for debugging
+                         resolved.add(item)
+                     }
+                 } else {
+                     resolved.add(item)
+                 }
+             }
+             equipamentoFotosList = resolved
+         }
+     } catch (_: Exception) {
+         // ignore resolution errors, we'll try to render what we have
+     }
 
     return RelatorioCompleto(
         id = relatorio.id,
@@ -353,7 +374,8 @@ private suspend fun carregarRelatorioCompleto(
         quantidadeKm = relatorio.distanciaKm ?: 0.0,
         valorPorKm = relatorio.valorDeslocamentoPorKm ?: 0.0,
         valorPedagios = relatorio.valorPedagios ?: 0.0,
-        valorTotalDeslocamento = relatorio.valorDeslocamentoTotal ?: 0.0,
+        // Se o backend não tiver calculado, calcular aqui como fallback
+        valorTotalDeslocamento = relatorio.valorDeslocamentoTotal ?: calcularValorDeslocamentoTotal(relatorio.distanciaKm, relatorio.valorDeslocamentoPorKm, relatorio.valorPedagios),
         assinaturaTecnico1 = relatorio.assinaturaTecnico1,
         assinaturaCliente1 = relatorio.assinaturaCliente1,
         assinaturaTecnico2 = relatorio.assinaturaTecnico2,
@@ -379,6 +401,14 @@ private fun calcularHorasTecnicas(horarioEntrada: String?, horarioSaida: String?
     } catch (_: Exception) {
         0.0
     }
+}
+
+// Função utilitária: calcular valor total do deslocamento (fallback UI)
+private fun calcularValorDeslocamentoTotal(distanciaKm: Double?, valorPorKm: Double?, pedagios: Double?): Double {
+    val d = distanciaKm ?: 0.0
+    val v = valorPorKm ?: 0.0
+    val p = pedagios ?: 0.0
+    return d * v + p
 }
 
 @Composable
@@ -510,43 +540,70 @@ private fun EquipamentoSection(relatorio: RelatorioCompleto) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 relatorio.equipamentoFotos.forEachIndexed { index, imgStr ->
-                    // Use produceState to load image bytes asynchronously depending on the source
-                    val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, key1 = imgStr) {
+                    // Determine what to pass to Coil: HTTP URL, data URI (for base64), or try to resolve gs:// to downloadUrl
+                    val resolvedSource by produceState<String?>(initialValue = null, key1 = imgStr) {
                         value = try {
                             when {
+                                imgStr.startsWith("http://") || imgStr.startsWith("https://") -> imgStr
                                 imgStr.startsWith("gs://") -> {
-                                    // Resolve gs:// via Firebase Storage and download bytes
-                                    val storage = FirebaseStorage.getInstance()
-                                    val ref = storage.getReferenceFromUrl(imgStr)
-                                    val bytes = ref.getBytes(10L * 1024L * 1024L).await() // up to 10MB
-                                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                }
-                                imgStr.startsWith("http://") || imgStr.startsWith("https://") -> {
-                                    // Load via network on IO dispatcher
-                                    withContext(Dispatchers.IO) {
-                                        try {
-                                            val bytes = URL(imgStr).openStream().use { it.readBytes() }
-                                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                        } catch (e: Exception) {
-                                            null
-                                        }
+                                    // Try to resolve gs:// to a downloadUrl
+                                    try {
+                                        val storage = FirebaseStorage.getInstance("gs://aprimortech-30cad.firebasestorage.app")
+                                        val ref = storage.getReferenceFromUrl(imgStr)
+                                        ref.downloadUrl.await().toString()
+                                    } catch (_: Exception) {
+                                        // Fallback to default app bucket path if getReferenceFromUrl fails
+                                        null
                                     }
                                 }
                                 else -> {
-                                    // Assume Base64
-                                    val bytes = Base64.decode(imgStr, Base64.DEFAULT)
-                                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                    // Assume base64 - convert to data URI so Coil can load it
+                                    try {
+                                        val cleaned = imgStr.substringAfter("base64,", imgStr)
+                                        "data:image/jpeg;base64,$cleaned"
+                                    } catch (_: Exception) {
+                                        null
+                                    }
                                 }
                             }
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             null
                         }
+                    }
+
+                    // Carregamento manual compatível (sem Coil). resolvedSource pode ser:
+                    // - URL http(s)
+                    // - data URI (data:image/...;base64,....)
+                    // - null (fallback)
+                    val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, key1 = resolvedSource) {
+                        value = try {
+                            val src = resolvedSource
+                            when {
+                                src == null -> null
+                                src.startsWith("data:") -> {
+                                    try {
+                                        val b64 = src.substringAfter(",")
+                                        val bytes = Base64.decode(b64, Base64.DEFAULT)
+                                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                    } catch (_: Exception) { null }
+                                }
+                                src.startsWith("http://") || src.startsWith("https://") -> {
+                                    withContext(Dispatchers.IO) {
+                                        try {
+                                            val bytes = URL(src).openStream().use { it.readBytes() }
+                                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                        } catch (_: Exception) { null }
+                                    }
+                                }
+                                else -> null
+                            }
+                        } catch (_: Exception) { null }
                     }
 
                     if (bitmap != null) {
                         Card(
                             shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.size(100.dp),
+                            modifier = Modifier.size(120.dp),
                             colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                         ) {
                             Image(
@@ -557,32 +614,25 @@ private fun EquipamentoSection(relatorio: RelatorioCompleto) {
                             )
                         }
                     } else {
-                        // Log the failing string for debugging
-                        LaunchedEffect(imgStr) {
-                            Log.d("RelatorioFinalizado", "Falha ao carregar imagem equipamento (index=$index). valor='$imgStr'")
-                        }
-
-                        Card(shape = RoundedCornerShape(8.dp), modifier = Modifier.size(100.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color.LightGray),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                // If gs:// looks like only a bucket, give a hint to the user
+                        // Fallback: placeholder and debug log
+                        LaunchedEffect(imgStr) { Log.d("RelatorioFinalizado", "Falha ao carregar imagem (index=$index). valor='$imgStr'") }
+                        Card(shape = RoundedCornerShape(8.dp), modifier = Modifier.size(120.dp)) {
+                            Box(modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.LightGray), contentAlignment = Alignment.Center) {
                                 val debugText = when {
                                     imgStr.startsWith("gs://") && !imgStr.contains("/") -> "gs://... (parece só bucket)"
-                                    imgStr.length > 24 -> imgStr.take(24) + "..."
+                                    imgStr.length > 32 -> imgStr.take(32) + "..."
                                     else -> imgStr
                                 }
-                                Text("Erro ao carregar\n$debugText", fontSize = 10.sp, color = Color.White)
+                                Text("Erro ao carregar\n$debugText", fontSize = 12.sp, color = Color.White)
                             }
                         }
                     }
-                }
-            }
-        }
-    }
+                 }
+             }
+         }
+     }
 }
 
 @Composable
@@ -776,33 +826,64 @@ private fun FotosSection(relatorio: RelatorioCompleto) {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             relatorio.equipamentoFotos.forEachIndexed { index, imgStr ->
-                val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, key1 = imgStr) {
+                // Determine what to pass to Coil: HTTP URL, data URI (for base64), or try to resolve gs:// to downloadUrl
+                val resolvedSource by produceState<String?>(initialValue = null, key1 = imgStr) {
                     value = try {
                         when {
+                            imgStr.startsWith("http://") || imgStr.startsWith("https://") -> imgStr
                             imgStr.startsWith("gs://") -> {
-                                val storage = FirebaseStorage.getInstance()
-                                val ref = storage.getReferenceFromUrl(imgStr)
-                                val bytes = ref.getBytes(10L * 1024L * 1024L).await()
-                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                            }
-                            imgStr.startsWith("http://") || imgStr.startsWith("https://") -> {
-                                withContext(Dispatchers.IO) {
-                                    try {
-                                        val bytes = URL(imgStr).openStream().use { it.readBytes() }
-                                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                    } catch (e: Exception) {
-                                        null
-                                    }
+                                // Try to resolve gs:// to a downloadUrl
+                                try {
+                                    val storage = FirebaseStorage.getInstance("gs://aprimortech-30cad.firebasestorage.app")
+                                    val ref = storage.getReferenceFromUrl(imgStr)
+                                    ref.downloadUrl.await().toString()
+                                } catch (_: Exception) {
+                                    // Fallback to default app bucket path if getReferenceFromUrl fails
+                                    null
                                 }
                             }
                             else -> {
-                                val bytes = Base64.decode(imgStr, Base64.DEFAULT)
-                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                // Assume base64 - convert to data URI so Coil can load it
+                                try {
+                                    val cleaned = imgStr.substringAfter("base64,", imgStr)
+                                    "data:image/jpeg;base64,$cleaned"
+                                } catch (_: Exception) {
+                                    null
+                                }
                             }
                         }
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         null
                     }
+                }
+
+                // Carregamento manual compatível (sem Coil). resolvedSource pode ser:
+                // - URL http(s)
+                // - data URI (data:image/...;base64,....)
+                // - null (fallback)
+                val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, key1 = resolvedSource) {
+                    value = try {
+                        val src = resolvedSource
+                        when {
+                            src == null -> null
+                            src.startsWith("data:") -> {
+                                try {
+                                    val b64 = src.substringAfter(",")
+                                    val bytes = Base64.decode(b64, Base64.DEFAULT)
+                                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                } catch (_: Exception) { null }
+                            }
+                            src.startsWith("http://") || src.startsWith("https://") -> {
+                                withContext(Dispatchers.IO) {
+                                    try {
+                                        val bytes = URL(src).openStream().use { it.readBytes() }
+                                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                    } catch (_: Exception) { null }
+                                }
+                            }
+                            else -> null
+                        }
+                    } catch (_: Exception) { null }
                 }
 
                 if (bitmap != null) {
