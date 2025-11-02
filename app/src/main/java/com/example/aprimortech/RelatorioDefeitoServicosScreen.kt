@@ -27,6 +27,7 @@ import com.example.aprimortech.ui.viewmodel.ServicoViewModel
 import com.example.aprimortech.ui.viewmodel.ServicoViewModelFactory
 import com.example.aprimortech.ui.viewmodel.RelatorioSharedViewModel
 import android.widget.Toast
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -133,14 +134,16 @@ fun RelatorioDefeitoServicosScreen(
                         ) {
                             defeitos.forEach { defeito ->
                                 FilterChip(
-                                    selected = defeitosSelecionados.contains(defeito.nome),
+                                    // normaliza comparação usando uppercase para consistência
+                                    selected = defeitosSelecionados.contains(defeito.nome.uppercase(Locale.getDefault())),
                                     onClick = {
-                                        if (defeitosSelecionados.contains(defeito.nome)) {
-                                            defeitosSelecionados.remove(defeito.nome)
+                                        val key = defeito.nome.uppercase(Locale.getDefault())
+                                        if (defeitosSelecionados.contains(key)) {
+                                            defeitosSelecionados.remove(key)
                                         } else {
-                                            defeitosSelecionados.add(defeito.nome)
-                                            // Incrementar uso no banco de dados
-                                            defeitoViewModel.salvarDefeito(defeito.nome)
+                                            defeitosSelecionados.add(key)
+                                            // Incrementar uso no banco de dados usando versão maiúscula
+                                            defeitoViewModel.salvarDefeito(key)
                                         }
                                     },
                                     label = { Text(defeito.nome) }
@@ -152,7 +155,8 @@ fun RelatorioDefeitoServicosScreen(
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = novoDefeito,
-                        onValueChange = { novoDefeito = it },
+                        // força tudo em MAIÚSCULAS enquanto o usuário digita
+                        onValueChange = { novoDefeito = it.uppercase(Locale.getDefault()) },
                         label = { Text("Adicionar novo defeito") },
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -166,8 +170,10 @@ fun RelatorioDefeitoServicosScreen(
                     Button(
                         onClick = {
                             if (novoDefeito.isNotBlank()) {
-                                defeitoViewModel.salvarDefeito(novoDefeito) { defeitoId ->
-                                    defeitosSelecionados.add(novoDefeito)
+                                // novoDefeito já está em uppercase
+                                val key = novoDefeito.uppercase(Locale.getDefault())
+                                defeitoViewModel.salvarDefeito(key) { defeitoId ->
+                                    defeitosSelecionados.add(key)
                                     novoDefeito = ""
                                     Toast.makeText(context, "Defeito adicionado com sucesso!", Toast.LENGTH_SHORT).show()
                                 }
@@ -220,14 +226,15 @@ fun RelatorioDefeitoServicosScreen(
                         ) {
                             servicos.forEach { servico ->
                                 FilterChip(
-                                    selected = servicosSelecionados.contains(servico.nome),
+                                    selected = servicosSelecionados.contains(servico.nome.uppercase(Locale.getDefault())),
                                     onClick = {
-                                        if (servicosSelecionados.contains(servico.nome)) {
-                                            servicosSelecionados.remove(servico.nome)
+                                        val key = servico.nome.uppercase(Locale.getDefault())
+                                        if (servicosSelecionados.contains(key)) {
+                                            servicosSelecionados.remove(key)
                                         } else {
-                                            servicosSelecionados.add(servico.nome)
-                                            // Incrementar uso no banco de dados
-                                            servicoViewModel.salvarServico(servico.nome)
+                                            servicosSelecionados.add(key)
+                                            // Incrementar uso no banco de dados usando versão maiúscula
+                                            servicoViewModel.salvarServico(key)
                                         }
                                     },
                                     label = { Text(servico.nome) }
@@ -239,7 +246,8 @@ fun RelatorioDefeitoServicosScreen(
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = novoServico,
-                        onValueChange = { novoServico = it },
+                        // força tudo em MAIÚSCULAS enquanto o usuário digita
+                        onValueChange = { novoServico = it.uppercase(Locale.getDefault()) },
                         label = { Text("Adicionar novo serviço") },
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -253,8 +261,9 @@ fun RelatorioDefeitoServicosScreen(
                     Button(
                         onClick = {
                             if (novoServico.isNotBlank()) {
-                                servicoViewModel.salvarServico(novoServico) { servicoId ->
-                                    servicosSelecionados.add(novoServico)
+                                val key = novoServico.uppercase(Locale.getDefault())
+                                servicoViewModel.salvarServico(key) { servicoId ->
+                                    servicosSelecionados.add(key)
                                     novoServico = ""
                                     Toast.makeText(context, "Serviço adicionado com sucesso!", Toast.LENGTH_SHORT).show()
                                 }
@@ -293,7 +302,8 @@ fun RelatorioDefeitoServicosScreen(
             ) {
                 OutlinedTextField(
                     value = observacoes,
-                    onValueChange = { observacoes = it },
+                    // força tudo em MAIÚSCULAS enquanto o usuário digita
+                    onValueChange = { observacoes = it.uppercase(Locale.getDefault()) },
                     placeholder = { Text("Digite observações adicionais...") },
                     modifier = Modifier
                         .fillMaxWidth()

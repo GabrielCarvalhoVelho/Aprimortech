@@ -45,6 +45,7 @@ class RelatorioSharedViewModel : ViewModel() {
         modelo: String,
         identificacao: String,
         anoFabricacao: String,
+        maquinaId: String = "",
         codigoTinta: String,
         codigoSolvente: String,
         dataProximaPreventiva: String,
@@ -52,8 +53,17 @@ class RelatorioSharedViewModel : ViewModel() {
         equipamentoFotos: List<String> = emptyList()
     ) {
         equipamentoData = EquipamentoData(
-            fabricante, numeroSerie, codigoConfiguracao, modelo, identificacao,
-            anoFabricacao, codigoTinta, codigoSolvente, dataProximaPreventiva, horaProximaPreventiva,
+            fabricante,
+            numeroSerie,
+            codigoConfiguracao,
+            modelo,
+            identificacao,
+            anoFabricacao,
+            maquinaId,
+            codigoTinta,
+            codigoSolvente,
+            dataProximaPreventiva,
+            horaProximaPreventiva,
             equipamentoFotos
         )
         android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] setEquipamentoData chamado")
@@ -127,6 +137,7 @@ class RelatorioSharedViewModel : ViewModel() {
             equipamentoModelo = equipamentoData?.modelo ?: "",
             equipamentoIdentificacao = equipamentoData?.identificacao ?: "",
             equipamentoAnoFabricacao = equipamentoData?.anoFabricacao ?: "",
+            equipamentoMaquinaId = equipamentoData?.maquinaId ?: "",
             equipamentoCodigoTinta = equipamentoData?.codigoTinta ?: "",
             equipamentoCodigoSolvente = equipamentoData?.codigoSolvente ?: "",
             equipamentoDataProximaPreventiva = equipamentoData?.dataProximaPreventiva ?: "",
@@ -213,6 +224,7 @@ private data class EquipamentoData(
     val modelo: String,
     val identificacao: String,
     val anoFabricacao: String,
+    val maquinaId: String = "",
     val codigoTinta: String,
     val codigoSolvente: String,
     val dataProximaPreventiva: String,

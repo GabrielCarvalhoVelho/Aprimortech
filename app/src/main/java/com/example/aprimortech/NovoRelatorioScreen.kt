@@ -138,6 +138,7 @@ fun NovoRelatorioScreen(
                 modelo = "",
                 identificacao = "",
                 anoFabricacao = "",
+                maquinaId = rel.maquinaId ?: "",
                 codigoTinta = rel.codigoTinta ?: "",
                 codigoSolvente = rel.codigoSolvente ?: "",
                 dataProximaPreventiva = rel.dataProximaPreventiva ?: "",
@@ -311,11 +312,12 @@ fun NovoRelatorioScreen(
                             value = clienteSelecionado?.nome ?: clienteBusca,
                             onValueChange = { newValue ->
                                 if (clienteSelecionado == null) {
-                                    clienteBusca = newValue
+                                    // Force uppercase
+                                    clienteBusca = newValue.uppercase()
                                     clienteExpanded = newValue.isNotEmpty()
                                 } else {
                                     clienteSelecionado = null
-                                    clienteBusca = newValue
+                                    clienteBusca = newValue.uppercase()
                                     clienteExpanded = newValue.isNotEmpty()
                                 }
                             },
@@ -623,7 +625,7 @@ private fun NovoContatoClienteDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = nome,
-                    onValueChange = { nome = it },
+                    onValueChange = { nome = it.uppercase() },
                     label = { Text("Nome *") },
                     placeholder = { Text("Nome do contato") },
                     modifier = Modifier.fillMaxWidth(),
@@ -631,7 +633,7 @@ private fun NovoContatoClienteDialog(
                 )
                 OutlinedTextField(
                     value = setor,
-                    onValueChange = { setor = it },
+                    onValueChange = { setor = it.uppercase() },
                     label = { Text("Setor") },
                     placeholder = { Text("Gerente, Técnico, Supervisor...") },
                     modifier = Modifier.fillMaxWidth(),
@@ -639,7 +641,7 @@ private fun NovoContatoClienteDialog(
                 )
                 OutlinedTextField(
                     value = celular,
-                    onValueChange = { celular = it },
+                    onValueChange = { celular = it.uppercase() },
                     label = { Text("Celular") },
                     placeholder = { Text("(11) 99999-9999") },
                     modifier = Modifier.fillMaxWidth(),
@@ -722,7 +724,7 @@ private fun AddEditClienteDialog(
             ) {
                 OutlinedTextField(
                     value = nome,
-                    onValueChange = { nome = it },
+                    onValueChange = { nome = it.uppercase() },
                     label = { Text("Nome *") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = textFieldColors()
@@ -730,13 +732,14 @@ private fun AddEditClienteDialog(
                 AutoCompleteEnderecoField(
                     endereco = endereco,
                     onEnderecoChange = { enderecoCompleto ->
-                        endereco = enderecoCompleto.endereco
+                        // store uppercase address and city/state
+                        endereco = enderecoCompleto.endereco.uppercase()
                         // Somente atualizar cidade e estado se vieram preenchidos do Google Places
                         if (enderecoCompleto.cidade.isNotBlank()) {
-                            cidade = enderecoCompleto.cidade
+                            cidade = enderecoCompleto.cidade.uppercase()
                         }
                         if (enderecoCompleto.estado.isNotBlank()) {
-                            estado = enderecoCompleto.estado
+                            estado = enderecoCompleto.estado.uppercase()
                         }
                         if (enderecoCompleto.latitude != null) {
                             latitude = enderecoCompleto.latitude
@@ -756,7 +759,7 @@ private fun AddEditClienteDialog(
                 ) {
                     OutlinedTextField(
                         value = cidade,
-                        onValueChange = { cidade = it },
+                        onValueChange = { cidade = it.uppercase() },
                         label = { Text("Cidade *") },
                         modifier = Modifier.weight(1f),
                         colors = textFieldColors(),
@@ -764,7 +767,7 @@ private fun AddEditClienteDialog(
                     )
                     OutlinedTextField(
                         value = estado,
-                        onValueChange = { estado = it },
+                        onValueChange = { estado = it.uppercase() },
                         label = { Text("Estado *") },
                         modifier = Modifier.weight(1f),
                         colors = textFieldColors(),
@@ -773,7 +776,7 @@ private fun AddEditClienteDialog(
                 }
                 OutlinedTextField(
                     value = telefone,
-                    onValueChange = { telefone = it },
+                    onValueChange = { telefone = it.uppercase() },
                     label = { Text("Telefone do cliente (opcional)") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -781,7 +784,7 @@ private fun AddEditClienteDialog(
                 )
                 OutlinedTextField(
                     value = celular,
-                    onValueChange = { celular = it },
+                    onValueChange = { celular = it.uppercase() },
                     label = { Text("Celular do cliente (opcional)") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -1008,7 +1011,7 @@ private fun AddEditContatoDialog(
             ) {
                 OutlinedTextField(
                     value = nome,
-                    onValueChange = { nome = it },
+                    onValueChange = { nome = it.uppercase() },
                     label = { Text("Nome do contato *") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = textFieldColors(),
@@ -1016,7 +1019,7 @@ private fun AddEditContatoDialog(
                 )
                 OutlinedTextField(
                     value = setor,
-                    onValueChange = { setor = it },
+                    onValueChange = { setor = it.uppercase() },
                     label = { Text("Setor (opcional)") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = textFieldColors(),
@@ -1024,7 +1027,7 @@ private fun AddEditContatoDialog(
                 )
                 OutlinedTextField(
                     value = celular,
-                    onValueChange = { celular = it },
+                    onValueChange = { celular = it.uppercase() },
                     label = { Text("Celular (opcional)") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),

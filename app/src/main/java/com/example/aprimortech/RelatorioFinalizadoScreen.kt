@@ -200,8 +200,32 @@ fun RelatorioFinalizadoScreen(
     }
 }
 
-@Suppress("UNUSED_PARAMETER")
-private suspend fun carregarRelatorioCompleto(
+// Torna pública a função carregarRelatorioCompleto
+
+@OptIn(ExperimentalMaterial3Api::class)
+suspend fun carregarRelatorioCompleto(
+    relatorioId: String,
+    relatorioRepository: RelatorioRepository,
+    clienteRepository: ClienteRepository,
+    maquinaRepository: MaquinaRepository,
+    pecaRepository: PecaRepository,
+    defeitoRepository: DefeitoRepository,
+    servicoRepository: ServicoRepository,
+    tintaRepository: TintaRepository,
+    solventeRepository: SolventeRepository
+): RelatorioCompleto = carregarRelatorioCompletoImpl(
+    relatorioId,
+    relatorioRepository,
+    clienteRepository,
+    maquinaRepository,
+    pecaRepository,
+    defeitoRepository,
+    servicoRepository,
+    tintaRepository,
+    solventeRepository
+)
+
+private suspend fun carregarRelatorioCompletoImpl(
     relatorioId: String,
     relatorioRepository: RelatorioRepository,
     clienteRepository: ClienteRepository,
@@ -412,7 +436,7 @@ private fun calcularValorDeslocamentoTotal(distanciaKm: Double?, valorPorKm: Dou
 }
 
 @Composable
-private fun LoadingView() {
+fun LoadingView() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             CircularProgressIndicator()
@@ -422,7 +446,7 @@ private fun LoadingView() {
 }
 
 @Composable
-private fun ErrorView(message: String) {
+fun ErrorView(message: String) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(32.dp)) {
             Text(text = "⚠️", fontSize = 48.sp)
@@ -432,7 +456,7 @@ private fun ErrorView(message: String) {
 }
 
 @Composable
-private fun RelatorioContent(relatorioCompleto: RelatorioCompleto) {
+fun RelatorioContent(relatorioCompleto: RelatorioCompleto) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -496,7 +520,7 @@ private fun RelatorioContent(relatorioCompleto: RelatorioCompleto) {
 }
 
 @Composable
-private fun ClienteSection(relatorio: RelatorioCompleto) {
+fun ClienteSection(relatorio: RelatorioCompleto) {
     SectionCard(title = "DADOS DO CLIENTE") {
         InfoRow(label = "Nome", value = relatorio.clienteNome)
         InfoRow(label = "Endereço", value = relatorio.clienteEndereco)
@@ -514,7 +538,7 @@ private fun ClienteSection(relatorio: RelatorioCompleto) {
 }
 
 @Composable
-private fun EquipamentoSection(relatorio: RelatorioCompleto) {
+fun EquipamentoSection(relatorio: RelatorioCompleto) {
     SectionCard(title = "DADOS DO EQUIPAMENTO") {
         InfoRow(label = "Fabricante", value = relatorio.equipamentoFabricante)
         InfoRow(label = "Modelo", value = relatorio.equipamentoModelo)
@@ -636,7 +660,7 @@ private fun EquipamentoSection(relatorio: RelatorioCompleto) {
 }
 
 @Composable
-private fun DefeitosSection(defeitos: List<String>) {
+fun DefeitosSection(defeitos: List<String>) {
     SectionCard(title = "DEFEITOS ENCONTRADOS") {
         defeitos.forEachIndexed { index, defeito ->
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
@@ -648,7 +672,7 @@ private fun DefeitosSection(defeitos: List<String>) {
 }
 
 @Composable
-private fun ServicosSection(servicos: List<String>) {
+fun ServicosSection(servicos: List<String>) {
     SectionCard(title = "SERVIÇOS REALIZADOS") {
         servicos.forEachIndexed { index, servico ->
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
@@ -660,7 +684,7 @@ private fun ServicosSection(servicos: List<String>) {
 }
 
 @Composable
-private fun PecasSection(pecas: List<PecaInfo>) {
+fun PecasSection(pecas: List<PecaInfo>) {
     SectionCard(title = "PEÇAS UTILIZADAS") {
         Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).padding(8.dp)) {
             Text(text = "Código", fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.weight(1f))
@@ -679,7 +703,7 @@ private fun PecasSection(pecas: List<PecaInfo>) {
 }
 
 @Composable
-private fun HorasTecnicasSection(relatorio: RelatorioCompleto) {
+fun HorasTecnicasSection(relatorio: RelatorioCompleto) {
     val numberFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR"))
     val valorTotalHorasTecnicas = relatorio.totalHorasTecnicas * relatorio.valorHoraTecnica
     SectionCard(title = "HORAS TÉCNICAS") {
@@ -695,7 +719,7 @@ private fun HorasTecnicasSection(relatorio: RelatorioCompleto) {
 }
 
 @Composable
-private fun DeslocamentoSection(relatorio: RelatorioCompleto) {
+fun DeslocamentoSection(relatorio: RelatorioCompleto) {
     val numberFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR"))
     SectionCard(title = "DESLOCAMENTO") {
         InfoRow(label = "Distância (KM)", value = String.format(Locale.getDefault(), "%.2f km", relatorio.quantidadeKm))
@@ -706,14 +730,14 @@ private fun DeslocamentoSection(relatorio: RelatorioCompleto) {
 }
 
 @Composable
-private fun ObservacoesSection(observacoes: String) {
+fun ObservacoesSection(observacoes: String) {
     SectionCard(title = "OBSERVAÇÕES") {
         Text(text = observacoes, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
     }
 }
 
 @Composable
-private fun AssinaturasSection(relatorio: RelatorioCompleto) {
+fun AssinaturasSection(relatorio: RelatorioCompleto) {
     SectionCard(title = "ASSINATURAS") {
         // Exibir assinaturas dos técnicos
         Row(
@@ -788,7 +812,7 @@ private fun AssinaturasSection(relatorio: RelatorioCompleto) {
 }
 
 @Composable
-private fun SectionCard(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
+fun SectionCard(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -806,7 +830,7 @@ private fun SectionCard(title: String? = null, content: @Composable ColumnScope.
 }
 
 @Composable
-private fun InfoRow(label: String, value: String, highlight: Boolean = false) {
+fun InfoRow(label: String, value: String, highlight: Boolean = false) {
     val displayValue = if (value.isBlank()) "—" else value
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(text = "$label:", fontSize = 12.sp, fontWeight = if (highlight) FontWeight.Bold else FontWeight.Normal,
@@ -817,7 +841,7 @@ private fun InfoRow(label: String, value: String, highlight: Boolean = false) {
 }
 
 @Composable
-private fun FotosSection(relatorio: RelatorioCompleto) {
+fun FotosSection(relatorio: RelatorioCompleto) {
     SectionCard(title = "FOTOS DO EQUIPAMENTO") {
         Row(
             modifier = Modifier

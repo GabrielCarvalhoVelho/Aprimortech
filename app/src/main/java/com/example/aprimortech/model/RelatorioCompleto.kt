@@ -29,6 +29,8 @@ data class RelatorioCompleto(
     val equipamentoModelo: String = "",
     val equipamentoIdentificacao: String = "",
     val equipamentoAnoFabricacao: String = "",
+    // ID da máquina (se existir) — usado para consultar a máquina correta ao carregar relatório
+    val equipamentoMaquinaId: String = "",
     val equipamentoCodigoTinta: String = "",
     val equipamentoCodigoSolvente: String = "",
     val equipamentoDataProximaPreventiva: String = "",

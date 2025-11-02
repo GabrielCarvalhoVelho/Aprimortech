@@ -682,6 +682,7 @@ fun RelatorioEquipamentoScreen(
                                     modelo = maquina.modelo,
                                     identificacao = maquina.identificacao,
                                     anoFabricacao = maquina.anoFabricacao,
+                                    maquinaId = maquina.id,
                                     codigoTinta = codigoTintaSelecionado,
                                     codigoSolvente = codigoSolventeSelecionado,
                                     dataProximaPreventiva = dataProximaPreventiva,

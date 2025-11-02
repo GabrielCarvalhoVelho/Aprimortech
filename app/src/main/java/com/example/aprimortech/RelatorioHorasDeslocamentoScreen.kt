@@ -45,6 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import kotlin.math.*
 
 data class Cliente(
     val id: String = "",
@@ -96,8 +97,8 @@ fun RelatorioHorasDeslocamentoScreen(
                     longitude = documento.getDouble("longitude") ?: 0.0
                 )
             } else null
-        } catch (e: Exception) {
-            Log.e("RelatorioHoras", "Erro ao buscar cliente: ${e.message}")
+        } catch (_: Exception) {
+            Log.e("RelatorioHoras", "Erro ao buscar cliente")
             null
         }
     }
@@ -106,10 +107,20 @@ fun RelatorioHorasDeslocamentoScreen(
     suspend fun calcularDistancia(origemLat: Double, origemLng: Double, destinoLat: Double, destinoLng: Double): Double? {
         return withContext(Dispatchers.IO) {
             try {
-                val apiKey = "AIzaSyAszSnNMNUoDRrhV3hyDg2l96g75cB5V6s" // Você precisa adicionar sua chave da API
+                // Tentar obter a chave da API a partir de resources (nome: google_maps_key)
+                val apiKeyResId = context.resources.getIdentifier("google_maps_key", "string", context.packageName)
+                val apiKeyFromRes = if (apiKeyResId != 0) context.getString(apiKeyResId) else null
+
+                // Chave fornecida pelo usuário (usada como fallback se não houver resource)
+                val apiKeyHardcoded = "AIzaSyAszSnNMNUoDRrhV3hyDg2l96g75cB5V6s"
+
+                val apiKey = apiKeyFromRes ?: apiKeyHardcoded
+
+                // Construir URL da API (forçar modo driving)
                 val url = "https://maps.googleapis.com/maps/api/distancematrix/json?" +
                         "origins=$origemLat,$origemLng" +
                         "&destinations=$destinoLat,$destinoLng" +
+                        "&mode=driving" +
                         "&units=metric" +
                         "&key=$apiKey"
 
@@ -119,30 +130,85 @@ fun RelatorioHorasDeslocamentoScreen(
                 connection.readTimeout = 10000
 
                 val responseCode = connection.responseCode
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    val response = connection.inputStream.bufferedReader().readText()
+
+                // Ler response ou error stream conforme o HTTP code
+                val response = try {
+                    val stream = if (responseCode == HttpURLConnection.HTTP_OK) connection.inputStream else connection.errorStream
+                    stream?.bufferedReader()?.readText() ?: ""
+                } catch (_: Exception) {
+                    ""
+                }
+
+                Log.d("RelatorioHoras", "DistanceMatrix HTTP code: $responseCode")
+                Log.d("RelatorioHoras", "DistanceMatrix response: $response")
+
+                if (response.isNotEmpty() && responseCode == HttpURLConnection.HTTP_OK) {
                     val jsonObject = JSONObject(response)
 
-                    val rows = jsonObject.getJSONArray("rows")
-                    if (rows.length() > 0) {
-                        val elements = rows.getJSONObject(0).getJSONArray("elements")
-                        if (elements.length() > 0) {
-                            val element = elements.getJSONObject(0)
-                            if (element.getString("status") == "OK") {
-                                val distance = element.getJSONObject("distance")
-                                val distanceInMeters = distance.getInt("value")
-                                return@withContext distanceInMeters / 1000.0 // Converter para km
+                    // Checar status geral
+                    val status = jsonObject.optString("status", "")
+                    if (status == "OK") {
+                        val rows = jsonObject.optJSONArray("rows")
+                        if (rows != null && rows.length() > 0) {
+                            val elements = rows.getJSONObject(0).optJSONArray("elements")
+                            if (elements != null && elements.length() > 0) {
+                                val element = elements.getJSONObject(0)
+                                val elementStatus = element.optString("status", "")
+                                if (elementStatus == "OK") {
+                                    val distanceObj = element.optJSONObject("distance")
+                                    val distanceInMeters = distanceObj?.optLong("value", -1L) ?: -1L
+                                    if (distanceInMeters > 0) {
+                                        return@withContext distanceInMeters / 1000.0 // Converter para km
+                                    } else {
+                                        Log.w("RelatorioHoras", "Distance Matrix returned distance value invalid: $distanceInMeters")
+                                    }
+                                } else {
+                                    Log.w("RelatorioHoras", "Element status: $elementStatus")
+                                }
                             }
                         }
+                    } else {
+                        val errMsg = try { JSONObject(response).optString("error_message", "") } catch (_: Exception) { "" }
+                        Log.w("RelatorioHoras", "Distance Matrix API status: $status, error_message: $errMsg")
                     }
+                } else if (response.isNotEmpty()) {
+                    // response exists but code != 200
+                    val errMsg = try { JSONObject(response).optString("error_message", "") } catch (_: Exception) { "" }
+                    Log.w("RelatorioHoras", "Distance Matrix non-200 response: $responseCode, error: $errMsg")
                 }
-                null
-            } catch (e: Exception) {
-                Log.e("RelatorioHoras", "Erro ao calcular distância: ${e.message}")
-                null
-            }
-        }
-    }
+
+                // Se chegou aqui, a API não retornou uma distância válida. Usar fallback Haversine (linha reta) para não deixar KM zerados.
+                try {
+                    val r = 6371.0 // raio médio da Terra em km
+                    val dLat = Math.toRadians(destinoLat - origemLat)
+                    val dLon = Math.toRadians(destinoLng - origemLng)
+                    val a = sin(dLat / 2).pow(2.0) + cos(Math.toRadians(origemLat)) * cos(Math.toRadians(destinoLat)) * sin(dLon / 2).pow(2.0)
+                    val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+                    val fallbackKm = r * c
+                    Log.w("RelatorioHoras", "Falling back to Haversine distance: ${'$'}fallbackKm km")
+                    return@withContext fallbackKm
+                 } catch (_: Exception) {
+                     Log.e("RelatorioHoras", "Erro ao calcular fallback Haversine")
+                     return@withContext null
+                 }
+
+             } catch (_: Exception) {
+                 Log.e("RelatorioHoras", "Erro ao calcular distância")
+
+                 // Em caso de erro total, tentar fallback Haversine
+                 return@withContext try {
+                     val r = 6371.0
+                     val dLat = Math.toRadians(destinoLat - origemLat)
+                     val dLon = Math.toRadians(destinoLng - origemLng)
+                     val a = sin(dLat / 2).pow(2.0) + cos(Math.toRadians(origemLat)) * cos(Math.toRadians(destinoLat)) * sin(dLon / 2).pow(2.0)
+                     val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+                     r * c
+                 } catch (_: Exception) {
+                     null
+                 }
+             }
+         }
+     }
 
     // Carregar dados do cliente e calcular distância quando a tela carrega
     LaunchedEffect(clienteId) {
@@ -154,6 +220,9 @@ fun RelatorioHorasDeslocamentoScreen(
             cliente = clienteData
 
             clienteData?.let {
+                // Log das coordenadas do cliente para diagnóstico
+                Log.d("RelatorioHoras", "Cliente carregado: id=${it.id}, lat=${it.latitude}, lng=${it.longitude}")
+
                 if (it.latitude != 0.0 && it.longitude != 0.0) {
                     // Calcular distância
                     val distancia = calcularDistancia(

@@ -247,7 +247,8 @@ fun AppNavigation() {
             val observacoes = backStackEntry.arguments?.getString("observacoes") ?: ""
             val pecas = backStackEntry.arguments?.getString("pecas") ?: ""
             val horasData = backStackEntry.arguments?.getString("horas") ?: ""
-            val clienteId = backStackEntry.arguments?.getString("clienteId") ?: ""
+            // Extrai clienteId dos argumentos para uso abaixo e evita shadowing
+            val clienteIdArg = backStackEntry.arguments?.getString("clienteId") ?: ""
 
             // Parse dos dados de horas
             val horasParts = horasData.split(";")
@@ -330,8 +331,8 @@ fun AppNavigation() {
             // Reconstrói o relatório preservando os códigos de tinta e solvente
             val relatorioFinal = Relatorio(
                 id = "", // Será gerado quando salvar
-                clienteId = clienteId,
-                maquinaId = "", // Por enquanto vazio, será necessário adicionar nas etapas anteriores
+                clienteId = clienteIdArg,
+                maquinaId = relatorioCompletoBuilt.equipamentoMaquinaId, // Preserva o id da máquina selecionada/criada
                 pecaIds = emptyList(), // pecaIds fica vazio, as peças vêm do RelatorioCompleto
                 descricaoServico = servicos, // Mantém para compatibilidade
                 recomendacoes = observacoes, // Mantém para compatibilidade
@@ -372,10 +373,11 @@ fun AppNavigation() {
             android.util.Log.d("MainActivity", "⭐⭐⭐ Peças Utilizadas salvas: ${relatorioFinal.pecasUtilizadas.size}")
 
             // Passa o relatório para a tela de assinaturas COM O SHAREDVIEWMODEL COMPARTILHADO
-            RelatorioAssinaturaScreen(
+            RelatorioPreAssinaturaScreen(
                 navController = navController,
-                relatorioInicial = relatorioFinal,
-                sharedViewModel = sharedViewModel
+                relatorioId = relatorioFinal.id,
+                relatorioCompleto = relatorioCompletoBuilt,
+                relatorioFinal = relatorioFinal
             )
         }
         composable(
@@ -393,6 +395,11 @@ fun AppNavigation() {
                 navController = navController,
                 relatorioId = relatorioId
             )
+        }
+
+        // Rota para a tela de assinatura (consome relatorioFinal via savedStateHandle)
+        composable("relatorioAssinatura") {
+            RelatorioAssinaturaScreen(navController = navController)
         }
         // 🚀 NOVAS ROTAS
         composable("clientes") {

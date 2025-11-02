@@ -36,6 +36,9 @@ import com.example.aprimortech.model.Relatorio
 import com.example.aprimortech.util.SignatureUtils
 import android.widget.Toast
 import androidx.compose.ui.layout.onSizeChanged
+import org.json.JSONArray
+import org.json.JSONObject
+import android.util.Log
 
 // Estado da assinatura: cada assinatura é composta por uma lista de linhas (paths).
 data class SignatureState(
@@ -76,9 +79,115 @@ fun RelatorioAssinaturaScreen(
     var isLoading by remember { mutableStateOf(false) }
 
     // Usa o relatório passado como parâmetro ou tenta recuperar do savedStateHandle
-    val backStackEntry = navController.currentBackStackEntryAsState().value
+    val currentBackStackEntry = navController.currentBackStackEntryAsState().value
+    val previousBackStackEntry = navController.previousBackStackEntry
+
+    // Tenta recuperar JSON salvo pela tela de pré-assinatura
+    val relatorioJsonString = currentBackStackEntry?.savedStateHandle?.get<String>("relatorioFinalJson")
+        ?: previousBackStackEntry?.savedStateHandle?.get<String>("relatorioFinalJson")
+
+    // Se encontramos o JSON, desserializar para Relatorio
+    val relatorioFromState: Relatorio? = try {
+        if (!relatorioJsonString.isNullOrBlank()) {
+            val jo = JSONObject(relatorioJsonString)
+            val id = jo.optString("id", "")
+            val clienteId = jo.optString("clienteId", "")
+            val maquinaId = jo.optString("maquinaId", "")
+            val descricaoServico = jo.optString("descricaoServico", "")
+            val recomendacoes = if (jo.has("recomendacoes") && !jo.isNull("recomendacoes")) jo.optString("recomendacoes") else ""
+            val numeroNotaFiscal = if (jo.has("numeroNotaFiscal") && !jo.isNull("numeroNotaFiscal")) jo.optString("numeroNotaFiscal") else null
+            val dataRelatorio = jo.optString("dataRelatorio", "")
+            val horarioEntrada = if (jo.has("horarioEntrada") && !jo.isNull("horarioEntrada")) jo.optString("horarioEntrada") else null
+            val horarioSaida = if (jo.has("horarioSaida") && !jo.isNull("horarioSaida")) jo.optString("horarioSaida") else null
+            val valorHoraTecnica = if (jo.has("valorHoraTecnica") && !jo.isNull("valorHoraTecnica")) jo.optDouble("valorHoraTecnica") else null
+            val distanciaKm = if (jo.has("distanciaKm") && !jo.isNull("distanciaKm")) jo.optDouble("distanciaKm") else null
+            val valorDeslocamentoPorKm = if (jo.has("valorDeslocamentoPorKm") && !jo.isNull("valorDeslocamentoPorKm")) jo.optDouble("valorDeslocamentoPorKm") else null
+            val valorDeslocamentoTotal = if (jo.has("valorDeslocamentoTotal") && !jo.isNull("valorDeslocamentoTotal")) jo.optDouble("valorDeslocamentoTotal") else null
+            val valorPedagios = if (jo.has("valorPedagios") && !jo.isNull("valorPedagios")) jo.optDouble("valorPedagios") else null
+            val codigoTinta = if (jo.has("codigoTinta") && !jo.isNull("codigoTinta")) jo.optString("codigoTinta") else null
+            val codigoSolvente = if (jo.has("codigoSolvente") && !jo.isNull("codigoSolvente")) jo.optString("codigoSolvente") else null
+            val dataProximaPreventiva = if (jo.has("dataProximaPreventiva") && !jo.isNull("dataProximaPreventiva")) jo.optString("dataProximaPreventiva") else null
+            val horasProximaPreventiva = if (jo.has("horasProximaPreventiva") && !jo.isNull("horasProximaPreventiva")) jo.optString("horasProximaPreventiva") else null
+            val custoPecas = if (jo.has("custoPecas") && !jo.isNull("custoPecas")) jo.optDouble("custoPecas") else null
+            val observacoes = if (jo.has("observacoes") && !jo.isNull("observacoes")) jo.optString("observacoes") else null
+
+            val defeitosIdentificados = mutableListOf<String>()
+            if (jo.has("defeitosIdentificados") && !jo.isNull("defeitosIdentificados")) {
+                val arr = jo.getJSONArray("defeitosIdentificados")
+                for (i in 0 until arr.length()) defeitosIdentificados.add(arr.optString(i))
+            }
+
+            val servicosRealizados = mutableListOf<String>()
+            if (jo.has("servicosRealizados") && !jo.isNull("servicosRealizados")) {
+                val arr = jo.getJSONArray("servicosRealizados")
+                for (i in 0 until arr.length()) servicosRealizados.add(arr.optString(i))
+            }
+
+            val pecasUtilizadas = mutableListOf<Map<String, Any>>()
+            if (jo.has("pecasUtilizadas") && !jo.isNull("pecasUtilizadas")) {
+                val arr = jo.getJSONArray("pecasUtilizadas")
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val map = mutableMapOf<String, Any>()
+                    val keys = obj.keys()
+                    while (keys.hasNext()) {
+                        val k = keys.next()
+                        val v = obj.opt(k)
+                        if (v == JSONObject.NULL) map[k] = ""
+                        else map[k] = v
+                    }
+                    pecasUtilizadas.add(map)
+                }
+            }
+
+            val syncPending = if (jo.has("syncPending")) jo.optBoolean("syncPending") else true
+
+            Relatorio(
+                id = id,
+                clienteId = clienteId,
+                maquinaId = maquinaId,
+                pecaIds = emptyList(),
+                descricaoServico = descricaoServico,
+                recomendacoes = recomendacoes ?: "",
+                numeroNotaFiscal = numeroNotaFiscal,
+                dataRelatorio = dataRelatorio,
+                horarioEntrada = horarioEntrada,
+                horarioSaida = horarioSaida,
+                valorHoraTecnica = valorHoraTecnica,
+                distanciaKm = distanciaKm,
+                valorDeslocamentoPorKm = valorDeslocamentoPorKm,
+                valorDeslocamentoTotal = valorDeslocamentoTotal,
+                valorPedagios = valorPedagios,
+                codigoTinta = codigoTinta,
+                codigoSolvente = codigoSolvente,
+                dataProximaPreventiva = dataProximaPreventiva,
+                horasProximaPreventiva = horasProximaPreventiva,
+                custoPecas = custoPecas,
+                observacoes = observacoes,
+                assinaturaCliente1 = null,
+                assinaturaCliente2 = null,
+                assinaturaTecnico1 = null,
+                assinaturaTecnico2 = null,
+                tintaId = null,
+                solventeId = null,
+                defeitosIdentificados = defeitosIdentificados,
+                servicosRealizados = servicosRealizados,
+                observacoesDefeitosServicos = observacoes ?: "",
+                pecasUtilizadas = pecasUtilizadas,
+                syncPending = syncPending,
+                equipamentoFotos = emptyList()
+            )
+        } else null
+    } catch (e: Exception) {
+        Log.e("RelatorioAssinatura", "Erro desserializando relatorioJson: ${e.message}")
+        null
+    }
+
+    // Limpar a chave da entry anterior para evitar poluição
+    previousBackStackEntry?.savedStateHandle?.remove<String>("relatorioFinalJson")
+
     val relatorioFinalState = remember {
-        mutableStateOf(relatorioInicial ?: backStackEntry?.savedStateHandle?.get<Relatorio>("relatorioFinal"))
+        mutableStateOf(relatorioInicial ?: relatorioFromState)
     }
     val relatorioFinal = relatorioFinalState.value
 
@@ -281,8 +390,12 @@ fun RelatorioAssinaturaScreen(
                         contentColor = Color.White
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
-                    enabled = clienteSignature1.hasSignature() && clienteSignature2.hasSignature() && tecnicoSignature1.hasSignature() && tecnicoSignature2.hasSignature() && !isLoading
-                ) {
+                    // Exigir ao menos 1 assinatura do cliente (cliente1 OU cliente2)
+                    // e ao menos 1 assinatura do técnico (tecnico1 OU tecnico2)
+                    enabled = ( (clienteSignature1.hasSignature() || clienteSignature2.hasSignature())
+                            && (tecnicoSignature1.hasSignature() || tecnicoSignature2.hasSignature())
+                            && !isLoading )
+                 ) {
                     if (isLoading) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
