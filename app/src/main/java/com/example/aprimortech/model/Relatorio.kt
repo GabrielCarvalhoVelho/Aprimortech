@@ -2,6 +2,7 @@ package com.example.aprimortech.model
 
 data class Relatorio(
     val id: String = "",
+    val numeroRelatorio: String = "", // Número sequencial formatado (ex: "0001", "0002")
     val clienteId: String = "",
     val maquinaId: String = "",
     val pecaIds: List<String> = emptyList(),

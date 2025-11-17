@@ -192,7 +192,7 @@ fun NovoRelatorioScreen(
 
             // Opcional: construir RelatorioCompleto inicial para preview imediato em outras telas
             try {
-                sharedViewModel.buildRelatorioCompleto(relatorioId = rel.id, dataRelatorio = rel.dataRelatorio)
+                sharedViewModel.buildRelatorioCompleto(relatorioId = rel.id, numeroRelatorio = rel.numeroRelatorio, dataRelatorio = rel.dataRelatorio)
             } catch (_: Exception) { /* safe */ }
 
             // Remover a chave da entry onde estava, para não reaplicar quando voltar à tela

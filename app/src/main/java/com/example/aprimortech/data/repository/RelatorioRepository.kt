@@ -19,6 +19,7 @@ class RelatorioRepository @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
     private val collection = firestore.collection("relatorios")
+    private val counterDoc = firestore.collection("counters").document("relatorio_counter")
     // Apontar explicitamente para o bucket do usuário
     private val storage = FirebaseStorage.getInstance("gs://aprimortech-30cad.firebasestorage.app")
 
@@ -28,6 +29,30 @@ class RelatorioRepository @Inject constructor(
         val v = valorPorKm ?: 0.0
         val p = pedagios ?: 0.0
         return d * v + p
+    }
+
+    /**
+     * Obtém o próximo número de relatório de forma atômica usando Firestore Transaction.
+     * Retorna o número formatado com 4 dígitos (ex: "0001", "0002", etc.)
+     */
+    private suspend fun obterProximoNumeroRelatorio(): String {
+        return try {
+            firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(counterDoc)
+                val currentNumber = snapshot.getLong("currentNumber") ?: 0L
+                val nextNumber = currentNumber + 1
+
+                // Atualizar o contador
+                transaction.set(counterDoc, mapOf("currentNumber" to nextNumber))
+
+                // Retornar número formatado com 4 dígitos
+                String.format("%04d", nextNumber)
+            }.await()
+        } catch (e: Exception) {
+            android.util.Log.e("RelatorioRepository", "Erro ao obter próximo número de relatório: ${e.message}", e)
+            // Fallback: usar timestamp em caso de erro
+            String.format("%04d", System.currentTimeMillis() % 10000)
+        }
     }
 
     suspend fun buscarTodosRelatorios(): List<Relatorio> {
@@ -257,6 +282,14 @@ class RelatorioRepository @Inject constructor(
                 val newDocRef = collection.document()
                 val newId = newDocRef.id
 
+                // Obter próximo número de relatório (formato: "0001", "0002", etc.)
+                val numeroRelatorio = if (relatorio.numeroRelatorio.isBlank()) {
+                    obterProximoNumeroRelatorio()
+                } else {
+                    relatorio.numeroRelatorio // Manter se já foi definido
+                }
+                android.util.Log.d("RelatorioRepository", "Número do relatório gerado: $numeroRelatorio")
+
                 // First, upload fotos if any (the function is suspend)
                 val fotosUploaded = uploadFotosIfNeeded(newId, relatorio.equipamentoFotos)
 
@@ -266,6 +299,7 @@ class RelatorioRepository @Inject constructor(
 
                 // Criar mapa explícito para garantir que todos os campos sejam salvos
                 val relatorioMap = hashMapOf<String, Any?>(
+                    "numeroRelatorio" to numeroRelatorio,
                     "clienteId" to relatorio.clienteId,
                     "maquinaId" to relatorio.maquinaId,
                     "pecaIds" to relatorio.pecaIds,
@@ -315,6 +349,7 @@ class RelatorioRepository @Inject constructor(
                 android.util.Log.d("RelatorioRepository", "Atualizando valorDeslocamentoTotal=$valorDeslocamentoTotalCalcUpd (distancia=${relatorio.distanciaKm}, porKm=${relatorio.valorDeslocamentoPorKm}, pedagios=${relatorio.valorPedagios})")
 
                 val relatorioMap = hashMapOf<String, Any?>(
+                    "numeroRelatorio" to relatorio.numeroRelatorio, // Manter o número original ao atualizar
                     "clienteId" to relatorio.clienteId,
                     "maquinaId" to relatorio.maquinaId,
                     "pecaIds" to relatorio.pecaIds,

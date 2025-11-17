@@ -144,6 +144,7 @@ fun RelatorioAssinaturaScreen(
 
             Relatorio(
                 id = id,
+                numeroRelatorio = "", // Será mantido ou gerado pelo repository
                 clienteId = clienteId,
                 maquinaId = maquinaId,
                 pecaIds = emptyList(),

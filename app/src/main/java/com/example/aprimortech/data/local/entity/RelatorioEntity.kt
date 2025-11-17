@@ -8,6 +8,7 @@ import org.json.JSONArray
 @Entity(tableName = "relatorios")
 data class RelatorioEntity(
     @PrimaryKey val id: String,
+    val numeroRelatorio: String = "",
     val clienteId: String,
     val maquinaId: String,
     val pecaIds: String, // CSV format
@@ -54,6 +55,7 @@ fun RelatorioEntity.toRelatorio(): Relatorio {
 
     return Relatorio(
         id = id,
+        numeroRelatorio = numeroRelatorio,
         clienteId = clienteId,
         maquinaId = maquinaId,
         pecaIds = if (pecaIds.isBlank()) emptyList() else pecaIds.split(","),
@@ -100,6 +102,7 @@ fun Relatorio.toRelatorioEntity(): RelatorioEntity {
 
     return RelatorioEntity(
         id = id,
+        numeroRelatorio = numeroRelatorio,
         clienteId = clienteId,
         maquinaId = maquinaId,
         pecaIds = pecaIds.joinToString(","),

@@ -21,6 +21,8 @@ import com.example.aprimortech.data.local.entity.RelatorioEntity
 
 /**
  * Banco de dados Room local para operação offline
+ * Versão 13: Adicionado campo numeroRelatorio em RelatorioEntity
+ * Versão 12: Adicionado campo equipamentoFotosJson em RelatorioEntity
  * Versão 11: Adicionado campo valorHoraTecnica em RelatorioEntity
  * Versão 10: Adicionados campos defeitosIdentificados, servicosRealizados e observacoesDefeitosServicos em RelatorioEntity
  * Versão 9: Correção da migração 7→8 (sintaxe SQL corrigida)
@@ -35,7 +37,7 @@ import com.example.aprimortech.data.local.entity.RelatorioEntity
         PecaEntity::class,
         RelatorioEntity::class
     ],
-    version = 13, // Incrementado para forçar recriação/migração
+    version = 13,
     exportSchema = false
 )
 @TypeConverters(
@@ -145,6 +147,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Migração da versão 11 para 12: Adiciona campo equipamentoFotosJson
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Adicionar o campo equipamentoFotosJson na tabela relatorios
+                db.execSQL("ALTER TABLE relatorios ADD COLUMN equipamentoFotosJson TEXT NOT NULL DEFAULT '[]'")
+                Log.d(TAG, "✅ Migração 11→12 concluída com sucesso - Campo equipamentoFotosJson adicionado")
+            }
+        }
+
+        // Migração da versão 12 para 13: Adiciona campo numeroRelatorio
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Adicionar o campo numeroRelatorio na tabela relatorios
+                db.execSQL("ALTER TABLE relatorios ADD COLUMN numeroRelatorio TEXT NOT NULL DEFAULT ''")
+                Log.d(TAG, "✅ Migração 12→13 concluída com sucesso - Campo numeroRelatorio adicionado")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -152,7 +172,15 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "aprimortech_database"
                 )
-                .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                .addMigrations(
+                    MIGRATION_6_7,
+                    MIGRATION_7_8,
+                    MIGRATION_8_9,
+                    MIGRATION_9_10,
+                    MIGRATION_10_11,
+                    MIGRATION_11_12,
+                    MIGRATION_12_13
+                )
                 .fallbackToDestructiveMigration() // Força recriação do banco se houver incompatibilidade
                 .build()
                 INSTANCE = instance

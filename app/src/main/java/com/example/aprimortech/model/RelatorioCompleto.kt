@@ -11,6 +11,7 @@ import kotlinx.parcelize.Parcelize
 data class RelatorioCompleto(
     // Identificação
     val id: String = "",
+    val numeroRelatorio: String = "", // Número sequencial do relatório (ex: "0001")
     val dataRelatorio: String = "",
 
     // Dados do Cliente

@@ -114,11 +114,12 @@ class RelatorioSharedViewModel : ViewModel() {
         )
     }
 
-    fun buildRelatorioCompleto(relatorioId: String = "", dataRelatorio: String = getCurrentDate()): RelatorioCompleto {
+    fun buildRelatorioCompleto(relatorioId: String = "", numeroRelatorio: String = "", dataRelatorio: String = getCurrentDate()): RelatorioCompleto {
         android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] buildRelatorioCompleto chamado")
         android.util.Log.d("RelatorioSharedViewModel", "[DEBUG] equipamentoData: $equipamentoData")
         val relatorio = RelatorioCompleto(
             id = relatorioId,
+            numeroRelatorio = numeroRelatorio,
             dataRelatorio = dataRelatorio,
 
             // Dados do Cliente

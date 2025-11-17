@@ -314,7 +314,8 @@ fun AppNavigation() {
             // Construir o RelatorioCompleto de forma determinística ANTES de criar o Relatorio
             // Chamamos a função diretamente e usamos o resultado para garantir que os campos
             // de equipamento preenchidos anteriormente estejam presentes.
-            val relatorioCompletoBuilt = sharedViewModel.buildRelatorioCompleto()
+            // numeroRelatorio será gerado automaticamente pelo repository ao salvar
+            val relatorioCompletoBuilt = sharedViewModel.buildRelatorioCompleto(numeroRelatorio = "")
 
             // USAR A INSTÂNCIA COMPARTILHADA DO SHAREDVIEWMODEL (estado observável também disponível)
             val relatorioCompleto by sharedViewModel.relatorioCompleto.collectAsState()
@@ -331,6 +332,7 @@ fun AppNavigation() {
             // Reconstrói o relatório preservando os códigos de tinta e solvente
             val relatorioFinal = Relatorio(
                 id = "", // Será gerado quando salvar
+                numeroRelatorio = "", // Será gerado automaticamente pelo repository
                 clienteId = clienteIdArg,
                 maquinaId = relatorioCompletoBuilt.equipamentoMaquinaId, // Preserva o id da máquina selecionada/criada
                 pecaIds = emptyList(), // pecaIds fica vazio, as peças vêm do RelatorioCompleto
