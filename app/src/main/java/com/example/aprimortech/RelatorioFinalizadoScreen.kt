@@ -40,6 +40,8 @@ import kotlinx.coroutines.tasks.await
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.auth.FirebaseAuth
 import java.net.URL
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -47,6 +49,19 @@ import java.util.*
 private val Brand = Color(0xFF1A4A5C)
 private val appBackground = Color(0xFFF5F5F5)
 private val displayDateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.forLanguageTag("pt-BR"))
+
+/**
+ * Função de extensão para decodificar strings com codificação URL
+ * Converte caracteres como '+' em espaços e '%XX' em seus caracteres originais
+ */
+private fun String.urlDecode(): String {
+    return try {
+        URLDecoder.decode(this, StandardCharsets.UTF_8.toString())
+    } catch (e: Exception) {
+        Log.w("RelatorioFinalizado", "Erro ao decodificar URL: ${e.message}")
+        this
+    }
+}
 
 private fun parseDateSafe(dateStr: String?): Date? {
     if (dateStr.isNullOrBlank()) return null
@@ -275,20 +290,20 @@ private suspend fun carregarRelatorioCompletoImpl(
     } else emptyList()
 
     val defeitos = if (relatorio.defeitosIdentificados.isNotEmpty()) {
-        relatorio.defeitosIdentificados
+        relatorio.defeitosIdentificados.map { it.urlDecode() }
     } else {
-        relatorio.descricaoServico.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        relatorio.descricaoServico.split(",").map { it.trim().urlDecode() }.filter { it.isNotEmpty() }
     }
 
     val servicos = if (relatorio.servicosRealizados.isNotEmpty()) {
-        relatorio.servicosRealizados
+        relatorio.servicosRealizados.map { it.urlDecode() }
     } else {
-        relatorio.recomendacoes.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        relatorio.recomendacoes.split(",").map { it.trim().urlDecode() }.filter { it.isNotEmpty() }
     }
 
     val observacoesFinais = relatorio.observacoesDefeitosServicos.ifEmpty {
         relatorio.observacoes ?: ""
-    }
+    }.urlDecode()
 
     val totalHoras = calcularHorasTecnicas(relatorio.horarioEntrada, relatorio.horarioSaida)
 
@@ -382,10 +397,10 @@ private suspend fun carregarRelatorioCompletoImpl(
         equipamentoModelo = maquina?.modelo ?: "N/A",
         equipamentoIdentificacao = maquina?.identificacao ?: "N/A",
         equipamentoAnoFabricacao = maquina?.anoFabricacao ?: "",
-        equipamentoCodigoTinta = relatorio.codigoTinta ?: "",
-        equipamentoCodigoSolvente = relatorio.codigoSolvente ?: "",
-        equipamentoDataProximaPreventiva = relatorio.dataProximaPreventiva ?: "",
-        equipamentoHoraProximaPreventiva = relatorio.horasProximaPreventiva ?: "",
+        equipamentoCodigoTinta = relatorio.codigoTinta?.urlDecode() ?: "",
+        equipamentoCodigoSolvente = relatorio.codigoSolvente?.urlDecode() ?: "",
+        equipamentoDataProximaPreventiva = relatorio.dataProximaPreventiva?.urlDecode() ?: "",
+        equipamentoHoraProximaPreventiva = relatorio.horasProximaPreventiva?.urlDecode() ?: "",
         // Passar lista de fotos para o modelo completo
         equipamentoFotos = equipamentoFotosList,
         defeitos = defeitos,
